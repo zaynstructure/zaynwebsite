@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>visual works · zayn wiwchar</title>
+
+<!-- Font + CSS -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/landing-archivo.css">
+
+<style>
+/* Page-specific tweaks */
+main {
+margin-left: 320px; /* push content beside sidebar */
+padding: 3rem 2rem;
+max-width: 1200px;
+}
+h1 {
+font-family: var(--font);
+font-weight: 600;
+font-size: 2.4rem;
+margin-bottom: 2rem;
+}
+.grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+gap: 2rem;
+}
+.grid img {
+width: 100%;
+height: auto;
+display: block;
+border-radius: 6px;
+filter: grayscale(.05) contrast(1.05);
+transition: filter .3s ease, transform .3s ease;
+}
+.grid img:hover {
+filter: none;
+transform: scale(1.02);
+}
+.caption {
+margin-top: .5rem;
+font-size: .9rem;
+color: var(--muted);
+}
+@media(max-width:760px){
+main{margin-left:0; padding:2rem 1rem;}
+}
+</style>
+</head>
+
+<body>
+<video class="bg" autoplay muted loop playsinline>
+<source src="assets/video/landing-loop.mp4" type="video/mp4">
+</video>
+
+<!-- Sidebar reused -->
+<aside class="side">
+<h1 class="name">zayn wiwchar</h1>
+<p class="tagline">art · systems · sound</p>
+<nav class="nav-tree">
+<details open>
+<summary><span class="caret"></span>works</summary>
+<div class="children">
+<a href="visual.html" style="opacity:1;font-weight:600;">visual</a>
+<a href="audio.html">audio</a>
+</div>
+</details>
+<div class="single"><a href="processes.html">processes</a></div>
+<details>
+<summary><span class="caret"></span>about</summary>
+<div class="children">
+<a href="about.html">bio / statement</a>
+<a href="about.html#cv">cv</a>
+<a href="contact.html">contact</a>
+</div>
+</details>
+</nav>
+<div class="sys">
+<hr>
+<div class="row"><span>build</span><span>v0.3</span></div>
+<div class="row"><span>updated</span><span>2025-11-10</span></div>
+</div>
+</aside>
+
+<!-- Main content -->
+<main>
+<h1>visual works</h1>
+
+<div class="grid">
+<div>
+<img src="assets/images/project1.jpg" alt="Sensor Noise Series 01">
+<p class="caption">Sensor Noise · print + video composite</p>
+</div>
+<div>
+<img src="assets/images/project2.jpg" alt="Painting 2024">
+<p class="caption">Untitled Painting · mixed media on board</p>
+</div>
+<div>
+<img src="assets/images/project3.jpg" alt="Collage Clip">
+<p class="caption">Visual collage clip · video still</p>
+</div>
+</div>
+</main>
+</body>
+</html>
