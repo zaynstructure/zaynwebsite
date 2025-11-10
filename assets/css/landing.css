@@ -35,7 +35,7 @@ margin: 0;
 background: var(--bg);
 color: var(--ink);
 font-family: var(--font);
-text-transform: lowercase;
+
 letter-spacing: .1px; /* Archivo is open; keep tracking tight */
 line-height: 1.55;
 overflow: hidden; /* landing is full-bleed; mobile overrides below */
@@ -225,3 +225,4 @@ background: rgba(255,255,255,.85);
 }
 video.bg { opacity: .08; }
 }
+
