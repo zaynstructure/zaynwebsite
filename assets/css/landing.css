@@ -90,7 +90,7 @@ z-index: 1;
 .name {
 margin: 0 0 1.1rem;
 font-weight: 600; /* archivo 600 = soft bold */
-font-size: 1.05rem;
+font-size: clamp(1.8rem, 3vw + 1rem, 3rem);
 letter-spacing: .2px;
 }
 
@@ -225,4 +225,5 @@ background: rgba(255,255,255,.85);
 }
 video.bg { opacity: .08; }
 }
+
 
