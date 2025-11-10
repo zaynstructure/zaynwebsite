@@ -1,0 +1,227 @@
+/* =========================================================
+landing-archivo.css
+minimal, soft-technical, lowercase
+font: Archivo (SIL OFL) — load in HTML <head> via Google Fonts
+========================================================= */
+
+:root {
+/* color system */
+--bg: #e8eef3; /* baby blue canvas */
+--rule: #d0d7dd; /* subtle divider */
+--ink: #111; /* text */
+--muted: #666;
+
+/* layout & radius */
+--side-w: 300px;
+--radius: 8px;
+--thin: 1px;
+
+/* type */
+--font: 'Archivo', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+
+/* motion */
+--t-fast: .15s;
+--t-med: .25s;
+}
+
+/* global reset-ish */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+height: 100%;
+margin: 0;
+background: var(--bg);
+color: var(--ink);
+font-family: var(--font);
+text-transform: lowercase;
+letter-spacing: .1px; /* Archivo is open; keep tracking tight */
+line-height: 1.55;
+overflow: hidden; /* landing is full-bleed; mobile overrides below */
+}
+
+/* baby-blue paper noise overlay (no image) */
+body::before {
+content: "";
+position: fixed;
+inset: 0;
+pointer-events: none;
+background:
+radial-gradient(circle at 50% 50%, rgba(255,255,255,.02) 0%, transparent 100%),
+repeating-linear-gradient(45deg, rgba(0,0,0,.02) 0, rgba(0,0,0,.02) 1px, transparent 1px, transparent 2px);
+opacity: .6;
+mix-blend-mode: multiply;
+z-index: 0;
+}
+
+/* subtle background video */
+video.bg {
+position: fixed;
+inset: 0;
+width: 100%;
+height: 100%;
+object-fit: cover;
+opacity: .12;
+filter: grayscale(.4) contrast(1.05);
+z-index: -2;
+pointer-events: none;
+animation: fadeIn 1.2s ease both;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: .12; } }
+
+/* translucent sidebar */
+.side {
+position: fixed;
+inset: 0 auto 0 0;
+width: var(--side-w);
+max-width: 85vw;
+display: flex;
+flex-direction: column;
+justify-content: center;
+padding: 2rem 1.5rem;
+background: rgba(255,255,255,.6);
+backdrop-filter: blur(8px);
+border-right: var(--thin) solid var(--rule);
+z-index: 1;
+}
+
+/* name + tagline */
+.name {
+margin: 0 0 1.1rem;
+font-weight: 600; /* archivo 600 = soft bold */
+font-size: 1.05rem;
+letter-spacing: .2px;
+}
+
+.tagline {
+margin: 0 0 1.05rem;
+color: var(--muted);
+font-size: .9rem;
+font-weight: 400;
+}
+
+/* nav tree */
+.nav-tree {
+border-top: var(--thin) solid var(--rule);
+padding-top: .7rem;
+}
+
+/* groups */
+details {
+margin: .25rem 0;
+}
+
+/* group header (summary) — borderless, only hover tint */
+summary {
+list-style: none;
+cursor: pointer;
+display: flex;
+align-items: center;
+gap: .45rem;
+padding: .4rem .55rem;
+background: transparent;
+border-radius: var(--radius);
+font-weight: 500;
+transition: background var(--t-fast) ease, color var(--t-fast) ease;
+}
+summary:hover { background: rgba(0,0,0,.05); }
+summary:focus-visible {
+outline: 2px solid rgba(0,0,0,.15);
+outline-offset: 2px;
+}
+
+/* caret */
+summary .caret {
+width: 9px; height: 9px;
+border-right: 2px solid var(--ink);
+border-bottom: 2px solid var(--ink);
+transform: rotate(-45deg);
+opacity: .5;
+transition: transform var(--t-med) ease, opacity var(--t-med) ease;
+}
+details[open] summary .caret {
+transform: rotate(45deg);
+opacity: .7;
+}
+
+/* expandable children (CSS-only smooth open/close) */
+.children {
+/* animation trick using max-height */
+max-height: 0;
+opacity: 0;
+overflow: hidden;
+margin: 0 0 0 1.3rem; /* left indent kept even when closed */
+padding: 0 0 0 .6rem;
+border-left: var(--thin) dashed var(--rule);
+transition: max-height var(--t-med) ease, opacity var(--t-med) ease, padding var(--t-med) ease;
+}
+details[open] .children {
+max-height: 400px; /* large enough for a few links */
+opacity: 1;
+padding: .3rem 0 .3rem .6rem;
+margin-top: .35rem;
+}
+
+/* links inside groups */
+.children a {
+display: block;
+padding: .35rem .25rem;
+text-decoration: none;
+color: var(--ink);
+border-radius: 6px;
+opacity: .9;
+transition: background var(--t-fast) ease, opacity var(--t-fast) ease;
+}
+.children a:hover { background: rgba(0,0,0,.06); }
+
+/* single links (no children) */
+.single a {
+display: block;
+padding: .45rem .55rem;
+text-decoration: none;
+color: var(--ink);
+border-radius: var(--radius);
+margin: .15rem 0;
+font-weight: 500;
+transition: background var(--t-fast) ease;
+}
+.single a:hover { background: rgba(0,0,0,.06); }
+
+/* tiny “system” footer for vibe */
+.sys {
+color: var(--muted);
+font: 12px/1.4 var(--font);
+letter-spacing: .25px;
+margin-top: 1.1rem;
+}
+.sys hr {
+border: 0;
+border-top: var(--thin) solid var(--rule);
+margin: .6rem 0;
+}
+.sys .row {
+display: flex;
+justify-content: space-between;
+}
+
+/* accessibility: reduce motion */
+@media (prefers-reduced-motion: reduce) {
+video.bg { animation: none; }
+.children { transition: none; }
+summary, .children a, .single a { transition: none; }
+}
+
+/* mobile */
+@media (max-width: 760px) {
+html, body { overflow: auto; }
+.side {
+width: 100%;
+height: auto;
+padding: 1.2rem 1rem;
+position: relative;
+border: 0;
+background: rgba(255,255,255,.85);
+}
+video.bg { opacity: .08; }
+}
