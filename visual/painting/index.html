@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>painting · zayn wiwchar</title>
+<title>painting · visual · zayn wiwchar</title>
 
 <!-- Font + CSS -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,49 +12,53 @@
 <link rel="stylesheet" href="/assets/css/landing.css">
 
 <style>
-/* allow scroll on this page (landing.css set overflow hidden) */
-html, body { overflow: auto; }
+html, body { overflow:auto; }
+main { margin-left:320px; padding:3rem 2rem; max-width:1200px; }
 
-/* Page-specific tweaks */
-main {
-margin-left: 320px; /* push content beside sidebar */
-padding: 3rem 2rem;
-max-width: 1200px;
-}
-h1 {
-font-family: var(--font, 'Archivo', system-ui, -apple-system, Segoe UI, Roboto, sans-serif);
-font-weight: 600;
-font-size: 2.4rem;
-margin-bottom: 2rem;
-}
+h1 { font-weight:600; font-size:2rem; margin:0 0 .5rem; }
+.lede { color:var(--muted,#666); margin:0 0 1.6rem; }
+
+/* two-by-two grid */
 .grid {
-display: grid;
-grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-gap: 2rem;
+display:grid;
+gap:2rem;
+grid-template-columns:repeat(auto-fit,minmax(380px,1fr));
+margin-top:2rem;
 }
-.grid img {
-width: 100%;
-height: auto;
-display: block;
-border-radius: 6px;
-filter: grayscale(.05) contrast(1.05);
-transition: filter .3s ease, transform .3s ease;
+@media(min-width:880px){
+.grid{ grid-template-columns:repeat(2,1fr); }
 }
-.grid img:hover { filter: none; transform: scale(1.02); }
-.caption {
-margin-top: .5rem;
-font-size: .9rem;
-color: var(--muted, #666);
+@media(max-width:879px){
+.grid{ grid-template-columns:1fr; gap:1.5rem; }
+main{ margin-left:0; padding:2rem 1rem; }
 }
 
-/* optional: highlight current nav link */
-.nav-tree .children a[aria-current="page"]{
-font-weight:600; opacity:1; background:rgba(0,0,0,.06); border-radius:6px;
+.work img {
+width:100%;
+height:auto;
+display:block;
+border-radius:6px;
+object-fit:cover;
+filter:grayscale(.05) contrast(1.05);
+transition:filter .3s ease, transform .3s ease;
 }
+.work img:hover{ filter:none; transform:scale(1.02); }
 
-@media (max-width:760px){
-main { margin-left:0; padding:2rem 1rem; }
+figcaption { margin-top:.6rem; font-size:.9rem; color:var(--muted,#666); }
+
+/* tags */
+.tags{ display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.4rem; }
+.tag{
+font-size:.8rem; padding:.22rem .5rem;
+border-radius:999px; text-decoration:none; color:inherit;
+background:rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.08);
+transition:background .15s ease,border-color .15s ease;
 }
+.tag:hover{ background:rgba(0,0,0,.1); border-color:rgba(0,0,0,.18); }
+.tag[data-kind="input"]{background:rgba(60,120,255,.06);border-color:rgba(60,120,255,.12);}
+.tag[data-kind="tool"]{background:rgba(10,180,120,.06);border-color:rgba(10,180,120,.12);}
+.tag[data-kind="method"]{background:rgba(180,80,220,.06);border-color:rgba(180,80,220,.12);}
+.tag[data-kind="medium"]{background:rgba(255,165,0,.08);border-color:rgba(255,165,0,.18);}
 </style>
 </head>
 
@@ -64,35 +68,25 @@ main { margin-left:0; padding:2rem 1rem; }
 </video>
 
 <!-- Sidebar -->
-<aside class="side" aria-label="main navigation">
+<aside class="side">
 <h1 class="name"><a href="/">zayn wiwchar</a></h1>
 <p class="tagline">art · systems · sound</p>
 
 <nav class="nav-tree">
-<!-- works (top level) -->
-<details open>
-<summary><span class="caret"></span><span class="label">works</span></summary>
-<div class="children">
-
-<!-- visual (nested under works) -->
 <details open>
 <summary><span class="caret"></span><span class="label">visual</span></summary>
 <div class="children">
-<!-- mark this page as current -->
-<a href="/works/visual/sensor-noise/">sensor noise</a>
-<a href="/works/visual/painting/">painting</a>
-<!-- add more projects as you publish -->
+<a href="/visual/">overview</a>
+<a href="/visual/sensor-noise/">sensor noise</a>
+<a href="/visual/painting/" aria-current="page">painting</a>
+<a href="/visual/misc/">misc</a>
 </div>
 </details>
 
-<!-- audio (nested under works) -->
 <details>
 <summary><span class="caret"></span><span class="label">audio</span></summary>
 <div class="children">
-<a href="/works/audio/">overview</a>
-<!-- <a href="/works/audio/installation-a/">installation a</a> -->
-</div>
-</details>
+<a href="/audio/">overview</a>
 </div>
 </details>
 
@@ -117,37 +111,82 @@ main { margin-left:0; padding:2rem 1rem; }
 
 <!-- Main content -->
 <main>
-<h1>selected paintings</h1>
+<h1>painting</h1>
+<p class="lede">mixed-media works on canvas board, finished and mounted to wood panels. texture, restraint, subtle surrealism.</p>
 
 <div class="grid">
-<div>
-<img src="/assets/images/SN-0.jpeg" alt="Sensor Noise Series 01">
-<p class="caption">Sensor Noise · print + video composite</p>
+<!-- painting 01 -->
+<figure class="work is-still" id="p-01"
+data-tags="medium-mixed-media support-canvas-board method-mount-to-wood-panel tool-acrylic tool-gouache tool-graphite">
+<img src="/assets/images/painting/p-01.jpg"
+alt="Painting 01 — mixed media on canvas board, mounted to wood panel">
+<figcaption>
+untitled 01 · mixed media on canvas board, mounted
+<div class="tags">
+<a class="tag" data-kind="medium" href="/processes#medium-mixed-media">mixed media</a>
+<a class="tag" data-kind="input" href="/processes#support-canvas-board">canvas board</a>
+<a class="tag" data-kind="method" href="/processes#method-mount-to-wood-panel">mounted to wood</a>
+<a class="tag" data-kind="tool" href="/processes#tool-acrylic">acrylic</a>
+<a class="tag" data-kind="tool" href="/processes#tool-gouache">gouache</a>
+<a class="tag" data-kind="tool" href="/processes#tool-graphite">graphite</a>
 </div>
-<div>
-<img src="/assets/images/SN-0.jpeg" alt="Sensor Noise Series 02">
-<p class="caption">Sensor Noise · print + video composite</p>
+</figcaption>
+</figure>
+
+<!-- painting 02 -->
+<figure class="work is-still" id="p-02"
+data-tags="medium-mixed-media support-canvas-board method-mount-to-wood-panel tool-acrylic tool-ink">
+<img src="/assets/images/painting/p-02.jpg"
+alt="Painting 02 — acrylic and ink on canvas board, mounted to wood panel">
+<figcaption>
+untitled 02 · acrylic &amp; ink on canvas board
+<div class="tags">
+<a class="tag" data-kind="medium" href="/processes#medium-mixed-media">mixed media</a>
+<a class="tag" data-kind="input" href="/processes#support-canvas-board">canvas board</a>
+<a class="tag" data-kind="method" href="/processes#method-mount-to-wood-panel">mounted to wood</a>
+<a class="tag" data-kind="tool" href="/processes#tool-acrylic">acrylic</a>
+<a class="tag" data-kind="tool" href="/processes#tool-ink">ink</a>
 </div>
-<div>
-<img src="/assets/images/SN-0.jpeg" alt="Sensor Noise Series 03">
-<p class="caption">Sensor Noise · print + video composite</p>
+</figcaption>
+</figure>
+
+<!-- painting 03 -->
+<figure class="work is-still" id="p-03"
+data-tags="medium-mixed-media support-canvas-board method-mount-to-wood-panel tool-acrylic tool-pencil">
+<img src="/assets/images/painting/p-03.jpg"
+alt="Painting 03 — acrylic and pencil on canvas board, mounted to wood panel">
+<figcaption>
+untitled 03 · acrylic &amp; pencil on canvas board
+<div class="tags">
+<a class="tag" data-kind="medium" href="/processes#medium-mixed-media">mixed media</a>
+<a class="tag" data-kind="input" href="/processes#support-canvas-board">canvas board</a>
+<a class="tag" data-kind="method" href="/processes#method-mount-to-wood-panel">mounted to wood</a>
+<a class="tag" data-kind="tool" href="/processes#tool-acrylic">acrylic</a>
+<a class="tag" data-kind="tool" href="/processes#tool-pencil">pencil</a>
 </div>
-<div>
-<img src="/assets/images/SN-0.jpeg" alt="Sensor Noise Series 04">
-<p class="caption">Sensor Noise · print + video composite</p>
+</figcaption>
+</figure>
+
+<!-- painting 04 -->
+<figure class="work is-still" id="p-04"
+data-tags="medium-mixed-media support-canvas-board method-mount-to-wood-panel tool-acrylic tool-charcoal">
+<img src="/assets/images/painting/p-04.jpg"
+alt="Painting 04 — acrylic and charcoal on canvas board, mounted to wood panel">
+<figcaption>
+untitled 04 · acrylic &amp; charcoal on canvas board
+<div class="tags">
+<a class="tag" data-kind="medium" href="/processes#medium-mixed-media">mixed media</a>
+<a class="tag" data-kind="input" href="/processes#support-canvas-board">canvas board</a>
+<a class="tag" data-kind="method" href="/processes#method-mount-to-wood-panel">mounted to wood</a>
+<a class="tag" data-kind="tool" href="/processes#tool-acrylic">acrylic</a>
+<a class="tag" data-kind="tool" href="/processes#tool-charcoal">charcoal</a>
 </div>
-<div>
-<img src="/assets/images/project3.jpg" alt="Collage Clip">
-<p class="caption">Visual collage clip · video still</p>
-</div>
+</figcaption>
+</figure>
 </div>
 </main>
 </body>
 </html>
-
-
-
-
 
 
 
