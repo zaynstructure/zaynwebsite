@@ -14,56 +14,24 @@
 
 <!-- Main CSS -->
 <link rel="stylesheet" href="/assets/css/landing.css">
-<style>
-/* --- fullscreen Vimeo background --- */
-<!-- Fullscreen Vimeo background -->
-
+<!-- Fullscreen background video -->
 <div class="landing-bg" aria-hidden="true">
-<iframe
-src="https://player.vimeo.com/video/1123455684?background=1&autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0&playsinline=1&autopause=0"
-allow="autoplay; fullscreen; picture-in-picture"
-referrerpolicy="strict-origin-when-cross-origin"
-title="Video background">
-</iframe>
+<video
+class="bg-video"
+autoplay
+muted
+loop
+playsinline
+preload="metadata"
+poster="/assets/video/Landingloop.jpg"
+>
+<source src="/assets/video/landing-loop.webm" type="video/webm">
+<source src="/assets/video/landing-loop.mp4" type="video/mp4">
+<!-- Fallback text -->
+Your browser does not support HTML5 video.
+</video>
 </div>
-
-<script src="https://player.vimeo.com/api/player.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-const iframe = document.querySelector('.landing-bg iframe');
-if (!iframe) return;
-const player = new Vimeo.Player(iframe);
-player.setMuted(true);
-player.play().catch(()=>{});
-});
-</script>
-
-/* sidebar still floats above */
-.side {
-position: fixed;
-inset: 0 auto 0 0;
-width: var(--side-w, 300px);
-max-width: 85vw;
-display: flex;
-flex-direction: column;
-justify-content: center;
-padding: 2rem 1.5rem;
-background: rgba(255,255,255,0.6);
-backdrop-filter: blur(8px);
-border-right: 1px solid rgba(0,0,0,0.08);
-z-index: 2;
-}
-
-@media(max-width:760px){
-.side {
-position: relative;
-width: 100%;
-background: rgba(255,255,255,0.85);
-border: 0;
-padding: 1.5rem 1rem;
-}
-}
-</style>
+  
 </head>
 
 <body class="is-landing">
@@ -122,6 +90,7 @@ allowfullscreen
 </aside>
 </body>
 </html>
+
 
 
 
