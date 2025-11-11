@@ -5,79 +5,65 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>fragments · visual · zayn wiwchar</title>
 
-<!-- Font + CSS -->
+<!-- font + site css -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Notch:wght@200..700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/landing.css">
 
 <style>
-html, body { overflow:auto; }
-main { margin-left:320px; padding:3rem 2rem; max-width:1200px; }
+/* allow scroll on subpages */
+html, body { overflow: auto; }
 
-h1 { font-weight:600; font-size:2rem; margin:0 0 .5rem; }
-.lede { color:var(--muted,#666); margin:0 0 1.6rem; }
+/* main beside fixed sidebar */
+main { margin-left: 320px; padding: 1.5rem 2rem 3rem; max-width: 1200px; }
+h2.page-title { font-weight: 600; font-size: 2rem; margin: 0 0 .5rem; }
+.lede { color: var(--muted,#666); margin: 0 0 1.6rem; }
 
-/* grid layout */
+/* responsive grid for stills & short clips */
 .grid {
-display:grid;
-gap:2rem;
-grid-template-columns:repeat(auto-fit,minmax(380px,1fr));
-margin-top:2rem;
+display: grid;
+gap: 2rem;
+grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+margin-top: 1rem;
+margin-bottom: 2rem;
 }
-@media(min-width:880px){ .grid{ grid-template-columns:repeat(2,1fr);} }
+@media(min-width:880px){
+.grid { grid-template-columns: repeat(2, 1fr); }
+}
 @media(max-width:879px){
-.grid{ grid-template-columns:1fr; gap:1.5rem; }
-main{ margin-left:0; padding:2rem 1rem; }
+main { margin-left: 0; padding: 2rem 1rem; }
+.grid { grid-template-columns: 1fr; gap: 1.5rem; }
 }
 
-.work img, .work video {
-width:100%;
-height:auto;
-display:block;
-border-radius:6px;
-object-fit:cover;
-filter:grayscale(.05) contrast(1.05);
-transition:filter .3s ease, transform .3s ease;
+figure.work { margin: 0; }
+.media {
+width: 100%; height: auto; display: block; border-radius: 6px;
+object-fit: cover;
+filter: grayscale(.05) contrast(1.05);
+transition: filter .3s ease, transform .3s ease;
 }
-.work img:hover, .work video:hover{ filter:none; transform:scale(1.02); }
-
-figcaption { margin-top:.6rem; font-size:.9rem; color:var(--muted,#666); }
-
-/* tags */
-.tags{ display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.4rem; }
-.tag{
-font-size:.8rem; padding:.22rem .5rem;
-border-radius:999px; text-decoration:none; color:inherit;
-background:rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.08);
-transition:background .15s ease,border-color .15s ease;
-}
-.tag:hover{ background:rgba(0,0,0,.1); border-color:rgba(0,0,0,.18); }
-.tag[data-kind="input"]{background:rgba(60,120,255,.06);border-color:rgba(60,120,255,.12);}
-.tag[data-kind="tool"]{background:rgba(10,180,120,.06);border-color:rgba(10,180,120,.12);}
-.tag[data-kind="method"]{background:rgba(180,80,220,.06);border-color:rgba(180,80,220,.12);}
+.media:hover { filter: none; transform: scale(1.02); }
+figcaption { margin-top: .6rem; font-size: .9rem; color: var(--muted,#666); }
+.meta { margin-top: .25rem; font-size: .8rem; color: var(--muted,#666); }
 </style>
 </head>
 
 <body>
-<video class="bg" autoplay muted loop playsinline>
-<source src="/assets/video/landing-loop.mp4" type="video/mp4">
-</video>
-
-<!-- Sidebar -->
-<aside class="side">
+<!-- fixed sidebar (reuse) -->
+<aside class="side" aria-label="main navigation">
 <h1 class="name"><a href="/">zayn wiwchar</a></h1>
 <p class="tagline">art · systems · sound</p>
 
 <nav class="nav-tree">
-
 <!-- VISUAL -->
 <details>
 <summary><span class="caret"></span><span class="label">visual</span></summary>
 <div class="children">
 <a href="/visual/sensor-noise/">sensor noise</a>
 <a href="/visual/painting/">painting</a>
-<a href="/visual/fragments/">fragments</a>
+<a href="/visual/fragments/" aria-current="page">fragments</a>
 <a href="/visual/misc/">misc</a>
 </div>
 </details>
@@ -94,9 +80,7 @@ transition:background .15s ease,border-color .15s ease;
 </details>
 
 <!-- PROCESSES -->
-<div class="single">
-<a href="/processes/">processes</a>
-</div>
+<div class="single"><a href="/processes/">processes</a></div>
 
 <!-- ABOUT -->
 <details>
@@ -107,95 +91,64 @@ transition:background .15s ease,border-color .15s ease;
 <a href="/contact/">contact</a>
 </div>
 </details>
-
 </nav>
 
-<div class="sys">
+<div class="sys" aria-hidden="true">
 <hr>
 <div class="row"><span>build</span><span>v0.3</span></div>
-<div class="row"><span>updated</span><span>2025-11-10</span></div>
+<div class="row"><span>updated</span><span>2025-11-11</span></div>
 </div>
 </aside>
 
-<!-- Main content -->
+<!-- main -->
 <main>
-<h1>fragments</h1>
-<p class="lede">short-form video collages — visual fragments from digital decay, gesture, and compressed moments of stillness.</p>
+<nav class="crumbs">
+<a href="/visual/">visual</a>
+<span>›</span>
+<span>fragments</span>
+</nav>
 
-<div class="grid">
-<!-- fragment 01 -->
-<figure class="work" id="f-01"
-data-tags="input-video-collage tool-premiere-pro tool-after-effects tool-procreate method-layer-blend method-frame-repetition">
-<video autoplay muted loop playsinline>
-<source src="/assets/video/fragments/f-01.mp4" type="video/mp4">
-</video>
-<figcaption>
-fragment 01 · looping digital collage
-<div class="tags">
-<a class="tag" data-kind="input" href="/processes#input-video-collage">video collage</a>
-<a class="tag" data-kind="tool" href="/processes#tool-premiere-pro">premiere pro</a>
-<a class="tag" data-kind="tool" href="/processes#tool-after-effects">after effects</a>
-<a class="tag" data-kind="tool" href="/processes#tool-procreate">procreate</a>
-<a class="tag" data-kind="method" href="/processes#method-layer-blend">layer blending</a>
-<a class="tag" data-kind="method" href="/processes#method-frame-repetition">frame repetition</a>
-</div>
-</figcaption>
+<h2 class="page-title">fragments</h2>
+<p class="lede">short-form visual collage clips · ongoing</p>
+
+<section class="grid">
+<!-- still -->
+<figure class="work" id="fragment-001">
+<img class="media" src="/assets/images/fragments/F-01.jpg" alt="fragment 001 — collage still">
+<figcaption>fragment 001 · collage still</figcaption>
+<div class="meta">jpg · 2025</div>
 </figure>
 
-<!-- fragment 02 -->
-<figure class="work" id="f-02"
-data-tags="input-found-footage tool-premiere-pro method-color-distortion method-overlay">
-<video autoplay muted loop playsinline>
-<source src="/assets/video/fragments/f-02.mp4" type="video/mp4">
-</video>
-<figcaption>
-fragment 02 · color overlay from found footage
-<div class="tags">
-<a class="tag" data-kind="input" href="/processes#input-found-footage">found footage</a>
-<a class="tag" data-kind="tool" href="/processes#tool-premiere-pro">premiere pro</a>
-<a class="tag" data-kind="method" href="/processes#method-color-distortion">color distortion</a>
-<a class="tag" data-kind="method" href="/processes#method-overlay">overlay</a>
-</div>
-</figcaption>
+<!-- animated gif -->
+<figure class="work" id="fragment-002">
+<img class="media" src="/assets/images/fragments/F-02.gif" alt="fragment 002 — animated collage gif">
+<figcaption>fragment 002 · animated collage</figcaption>
+<div class="meta">gif · 4s loop · 2025</div>
 </figure>
 
-<!-- fragment 03 -->
-<figure class="work" id="f-03"
-data-tags="input-phone-video tool-premiere-pro method-slow-motion method-frame-blend">
-<video autoplay muted loop playsinline>
-<source src="/assets/video/fragments/f-03.mp4" type="video/mp4">
+<!-- short clip (webm/mp4) -->
+<figure class="work" id="fragment-003">
+<video class="media" autoplay muted loop playsinline preload="metadata" poster="/assets/images/fragments/F-03.jpg">
+<source src="/assets/video/fragments/F-03.webm" type="video/webm" />
+<source src="/assets/video/fragments/F-03.mp4" type="video/mp4" />
 </video>
-<figcaption>
-fragment 03 · slowed gesture + frame blend
-<div class="tags">
-<a class="tag" data-kind="input" href="/processes#input-phone-video">phone video</a>
-<a class="tag" data-kind="tool" href="/processes#tool-premiere-pro">premiere pro</a>
-<a class="tag" data-kind="method" href="/processes#method-slow-motion">slow motion</a>
-<a class="tag" data-kind="method" href="/processes#method-frame-blend">frame blend</a>
-</div>
-</figcaption>
+<figcaption>fragment 003 · video collage</figcaption>
+<div class="meta">webm/mp4 · 6s loop · 2025</div>
 </figure>
 
-<!-- fragment 04 -->
-<figure class="work" id="f-04"
-data-tags="input-screen-recording tool-after-effects method-layer-blend method-feedback-loop">
-<video autoplay muted loop playsinline>
-<source src="/assets/video/fragments/f-04.mp4" type="video/mp4">
-</video>
-<figcaption>
-fragment 04 · recursive feedback loop
-<div class="tags">
-<a class="tag" data-kind="input" href="/processes#input-screen-recording">screen recording</a>
-<a class="tag" data-kind="tool" href="/processes#tool-after-effects">after effects</a>
-<a class="tag" data-kind="method" href="/processes#method-layer-blend">layer blending</a>
-<a class="tag" data-kind="method" href="/processes#method-feedback-loop">feedback loop</a>
-</div>
-</figcaption>
+<!-- still -->
+<figure class="work" id="fragment-004">
+<img class="media" src="/assets/images/fragments/F-04.jpg" alt="fragment 004 — collage still">
+<figcaption>fragment 004 · collage still</figcaption>
+<div class="meta">jpg · 2025</div>
 </figure>
-</div>
+</section>
 </main>
+
+<script src="/assets/js/global.js"></script>
 </body>
 </html>
+
 
 
 
