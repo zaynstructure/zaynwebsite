@@ -312,6 +312,15 @@ body.is-landing .bg-video{
  pointer-events: none; /* don’t capture clicks */
 }
 
+@media (max-width:760px){
+body.is-landing .bg-video {
+object-fit: contain;
+width: 100vw;
+height: 100vh;
+background-color: #000; /* letterbox background */
+}
+}
+
 /* accessibility: respect reduce motion (show poster instead) */
 @media (prefers-reduced-motion: reduce){
  body.is-landing .bg-video{ display: none; }
@@ -341,6 +350,7 @@ body.is-landing .side{
  padding: 1.5rem 1rem;
  }
 }
+
 
 
 
