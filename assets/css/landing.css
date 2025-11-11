@@ -80,7 +80,7 @@ body.is-landing {
  background: rgba(255,255,255,.6);
  backdrop-filter: blur(8px);
  border-right: var(--thin, 1px) solid var(--rule, #d0d7dd);
- z-index: 10;
+ z-index: 2;
 }
 
 /* mobile: sidebar becomes a normal block at the top */
@@ -344,6 +344,7 @@ background: rgba(255,255,255,.85);
 padding: 1.5rem 1rem;
 }
 }
+
 
 
 
