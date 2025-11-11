@@ -1,7 +1,17 @@
 // /assets/js/global.js
 document.addEventListener('DOMContentLoaded', () => {
 const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
-
+// Always scroll to the top header on page load
+document.addEventListener('DOMContentLoaded', () => {
+const h1 = document.querySelector('main h1');
+if (h1) {
+// slight delay to ensure layout is painted before scroll
+setTimeout(() => {
+h1.scrollIntoView({ behavior: 'instant', block: 'start' });
+window.scrollTo({ top: h1.offsetTop, behavior: 'instant' });
+}, 10);
+}
+});
 // mark that a sidebar link was tapped (mobile only)
 document.querySelectorAll('.nav-tree a').forEach(a => {
 a.addEventListener('click', () => {
