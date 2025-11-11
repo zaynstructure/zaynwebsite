@@ -63,10 +63,10 @@ body.is-landing {
 /* -------------------- sidebar -------------------- */
 /* Choose one model: sticky (recommended for content pages). */
 .side {
- position: sticky;
+ position: fixed;
  top: 0;
  height: 100vh;
- width: var(--side-w);
+ width: var(--side-w, 300px);
  max-width: 85vw;
  overflow-y: auto;
  overscroll-behavior: contain;
@@ -80,8 +80,8 @@ body.is-landing {
 
  background: rgba(255,255,255,.6);
  backdrop-filter: blur(8px);
- border-right: var(--thin) solid var(--rule);
- z-index: 1;
+ border-right: var(--thin, 1px) solid var(--rule, #d0d7dd);
+ z-index: 10;
 }
 
 /* mobile: sidebar becomes a normal block at the top */
@@ -99,7 +99,7 @@ body.is-landing {
 
 /* -------------------- main layout -------------------- */
 main {
- margin-left: var(--side-w);
+ margin-left: var(--side-w, 300px);
  padding: 1.5rem 2rem 3rem;
  max-width: 1200px;
 }
@@ -112,7 +112,7 @@ main {
 
 /* Ensure anchor targets aren’t hidden under sticky UI */
 main h1, main h2, [id] {
- scroll-margin-top: 3.5rem;
+ scroll-margin-top: 2.5rem;
 }
 
 /* -------------------- name + tagline -------------------- */
@@ -255,6 +255,7 @@ details[open] .children {
  .children { transition: none; }
  summary, .children a, .single a { transition: none; }
 }
+
 
 
 
