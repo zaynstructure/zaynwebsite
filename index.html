@@ -71,11 +71,21 @@
 </div>
 </aside>
 
-
+<script>
+// Close open <details> after navigating, only on small screens
+document.querySelectorAll('.nav-tree a[href^="/"]').forEach(a=>{
+a.addEventListener('click', () => {
+if (window.matchMedia('(max-width:760px)').matches) {
+document.querySelectorAll('.nav-tree details[open]').forEach(d => d.open = false);
+}
+});
+});
+</script>
 
 </body>
 
 </html>
+
 
 
 
