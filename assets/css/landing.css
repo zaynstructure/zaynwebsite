@@ -238,26 +238,51 @@ details[open] .children {
 }
 .sys .row { display: flex; justify-content: space-between; }
 
-/* -------------------- crumbs (mobile sticky) -------------------- */
-.crumbs { color: var(--muted); margin: -0.8rem 0 1rem; font-size: .9rem; }
-
+/* --- compact mobile crumb bar with menu button --- */
 @media (max-width:760px){
- .crumbs {
- position: sticky; top: 0;
- background: rgba(255,255,255,.85);
- backdrop-filter: blur(6px);
- padding: .6rem .8rem;
- z-index: 5;
- border-bottom: 1px solid rgba(0,0,0,.08);
- margin: 0 0 1rem;
- display: flex; justify-content: flex-start; align-items: center; gap: .35rem;
- }
- .crumbs a { text-decoration: none; color: var(--ink,#111); }
- .crumbs a:hover { text-decoration: underline; }
+.crumbs {
+position: sticky;
+top: 0;
+background: rgba(255,255,255,.9);
+backdrop-filter: blur(6px);
+padding: .6rem .8rem;
+font-size: .9rem;
+color: var(--muted,#666);
+z-index: 5;
+border-bottom: 1px solid rgba(0,0,0,.08);
+display: flex;
+justify-content: space-between;
+align-items: center;
 }
 
-@media (min-width: 761px){
- .crumbs { display: none; }
+.crumbs .menu-btn {
+appearance: none;
+background: transparent;
+border: 1px solid rgba(0,0,0,.15);
+border-radius: 999px;
+padding: .3rem .7rem;
+font: 500 .9rem var(--font);
+text-transform: lowercase;
+color: var(--ink);
+transition: background .15s ease;
+}
+.crumbs .menu-btn:hover {
+background: rgba(0,0,0,.05);
+}
+.crumbs .menu-btn:active {
+transform: translateY(1px);
+}
+
+.crumbs .page-label {
+font: 500 .95rem var(--font);
+color: var(--muted);
+text-transform: lowercase;
+}
+}
+
+/* hide crumbs on desktop */
+@media (min-width:761px){
+.crumbs { display:none; }
 }
 
 /* -------------------- collapsible tags block (global) -------------------- */
@@ -266,6 +291,7 @@ details[open] .children {
  list-style: none; cursor: pointer;
  padding: 0.25rem 0.4rem; border-radius: 4px;
  background: rgba(0,0,0,0.04);
+
 
 
 
