@@ -29,3 +29,14 @@ if (h1) h1.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 }
 });
+document.addEventListener('DOMContentLoaded', () => {
+const btn = document.querySelector('.crumbs .menu-btn');
+btn?.addEventListener('click', () => {
+const side = document.querySelector('.side');
+if (side) {
+side.scrollIntoView({ behavior: 'smooth', block: 'start' });
+side.style.boxShadow = '0 0 0 2px rgba(0,0,0,.15) inset';
+setTimeout(() => side.style.boxShadow = '', 600);
+}
+});
+});
