@@ -1,20 +1,21 @@
-// ----- Mobile jump to header -----
-document.addEventListener("DOMContentLoaded", () => {
-const navLinks = document.querySelectorAll('.nav-tree a');
+// /assets/js/global.js
+document.addEventListener('DOMContentLoaded', () => {
+const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
 
-// store scroll intent on mobile
-navLinks.forEach(link => link.addEventListener('click', () => {
-if (window.matchMedia('(max-width: 760px)').matches) {
-sessionStorage.setItem('scrollToHeader', 'true');
-}
-}));
+// mark that a sidebar link was tapped (mobile only)
+document.querySelectorAll('.nav-tree a').forEach(a => {
+a.addEventListener('click', () => {
+if (isMobile()) sessionStorage.setItem('scrollToHeader', '1');
+});
+});
 
-// on load, jump to header if needed
-if (sessionStorage.getItem('scrollToHeader') === 'true') {
+// on load, if flagged, scroll the new page's H1 into view
+if (sessionStorage.getItem('scrollToHeader') === '1') {
 sessionStorage.removeItem('scrollToHeader');
-const header = document.querySelector('main h1');
-if (header) {
-header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+// re-check: only on mobile and only if we're near the top (avoid double jumps)
+if (isMobile() && (window.scrollY || document.documentElement.scrollTop) < 40) {
+const h1 = document.querySelector('main h1');
+if (h1) h1.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 }
 });
