@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>visual works · zayn wiwchar</title>
+
+<!-- font + site css -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/landing.css">
+
+<style>
+/* allow scroll on subpages (landing.css sets overflow hidden) */
+html, body { overflow: auto; }
+
+/* main layout beside fixed sidebar */
+.main-wrap { margin-left: 320px; padding: 3rem 2rem; max-width: 1200px; }
+h1 { font-weight: 600; font-size: 2.2rem; margin: 0 0 1.2rem; }
+.lede { color: var(--muted, #666); margin: .25rem 0 1.8rem; }
+
+/* project cards grid */
+.grid {
+display: grid;
+gap: 2rem;
+grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.card {
+display: block;
+text-decoration: none;
+color: inherit;
+}
+.card img {
+width: 100%; display: block; border-radius: 6px;
+filter: grayscale(.05) contrast(1.05);
+transition: transform .25s ease, filter .25s ease;
+}
+.card:hover img { transform: scale(1.02); filter: none; }
+.card h2 { margin: .65rem 0 .15rem; font-size: 1.1rem; font-weight: 600; }
+.card p { margin: 0; color: var(--muted, #666); font-size: .9rem; }
+
+@media (max-width:760px){
+.main-wrap { margin-left: 0; padding: 2rem 1rem; }
+}
+</style>
+</head>
+
+<body>
+<!-- faint motion background -->
+<video class="bg" autoplay muted loop playsinline>
+<source src="/assets/video/landing-loop.mp4" type="video/mp4">
+</video>
+
+<!-- fixed sidebar (reused) -->
+<aside class="side" aria-label="main navigation">
+<h1 class="name"><a href="/">zayn wiwchar</a></h1>
+<p class="tagline">art · systems · sound</p>
+
+<nav class="nav-tree">
+<details open>
+<summary><span class="caret" aria-hidden="true"></span><span class="label">works</span></summary>
+<div class="children">
+<a href="/works/visual/" style="opacity:1;font-weight:600;">visual</a>
+<a href="/works/audio/">audio</a>
+</div>
+</details>
+<div class="single"><a href="/processes">processes</a></div>
+<details>
+<summary><span class="caret" aria-hidden="true"></span><span class="label">about</span></summary>
+<div class="children">
+<a href="/about">bio / statement</a>
+<a href="/about#cv">cv</a>
+<a href="/contact">contact</a>
+</div>
+</details>
+</nav>
+
+<div class="sys" aria-hidden="true">
+<hr>
+<div class="row"><span>build</span><span>v0.3</span></div>
+<div class="row"><span>updated</span><span>2025-11-10</span></div>
+</div>
+</aside>
+
+<!-- main content -->
+<main class="main-wrap">
+<h1>visual works</h1>
+<p class="lede">project-oriented index. prints + video live together; filter within projects if needed.</p>
+
+<section class="grid">
+<!-- sensor noise -->
+<a class="card" href="/works/visual/sensor-noise/">
+<img src="/assets/images/sensor-noise/cover.jpg" alt="sensor noise cover">
+<h2>sensor noise</h2>
+<p>prints · video · iterative capture/edit/print</p>
+</a>
+
+<!-- painting (placeholder for next project) -->
+<a class="card" href="/works/visual/painting/">
+<img src="/assets/images/painting/cover.jpg" alt="painting cover">
+<h2>painting</h2>
+<p>mixed media on board</p>
+</a>
+
+<!-- add more projects as needed -->
+</section>
+</main>
+</body>
+</html>
