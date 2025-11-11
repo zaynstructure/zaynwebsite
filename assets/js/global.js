@@ -44,7 +44,7 @@ sessionStorage.removeItem(KEY);
 const main = document.querySelector('main');
 if (!main) return;
 
-const target = main.querySelector('h2, h1');
+const target = main.querySelector('h1');
 if (!target) return;
 
 // double rAF + timeout: ensures layout is settled on iOS
@@ -69,23 +69,6 @@ tryPlay();
 window.addEventListener('touchstart', tryPlay, { once: true, passive: true });
 });
 
-
-// scroll once page is ready
-function jumpToHeaderIfNeeded() {
-if (sessionStorage.getItem(key) !== '1') return;
-const header = document.querySelector('main h1');
-if (!header) return;
-
-const doScroll = () => header.scrollIntoView({ behavior: 'smooth', block: 'start' });
-requestAnimationFrame(() => requestAnimationFrame(doScroll));
-setTimeout(doScroll, 180);
-sessionStorage.removeItem(key);
-}
-
-window.addEventListener('DOMContentLoaded', jumpToHeaderIfNeeded);
-window.addEventListener('load', jumpToHeaderIfNeeded);
-window.addEventListener('pageshow', jumpToHeaderIfNeeded);
-})();
 
 // --- 3. Autoplay helper for landing background video ---
 (function () {
