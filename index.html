@@ -6,38 +6,37 @@
 <title>ZAYN WIWCHAR</title>
 <link rel="icon" href="/assets/favicon.png">
 
-<!-- font -->
+<!-- Font -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- main style -->
+<!-- Main CSS -->
 <link rel="stylesheet" href="/assets/css/landing.css">
 </head>
 
-<!-- landing-only class -->
 <body class="is-landing">
 
-<!-- Background video (landing only) -->
-<div class="landing-bg" aria-hidden="true">
-<iframe
-src="https://player.vimeo.com/video/1123455684?background=1&autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0"
-frameborder="0"
-allow="autoplay; fullscreen; picture-in-picture"
-loading="eager">
-</iframe>
-
-<!-- Static fallback image (served if user prefers reduced motion or iframe fails) -->
-<img class="fallback" src="/assets/images/landing-fallback.jpg" alt="">
-</div>
-
-<!-- translucent sidebar navigation -->
+<!-- Sidebar -->
 <aside class="side" aria-label="main navigation">
 <h1 class="name"><a href="/">zayn wiwchar</a></h1>
 <p class="tagline">art · systems · sound</p>
 
+<!-- Vimeo video visible *inside* the menu on mobile -->
+<div class="landing-video in-menu">
+<div style="padding:56.25% 0 0 0;position:relative;">
+<iframe
+src="https://player.vimeo.com/video/1123455684?autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0"
+frameborder="0"
+allow="autoplay; fullscreen; picture-in-picture"
+style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:8px;"
+title="Landing video">
+</iframe>
+</div>
+</div>
+<script src="https://player.vimeo.com/api/player.js"></script>
+
 <nav class="nav-tree">
-<!-- VISUAL -->
 <details>
 <summary><span class="caret"></span><span class="label">visual</span></summary>
 <div class="children">
@@ -48,7 +47,6 @@ loading="eager">
 </div>
 </details>
 
-<!-- AUDIO -->
 <details>
 <summary><span class="caret"></span><span class="label">audio</span></summary>
 <div class="children">
@@ -59,12 +57,8 @@ loading="eager">
 </div>
 </details>
 
-<!-- PROCESSES -->
-<div class="single">
-<a href="/processes/">processes</a>
-</div>
+<div class="single"><a href="/processes/">processes</a></div>
 
-<!-- ABOUT -->
 <details>
 <summary><span class="caret"></span><span class="label">about</span></summary>
 <div class="children">
@@ -82,21 +76,25 @@ loading="eager">
 </div>
 </aside>
 
-<!-- keep your small helpers if you like -->
-<script>
-// Close open <details> after navigating, only on small screens
-document.querySelectorAll('.nav-tree a[href^="/"]').forEach(a=>{
-a.addEventListener('click', () => {
-if (window.matchMedia('(max-width:760px)').matches) {
-document.querySelectorAll('.nav-tree details[open]').forEach(d => d.open = false);
-}
-});
-});
-</script>
+<!-- Desktop video area (hidden on mobile) -->
+<main class="landing-main">
+<div class="landing-video desktop-only">
+<div style="padding:56.25% 0 0 0;position:relative;">
+<iframe
+src="https://player.vimeo.com/video/1123455684?autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0"
+frameborder="0"
+allow="autoplay; fullscreen; picture-in-picture"
+style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:8px;"
+title="Landing video">
+</iframe>
+</div>
+</div>
+</main>
 
 <script src="/assets/js/global.js" defer></script>
 </body>
 </html>
+
 
 
 
