@@ -2,43 +2,89 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ZAYN WIWCHAR</title>
-<link rel="icon" href="/assets/favicon.png" />
+<link rel="icon" href="/assets/favicon.png">
 
 <!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Notch:wght@200..700&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Notch:wght@200..700&display=swap" rel="stylesheet">
 
 <!-- Main CSS -->
-<link rel="stylesheet" href="/assets/css/landing.css" />
+<link rel="stylesheet" href="/assets/css/landing.css">
+<style>
+/* --- fullscreen Vimeo background --- */
+body.is-landing {
+margin: 0;
+overflow: hidden;
+background: #000;
+}
+.landing-bg {
+position: fixed;
+inset: 0;
+z-index: -1;
+overflow: hidden;
+width: 100%;
+height: 100%;
+}
+.landing-bg iframe {
+position: absolute;
+top: 50%;
+left: 50%;
+width: 120vw;
+height: 120vh;
+transform: translate(-50%, -50%);
+object-fit: cover;
+pointer-events: none;
+border: 0;
+}
+
+/* sidebar still floats above */
+.side {
+position: fixed;
+inset: 0 auto 0 0;
+width: var(--side-w, 300px);
+max-width: 85vw;
+display: flex;
+flex-direction: column;
+justify-content: center;
+padding: 2rem 1.5rem;
+background: rgba(255,255,255,0.6);
+backdrop-filter: blur(8px);
+border-right: 1px solid rgba(0,0,0,0.08);
+z-index: 2;
+}
+
+@media(max-width:760px){
+.side {
+position: relative;
+width: 100%;
+background: rgba(255,255,255,0.85);
+border: 0;
+padding: 1.5rem 1rem;
+}
+}
+</style>
 </head>
 
 <body class="is-landing">
-
-<!-- Fullscreen background video -->
-<!-- Fullscreen background video -->
+<!-- Fullscreen Vimeo background -->
 <div class="landing-bg" aria-hidden="true">
 <iframe
 src="https://player.vimeo.com/video/1123455684?background=1&autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0"
-frameborder="0"
 allow="autoplay; fullscreen; picture-in-picture"
 allowfullscreen
-loading="eager"
 ></iframe>
 </div>
 
-
-
-<!-- Sidebar menu (on top of video) -->
+<!-- Sidebar Menu -->
 <aside class="side" aria-label="main navigation">
 <h1 class="name"><a href="/">Zayn Wiwchar</a></h1>
 <p class="tagline">art · systems · sound</p>
 
 <nav class="nav-tree">
-<!-- VISUAL -->
 <details>
 <summary><span class="caret"></span><span class="label">visual</span></summary>
 <div class="children">
@@ -49,7 +95,6 @@ loading="eager"
 </div>
 </details>
 
-<!-- AUDIO -->
 <details>
 <summary><span class="caret"></span><span class="label">audio</span></summary>
 <div class="children">
@@ -60,10 +105,8 @@ loading="eager"
 </div>
 </details>
 
-<!-- PROCESSES -->
 <div class="single"><a href="/processes/">processes</a></div>
 
-<!-- ABOUT -->
 <details>
 <summary><span class="caret"></span><span class="label">about</span></summary>
 <div class="children">
@@ -75,16 +118,13 @@ loading="eager"
 </nav>
 
 <div class="sys" aria-hidden="true">
-<hr />
+<hr>
 <div class="row"><span>build</span><span>v0.3</span></div>
 <div class="row"><span>updated</span><span>2025-11-10</span></div>
 </div>
 </aside>
-
-<script src="/assets/js/global.js" defer></script>
 </body>
 </html>
-
 
 
 
