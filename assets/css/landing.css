@@ -255,4 +255,23 @@ margin: 0 0 1rem;
 .crumbs a:hover { text-decoration: underline; }
 }
 
+/* --- global sticky sidebar behavior --- */
+.side {
+position: sticky;
+top: 0;
+height: 100vh;
+overflow-y: auto;
+overscroll-behavior: contain;
+scrollbar-width: thin;
+scrollbar-color: rgba(0,0,0,.2) transparent;
+}
+@media (max-width: 760px) {
+.side {
+position: relative;
+height: auto;
+overflow: visible;
+padding-bottom: 1rem;
+}
+}
+
 
