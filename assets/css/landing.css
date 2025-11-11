@@ -348,7 +348,7 @@ height: 120vh;
 transform: translate(-50%, -50%);
 object-fit: cover;
 pointer-events: none;
-opacity: .55; /* adjust visibility */
+opacity: 1; /* adjust visibility */
 filter: grayscale(10%) contrast(1.05);
 }
 
@@ -367,6 +367,7 @@ border: 0;
 background: rgba(255,255,255,0.85);
 }
 }
+
 
 
 
