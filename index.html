@@ -4,37 +4,40 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>ZAYN WIWCHAR</title>
-<link rel="icon" href="/assets/favicon.png">
+<link rel="icon" href="/assets/favicon.png" />
 
-<!-- Font -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Notch:wght@200..700&display=swap" rel="stylesheet">
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Notch:wght@200..700&display=swap" rel="stylesheet" />
+
 <!-- Main CSS -->
-<link rel="stylesheet" href="/assets/css/landing.css">
+<link rel="stylesheet" href="/assets/css/landing.css" />
 </head>
 
 <body class="is-landing">
 
 <!-- Fullscreen Vimeo background -->
 <div class="landing-bg" aria-hidden="true">
+<!-- If the video is private-link on Vimeo, add your hash like:
+?h=YOUR_HASH&background=1&autoplay=1&... -->
 <iframe
 src="https://player.vimeo.com/video/1123455684?background=1&autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0"
 frameborder="0"
 allow="autoplay; fullscreen; picture-in-picture"
-loading="eager">
+loading="eager"
+title="Landing background video">
 </iframe>
 </div>
 
-<!-- Sidebar menu (sits on top of video) -->
+<!-- Sidebar menu (on top of video) -->
 <aside class="side" aria-label="main navigation">
 <h1 class="name"><a href="/">Zayn Wiwchar</a></h1>
 <p class="tagline">art · systems · sound</p>
 
 <nav class="nav-tree">
+<!-- VISUAL -->
 <details>
 <summary><span class="caret"></span><span class="label">visual</span></summary>
 <div class="children">
@@ -45,6 +48,7 @@ loading="eager">
 </div>
 </details>
 
+<!-- AUDIO -->
 <details>
 <summary><span class="caret"></span><span class="label">audio</span></summary>
 <div class="children">
@@ -55,8 +59,10 @@ loading="eager">
 </div>
 </details>
 
+<!-- PROCESSES -->
 <div class="single"><a href="/processes/">processes</a></div>
 
+<!-- ABOUT -->
 <details>
 <summary><span class="caret"></span><span class="label">about</span></summary>
 <div class="children">
@@ -68,7 +74,7 @@ loading="eager">
 </nav>
 
 <div class="sys" aria-hidden="true">
-<hr>
+<hr />
 <div class="row"><span>build</span><span>v0.3</span></div>
 <div class="row"><span>updated</span><span>2025-11-10</span></div>
 </div>
@@ -77,7 +83,6 @@ loading="eager">
 <script src="/assets/js/global.js" defer></script>
 </body>
 </html>
-
 
 
 
