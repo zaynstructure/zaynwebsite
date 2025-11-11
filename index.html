@@ -1,19 +1,35 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>ZAYN WIWCHAR</title>
 <link rel="icon" href="/assets/favicon.png">
 
+<!-- font -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <!-- main style -->
 <link rel="stylesheet" href="/assets/css/landing.css">
-
 </head>
-<body>
+
+<!-- landing-only class -->
+<body class="is-landing">
+
+<!-- Background video (landing only) -->
+<div class="landing-bg" aria-hidden="true">
+<iframe
+src="https://player.vimeo.com/video/1123455684?background=1&autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0"
+frameborder="0"
+allow="autoplay; fullscreen; picture-in-picture"
+loading="eager">
+</iframe>
+
+<!-- Static fallback image (served if user prefers reduced motion or iframe fails) -->
+<img class="fallback" src="/assets/images/landing-fallback.jpg" alt="">
+</div>
 
 <!-- translucent sidebar navigation -->
 <aside class="side" aria-label="main navigation">
@@ -21,7 +37,6 @@
 <p class="tagline">art · systems · sound</p>
 
 <nav class="nav-tree">
-
 <!-- VISUAL -->
 <details>
 <summary><span class="caret"></span><span class="label">visual</span></summary>
@@ -58,7 +73,6 @@
 <a href="/contact/">contact</a>
 </div>
 </details>
-
 </nav>
 
 <div class="sys" aria-hidden="true">
@@ -68,6 +82,7 @@
 </div>
 </aside>
 
+<!-- keep your small helpers if you like -->
 <script>
 // Close open <details> after navigating, only on small screens
 document.querySelectorAll('.nav-tree a[href^="/"]').forEach(a=>{
@@ -79,28 +94,9 @@ document.querySelectorAll('.nav-tree details[open]').forEach(d => d.open = false
 });
 </script>
 
-<script>
-// remember scroll intent between pages (mobile)
-const links = document.querySelectorAll('.nav-tree a[href^="/"]');
-links.forEach(a => a.addEventListener('click', () => {
-if (window.matchMedia('(max-width: 760px)').matches) {
-sessionStorage.setItem('scrollToHeader', '1');
-}
-}));
-
-window.addEventListener('DOMContentLoaded', () => {
-if (sessionStorage.getItem('scrollToHeader') === '1') {
-sessionStorage.removeItem('scrollToHeader');
-const h1 = document.querySelector('main h1');
-if (h1) h1.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-});
-</script>
-<script src="/assets/js/global.js"></script>
+<script src="/assets/js/global.js" defer></script>
 </body>
-
 </html>
-
 
 
 
