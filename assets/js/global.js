@@ -41,7 +41,7 @@ if (isMobile()) sessionStorage.setItem(key, '1');
 // scroll once page is ready
 function jumpToHeaderIfNeeded() {
 if (sessionStorage.getItem(key) !== '1') return;
-const header = document.querySelector('main h2');
+const header = document.querySelector('main h1');
 if (!header) return;
 
 const doScroll = () => header.scrollIntoView({ behavior: 'smooth', block: 'start' });
