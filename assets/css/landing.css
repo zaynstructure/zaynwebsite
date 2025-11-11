@@ -37,8 +37,7 @@ html, body {
  font-family: var(--font);
  letter-spacing: .1px; /* Archivo is open; keep tracking tight */
  line-height: 1.55;
- /* IMPORTANT: allow scrolling globally; we'll opt-in to hidden on landing only */
- overflow: auto;
+ overflow: auto; /* allow scrolling globally */
 }
 
 /* -------------------- optional landing noise -------------------- */
@@ -61,7 +60,7 @@ body.is-landing {
 }
 
 /* -------------------- sidebar -------------------- */
-/* Choose one model: sticky (recommended for content pages). */
+/* Fixed sidebar (recommended for content pages + landing) */
 .side {
  position: fixed;
  top: 0;
@@ -128,9 +127,9 @@ main h1, main h2, [id] {
  transition: opacity 0.2s ease;
 }
 .name {
-  font-family: 'Stack Sans Notch', sans-serif;
-  font-weight: 600;         /* adjust if you want it lighter or bolder */
-  letter-spacing: 0.5px;    /* optional tweak for spacing */
+ font-family: 'Stack Sans Notch', sans-serif; /* only the name uses this font */
+ font-weight: 600;
+ letter-spacing: 0.5px;
 }
 .name a:hover { opacity: 0.7; }
 
@@ -174,7 +173,7 @@ summary .caret {
 }
 details[open] summary .caret { transform: rotate(45deg); opacity: .7; }
 
-/* expandable children (CSS trick using max-height) */
+/* expandable children */
 .children {
  max-height: 0;
  opacity: 0;
@@ -185,7 +184,7 @@ details[open] summary .caret { transform: rotate(45deg); opacity: .7; }
  transition: max-height var(--t-med) ease, opacity var(--t-med) ease, padding var(--t-med) ease;
 }
 details[open] .children {
- max-height: 40rem; /* generous for multiple links */
+ max-height: 40rem;
  opacity: 1;
  padding: .3rem 0 .3rem .6rem;
  margin-top: .35rem;
@@ -225,7 +224,7 @@ details[open] .children {
  padding: .35rem .5rem;
 }
 
-/* tiny “system” footer for vibe */
+/* tiny “system” footer */
 .sys {
  color: var(--muted);
  font: 12px/1.4 var(--font);
@@ -241,136 +240,32 @@ details[open] .children {
 
 /* -------------------- crumbs (mobile sticky) -------------------- */
 .crumbs { color: var(--muted); margin: -0.8rem 0 1rem; font-size: .9rem; }
+
 @media (max-width:760px){
  .crumbs {
  position: sticky; top: 0;
  background: rgba(255,255,255,.85);
  backdrop-filter: blur(6px);
- padding: .6rem .4rem;
- z-index: 2;
+ padding: .6rem .8rem;
+ z-index: 5;
  border-bottom: 1px solid rgba(0,0,0,.08);
  margin: 0 0 1rem;
+ display: flex; justify-content: flex-start; align-items: center; gap: .35rem;
  }
- .crumbs a { text-decoration: none; }
+ .crumbs a { text-decoration: none; color: var(--ink,#111); }
  .crumbs a:hover { text-decoration: underline; }
 }
 
-/* -------------------- accessibility: reduce motion -------------------- */
-@media (prefers-reduced-motion: reduce) {
- .children { transition: none; }
- summary, .children a, .single a { transition: none; }
-
- /* --- collapsible tags block --- */
-.tags-block {
-margin-top: 0.4rem;
-font-size: 0.85rem;
-}
-
-/* summary button styling */
-.tags-block summary {
-list-style: none;
-cursor: pointer;
-padding: 0.25rem 0.4rem;
-border-radius: 4px;
-background: rgba(0,0,0,0.04);
-color: var(--muted, #666);
-transition: background 0.15s ease;
-width: fit-content;
-}
-.tags-block summary:hover {
-background: rgba(0,0,0,0.08);
-}
-.tags-block summary::marker { display: none; }
-
-/* animate open/close */
-.tags-block[open] .tags {
-animation: fadeIn 0.2s ease;
-}
-@keyframes fadeIn {
-from { opacity: 0; transform: translateY(-2px); }
-to { opacity: 1; transform: translateY(0); }
-}
-
-/* make tag layout behave normally inside */
-.tags-block .tags {
-display: flex;
-flex-wrap: wrap;
-gap: 0.35rem;
-margin-top: 0.4rem;
-}
-}
-
-/* Desktop stays as you have it (fixed or sticky) */
-/* ...your current .side and main rules... */
-
-/* --- Compact breadcrumb bar (mobile only) --- */
-@media (max-width: 760px){
-.crumbs {
-position: sticky;
-top: 0;
-background: rgba(255,255,255,.85);
-backdrop-filter: blur(6px);
-padding: .6rem .8rem;
-font-size: .9rem;
-color: var(--muted,#666);
-z-index: 5;
-border-bottom: 1px solid rgba(0,0,0,.08);
-display: flex;
-justify-content: space-between;
-align-items: center;
-}
-.crumbs a {
-text-decoration: none;
-color: var(--ink,#111);
-}
-.crumbs a:hover {
-text-decoration: underline;
-}
-}
-/* hide crumbs on desktop */
 @media (min-width: 761px){
-.crumbs { display: none; }
+ .crumbs { display: none; }
 }
 
-/* Fullscreen Vimeo background for both desktop + mobile */
-.landing-bg {
-position: fixed;
-inset: 0;
-z-index: -1; /* behind sidebar */
-overflow: hidden;
-}
-.landing-bg iframe {
-position: absolute;
-top: 50%;
-left: 50%;
-width: 120vw;
-height: 120vh;
-transform: translate(-50%, -50%);
-object-fit: cover;
-pointer-events: none;
-opacity: 1; /* adjust visibility */
-filter: grayscale(10%) contrast(1.05);
-}
-
-/* Sidebar floats above */
-.side {
-position: relative;
-z-index: 2;
-background: rgba(255,255,255,0.65);
-backdrop-filter: blur(8px);
-border-right: 1px solid rgba(0,0,0,.05);
-}
-@media (max-width:760px){
-.side {
-width: 100%;
-border: 0;
-background: rgba(255,255,255,0.85);
-}
-}
-
-
-
-
+/* -------------------- collapsible tags block (global) -------------------- */
+.tags-block { margin-top: 0.4rem; font-size: 0.85rem; }
+.tags-block summary {
+ list-style: none; cursor: pointer;
+ padding: 0.25rem 0.4rem; border-radius: 4px;
+ background: rgba(0,0,0,0.04);
 
 
 
