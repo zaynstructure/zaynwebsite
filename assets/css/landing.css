@@ -295,6 +295,39 @@ margin-top: 0.4rem;
 }
 }
 
+/* Desktop stays as you have it (fixed or sticky) */
+/* ...your current .side and main rules... */
+
+/* --- Mobile-only sticky menu --- */
+@media (max-width: 760px){
+.side{
+position: sticky; /* sticks to top while page scrolls */
+top: 0;
+width: 100%;
+height: auto;
+margin: 0;
+padding: 1rem; /* tighter top bar feel */
+border: 0;
+border-bottom: 1px solid var(--rule);
+background: rgba(255,255,255,.9);
+backdrop-filter: blur(6px);
+z-index: 1000;
+overflow: visible; /* avoid inner scrolling traps */
+justify-content: flex-start; /* align content to top */
+}
+
+/* Content should not reserve sidebar space on mobile */
+main{
+margin-left: 0;
+padding: 0.75rem 1rem 2rem;
+}
+
+/* Ensure headings don't hide under the sticky menu */
+main h1, [id]{
+scroll-margin-top: 64px; /* adjust if your .side is taller/shorter */
+}
+}
+
 
 
 
