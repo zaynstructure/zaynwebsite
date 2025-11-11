@@ -127,6 +127,11 @@ main h1, main h2, [id] {
  color: inherit;
  transition: opacity 0.2s ease;
 }
+.name {
+  font-family: 'Stack Sans Notch', sans-serif;
+  font-weight: 600;         /* adjust if you want it lighter or bolder */
+  letter-spacing: 0.5px;    /* optional tweak for spacing */
+}
 .name a:hover { opacity: 0.7; }
 
 .tagline {
@@ -362,6 +367,7 @@ border: 0;
 background: rgba(255,255,255,0.85);
 }
 }
+
 
 
 
