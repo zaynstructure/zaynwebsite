@@ -347,12 +347,6 @@ opacity: .55; /* adjust visibility */
 filter: grayscale(10%) contrast(1.05);
 }
 
-/* reduce motion users: hide video */
-@media (prefers-reduced-motion: reduce){
-.landing-bg iframe { display: none; }
-body { background: var(--bg,#e8eef3); }
-}
-
 /* Sidebar floats above */
 .side {
 position: relative;
@@ -368,6 +362,7 @@ border: 0;
 background: rgba(255,255,255,0.85);
 }
 }
+
 
 
 
