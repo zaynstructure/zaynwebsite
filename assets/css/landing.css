@@ -327,46 +327,47 @@ text-decoration: underline;
 .crumbs { display: none; }
 }
 
-/* Shared Vimeo styling */
-.landing-video {
-width: min(60vw, 900px);
-aspect-ratio: 16 / 9;
-border-radius: 8px;
+/* Fullscreen Vimeo background for both desktop + mobile */
+.landing-bg {
+position: fixed;
+inset: 0;
+z-index: -1; /* behind sidebar */
 overflow: hidden;
-box-shadow: 0 0 40px rgba(0,0,0,.05);
 }
-.landing-video iframe {
-width: 100%;
-height: 100%;
-display: block;
+.landing-bg iframe {
+position: absolute;
+top: 50%;
+left: 50%;
+width: 120vw;
+height: 120vh;
+transform: translate(-50%, -50%);
+object-fit: cover;
+pointer-events: none;
+opacity: .55; /* adjust visibility */
 filter: grayscale(10%) contrast(1.05);
-opacity: 0.9;
-transition: opacity .3s ease;
 }
-.landing-video iframe:hover { opacity: 1; }
 
-/* Desktop layout — video beside sidebar */
-.landing-main {
-margin-left: var(--side-w);
-display: flex;
-align-items: center;
-justify-content: center;
-height: 100vh;
-background: var(--bg);
+/* reduce motion users: hide video */
+@media (prefers-reduced-motion: reduce){
+.landing-bg iframe { display: none; }
+body { background: var(--bg,#e8eef3); }
 }
-.desktop-only { display: block; }
-.in-menu { display: none; }
 
-/* Mobile — video moves into sidebar */
+/* Sidebar floats above */
+.side {
+position: relative;
+z-index: 2;
+background: rgba(255,255,255,0.65);
+backdrop-filter: blur(8px);
+border-right: 1px solid rgba(0,0,0,.05);
+}
 @media (max-width:760px){
-.landing-main { display: none; } /* hide right column */
-.in-menu {
-display: block;
+.side {
 width: 100%;
-margin: 1rem 0 1.5rem;
+border: 0;
+background: rgba(255,255,255,0.85);
 }
 }
-
 
 
 
