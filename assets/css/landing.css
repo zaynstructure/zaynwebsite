@@ -93,6 +93,14 @@ font-weight: 600; /* archivo 600 = soft bold */
 font-size: clamp(1.8rem, 3vw + 1rem, 3rem);
 letter-spacing: .2px;
 }
+.name a {
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s ease;
+}
+.name a:hover {
+  opacity: 0.7;
+}
 
 .tagline {
 margin: 0 0 1.05rem;
@@ -225,5 +233,6 @@ background: rgba(255,255,255,.85);
 }
 video.bg { opacity: .08; }
 }
+
 
 
