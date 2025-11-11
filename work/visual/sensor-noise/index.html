@@ -5,14 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>visual works · zayn wiwchar</title>
 
-<!-- Font + CSS --
+<!-- Font + CSS -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/landing.css">
 
 <style>
+/* allow scroll on this page (landing.css set overflow hidden) */
 html, body { overflow: auto; }
+
 /* Page-specific tweaks */
 main {
 margin-left: 320px; /* push content beside sidebar */
@@ -20,7 +22,7 @@ padding: 3rem 2rem;
 max-width: 1200px;
 }
 h1 {
-font-family: var(--font);
+font-family: var(--font, 'Archivo', system-ui, -apple-system, Segoe UI, Roboto, sans-serif);
 font-weight: 600;
 font-size: 2.4rem;
 margin-bottom: 2rem;
@@ -38,49 +40,75 @@ border-radius: 6px;
 filter: grayscale(.05) contrast(1.05);
 transition: filter .3s ease, transform .3s ease;
 }
-.grid img:hover {
-filter: none;
-transform: scale(1.02);
-}
+.grid img:hover { filter: none; transform: scale(1.02); }
 .caption {
 margin-top: .5rem;
 font-size: .9rem;
-color: var(--muted);
+color: var(--muted, #666);
 }
-@media(max-width:760px){
-main{margin-left:0; padding:2rem 1rem;}
+
+/* optional: highlight current nav link */
+.nav-tree .children a[aria-current="page"]{
+font-weight:600; opacity:1; background:rgba(0,0,0,.06); border-radius:6px;
+}
+
+@media (max-width:760px){
+main { margin-left:0; padding:2rem 1rem; }
 }
 </style>
 </head>
 
 <body>
 <video class="bg" autoplay muted loop playsinline>
-<source src="assets/video/landing-loop.mp4" type="video/mp4">
+<source src="/assets/video/landing-loop.mp4" type="video/mp4">
 </video>
 
-<!-- Sidebar reused -->
-<aside class="side">
-<h1 class="name"><a href="/index.html">zayn wiwchar</a>
-</h1>
+<!-- Sidebar -->
+<aside class="side" aria-label="main navigation">
+<h1 class="name"><a href="/">zayn wiwchar</a></h1>
 <p class="tagline">art · systems · sound</p>
+
 <nav class="nav-tree">
+<!-- works (top level) -->
 <details open>
-<summary><span class="caret"></span>works</summary>
+<summary><span class="caret"></span><span class="label">works</span></summary>
 <div class="children">
-<a href="visual.html" style="opacity:1;font-weight:600;">visual</a>
-<a href="audio.html">audio</a>
+
+<!-- visual (nested under works) -->
+<details open>
+<summary><span class="caret"></span><span class="label">visual</span></summary>
+<div class="children">
+<!-- mark this page as current -->
+<a href="/works/visual/" aria-current="page">overview</a>
+<a href="/works/visual/sensor-noise/">sensor noise</a>
+<a href="/works/visual/painting/">painting</a>
+<!-- add more projects as you publish -->
 </div>
 </details>
-<div class="single"><a href="processes.html">processes</a></div>
+
+<!-- audio (nested under works) -->
 <details>
-<summary><span class="caret"></span>about</summary>
+<summary><span class="caret"></span><span class="label">audio</span></summary>
 <div class="children">
-<a href="about.html">bio / statement</a>
-<a href="about.html#cv">cv</a>
-<a href="contact.html">contact</a>
+<a href="/works/audio/">overview</a>
+<!-- <a href="/works/audio/installation-a/">installation a</a> -->
+</div>
+</details>
+</div>
+</details>
+
+<div class="single"><a href="/processes">processes</a></div>
+
+<details>
+<summary><span class="caret"></span><span class="label">about</span></summary>
+<div class="children">
+<a href="/about">bio / statement</a>
+<a href="/about#cv">cv</a>
+<a href="/contact">contact</a>
 </div>
 </details>
 </nav>
+
 <div class="sys">
 <hr>
 <div class="row"><span>build</span><span>v0.3</span></div>
@@ -108,7 +136,7 @@ main{margin-left:0; padding:2rem 1rem;}
 <div>
 <img src="/assets/images/SN-04.jpeg" alt="Sensor Noise Series 04">
 <p class="caption">Sensor Noise · print + video composite</p>
-</div>  
+</div>
 <div>
 <img src="/assets/images/project3.jpg" alt="Collage Clip">
 <p class="caption">Visual collage clip · video still</p>
@@ -117,8 +145,6 @@ main{margin-left:0; padding:2rem 1rem;}
 </main>
 </body>
 </html>
-
-
 
 
 
