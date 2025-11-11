@@ -1,225 +1,148 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>sensor noise · zayn wiwchar</title>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <title>sensor noise · visual · zayn wiwchar</title>
 
-<!-- Font + CSS -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/css/landing.css">
+ <!-- Font + CSS -->
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+ <link rel="stylesheet" href="/assets/css/landing.css">
 
-<style>
-/* allow scroll on this page (landing.css set overflow hidden) */
-html, body { overflow: auto; }
+ <style>
+ html, body { overflow:auto; }
+ main { margin-left:320px; padding:3rem 2rem; max-width:1200px; }
 
-/* Page-specific tweaks */
-main {
-margin-left: 320px; /* push content beside sidebar */
-padding: 3rem 2rem;
-max-width: 1200px;
-}
-h1 {
-font-family: var(--font, 'Archivo', system-ui, -apple-system, Segoe UI, Roboto, sans-serif);
-font-weight: 600;
-font-size: 2.4rem;
-margin-bottom: 2rem;
-}
-.grid {
-display: grid;
-grid-template-columns: repeat(auto-fit, minmax(380px, 2fr));
-gap: 2rem;
-}
-.grid img {
-width: 100%;
-height: auto;
-display: block;
-border-radius: 6px;
-filter: grayscale(.05) contrast(1.05);
-transition: filter .3s ease, transform .3s ease;
-}
-.grid img:hover { filter: none; transform: scale(1.02); }
-.caption {
-margin-top: .5rem;
-font-size: .9rem;
-color: var(--muted, #666);
-}
-.work img, .work video {
-  width: 100%;
-  display: block;
-  border-radius: 6px;
-}
+ h1 { font-weight:600; font-size:2rem; margin:0 0 .5rem; }
+ .lede { color:var(--muted,#666); margin:0 0 1.6rem; }
 
-.figcaption {
-  margin-top: .6rem;
-  font-size: .9rem;
-  color: var(--muted, #666);
-}
+ /* two-by-two grid */
+ .grid {
+ display:grid;
+ gap:2rem;
+ grid-template-columns:repeat(auto-fit,minmax(380px,1fr));
+ margin-top:2rem;
+ }
+ @media(min-width:880px){
+ .grid{ grid-template-columns:repeat(2,1fr); }
+ }
+ @media(max-width:879px){
+ .grid{ grid-template-columns:1fr; gap:1.5rem; }
+ main{ margin-left:0; padding:2rem 1rem; }
+ }
 
-@media (min-width: 880px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+ .work img {
+ width:100%;
+ height:auto;
+ display:block;
+ border-radius:6px;
+ object-fit:cover;
+ filter:grayscale(.05) contrast(1.05);
+ transition:filter .3s ease, transform .3s ease;
+ }
+ .work img:hover{ filter:none; transform:scale(1.02); }
 
-@media (max-width: 879px) {
-  .grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-}
-  
-/* optional: highlight current nav link */
-.nav-tree .children a[aria-current="page"]{
-font-weight:600; opacity:1; background:rgba(0,0,0,.06); border-radius:6px;
-}
+ figcaption { margin-top:.6rem; font-size:.9rem; color:var(--muted,#666); }
 
-@media (max-width:760px){
-main { margin-left:0; padding:2rem 1rem; }
-}
-</style>
+ /* tags */
+ .tags{ display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.4rem; }
+ .tag{
+ font-size:.8rem; padding:.22rem .5rem;
+ border-radius:999px; text-decoration:none; color:inherit;
+ background:rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.08);
+ transition:background .15s ease,border-color .15s ease;
+ }
+ .tag:hover{ background:rgba(0,0,0,.1); border-color:rgba(0,0,0,.18); }
+ .tag[data-kind="input"]{background:rgba(60,120,255,.06);border-color:rgba(60,120,255,.12);}
+ .tag[data-kind="tool"]{background:rgba(10,180,120,.06);border-color:rgba(10,180,120,.12);}
+ .tag[data-kind="method"]{background:rgba(180,80,220,.06);border-color:rgba(180,80,220,.12);}
+ </style>
 </head>
 
 <body>
-<video class="bg" autoplay muted loop playsinline>
-<source src="/assets/video/landing-loop.mp4" type="video/mp4">
-</video>
+ <video class="bg" autoplay muted loop playsinline>
+ <source src="/assets/video/landing-loop.mp4" type="video/mp4">
+ </video>
 
-<!-- Sidebar -->
-<aside class="side" aria-label="main navigation">
-<h1 class="name"><a href="/">zayn wiwchar</a></h1>
-<p class="tagline">art · systems · sound</p>
+ <!-- Sidebar -->
+ <aside class="side">
+ <h1 class="name"><a href="/">zayn wiwchar</a></h1>
+ <p class="tagline">art · systems · sound</p>
 
-<nav class="nav-tree">
-<details open>
-<summary><span class="caret" aria-hidden="true"></span><span class="label">works</span></summary>
-<div class="children">
-<!-- visual branch -->
-<details open>
-<summary><span class="caret" aria-hidden="true"></span><span class="label">visual</span></summary>
-<div class="children">
-<a href="/works/visual/sensor-noise/">sensor noise</a>
-<a href="/works/visual/fragments/">fragments</a>
-<a href="/works/visual/painting/">painting</a>
-<a href="/works/visual/misc/">misc</a>
-<!-- add more as you publish -->
-<!-- <a href="/works/visual/visual-collage/">visual collage</a> -->
-</div>
-</details>
+ <nav class="nav-tree">
+ <details open>
+ <summary><span class="caret"></span><span class="label">visual</span></summary>
+ <div class="children">
+ <a href="/visual/">overview</a>
+ <a href="/visual/sensor-noise/" aria-current="page">sensor noise</a>
+ <a href="/visual/painting/">painting</a>
+ <a href="/visual/misc/">misc</a>
+ </div>
+ </details>
 
-<!-- audio branch (example) -->
-<details>
-<summary><span class="caret" aria-hidden="true"></span><span class="label">audio</span></summary>
-<div class="children">
-<a href="/works/audio/installation-a/">installation a</a>
-<a href="/works/audio/field-recordings/">field recordings</a>
-</div>
-</details>
-</details>
+ <details>
+ <summary><span class="caret"></span><span class="label">audio</span></summary>
+ <div class="children">
+ <a href="/audio/">overview</a>
+ </div>
+ </details>
 
-<div class="single"><a href="/processes">processes</a></div>
+ <div class="single"><a href="/processes">processes</a></div>
 
-<details>
-<summary><span class="caret" aria-hidden="true"></span><span class="label">about</span></summary>
-<div class="children">
-<a href="/about">bio / statement</a>
-<a href="/about#cv">cv</a>
-<a href="/contact">contact</a>
-</div>
-</details>
-</nav>
+ <details>
+ <summary><span class="caret"></span><span class="label">about</span></summary>
+ <div class="children">
+ <a href="/about">bio / statement</a>
+ <a href="/about#cv">cv</a>
+ <a href="/contact">contact</a>
+ </div>
+ </details>
+ </nav>
 
-<div class="sys">
-<hr>
-<div class="row"><span>build</span><span>v0.3</span></div>
-<div class="row"><span>updated</span><span>2025-11-10</span></div>
-</div>
-</aside>
+ <div class="sys">
+ <hr>
+ <div class="row"><span>build</span><span>v0.3</span></div>
+ <div class="row"><span>updated</span><span>2025-11-10</span></div>
+ </div>
+ </aside>
 
-<!-- Main content -->
-<main>
-<h1>sensor noise</h1>
+ <!-- Main content -->
+ <main>
+ <h1>sensor noise</h1>
+ <p class="lede">video-derived composites where darkness, compression and repetition reveal the sensor’s hidden logic.</p>
 
-<nav class="crumbs" aria-label="breadcrumbs">
-<a href="/works/">works</a> ›
-<a href="/works/visual/">visual</a> ›
-<span>sensor noise</span>
-</nav>
+ <div class="grid">
+ <!-- composite 001 -->
+ <figure class="work is-still" id="ex-sn-composite-001"
+ data-tags="input-phone-video-darkness tool-iphone-15 tool-premiere-pro tool-procreate method-iterative-curves method-hue-color method-layer-stacking method-screen-grab layout-procreate">
+ <img src="/assets/images/SN-01.jpeg"
+ alt="Sensor Noise — composite 001: still derived from iPhone 15 darkness capture; iterative curves & hue edits stacked, screen-grabbed, composed in Procreate">
+ <figcaption>
+ composite 001 · still from iterative video artifact workflow
+ <div class="tags">
+ <a class="tag" data-kind="input" href="/processes#input-phone-video-darkness">phone video: darkness</a>
+ <a class="tag" data-kind="tool" href="/processes#tool-iphone-15">iPhone 15</a>
+ <a class="tag" data-kind="tool" href="/processes#tool-premiere-pro">premiere pro</a>
+ <a class="tag" data-kind="tool" href="/processes#tool-procreate">procreate</a>
+ <a class="tag" data-kind="method" href="/processes#method-iterative-curves">iterative curves</a>
+ <a class="tag" data-kind="method" href="/processes#method-hue-color">hue / color edit</a>
+ <a class="tag" data-kind="method" href="/processes#method-layer-stacking">layer stacking</a>
+ <a class="tag" data-kind="method" href="/processes#method-screen-grab">screen grab</a>
+ <a class="tag" data-kind="method" href="/processes#layout-procreate">layout in procreate</a>
+ </div>
+ </figcaption>
+ </figure>
 
-
-<div class="grid">
-<div>
-  <figure class="work is-still" id="ex-sn-composite-001"
-data-tags="input-phone-video-darkness tool-iphone-15 tool-premiere-pro tool-procreate method-iterative-curves method-hue-color method-layer-stacking method-screen-grab layout-procreate">
-<img src="/assets/images/SN-01.jpeg"
-alt="Sensor Noise — composite 001: still derived from iPhone 15 darkness capture; iterative curves & hue edits stacked, screen-grabbed, composed in Procreate">
-<figcaption>
-composite 001 · still from iterative video artifact workflow
-<div class="tags">
-<!-- inputs -->
-<a class="tag" data-kind="input" href="/processes#input-phone-video-darkness">phone video: darkness</a>
-<!-- tools -->
-<a class="tag" data-kind="tool" href="/processes#tool-iphone-15">iPhone 15</a>
-<a class="tag" data-kind="tool" href="/processes#tool-premiere-pro">premiere pro</a>
-<a class="tag" data-kind="tool" href="/processes#tool-procreate">procreate</a>
-<!-- methods -->
-<a class="tag" data-kind="method" href="/processes#method-iterative-curves">iterative curves</a>
-<a class="tag" data-kind="method" href="/processes#method-hue-color">hue / color edit</a>
-<a class="tag" data-kind="method" href="/processes#method-layer-stacking">layer stacking</a>
-<a class="tag" data-kind="method" href="/processes#method-screen-grab">screen grab</a>
-<a class="tag" data-kind="method" href="/processes#layout-procreate">layout in procreate</a>
-</div>
-</figcaption>
-</figure>
-<div>
-<img src="/assets/images/SN-02.jpeg" alt="Sensor Noise Series 02">
-<p class="caption">Sensor Noise · composite 002</p>
-</div>
-<div>
-<img src="/assets/images/SN-03.jpeg" alt="Sensor Noise Series 03">
-<p class="caption">Sensor Noise · print + video composite</p>
-</div>
-<div>
-<img src="/assets/images/SN-04.jpeg" alt="Sensor Noise Series 04">
-<p class="caption">Sensor Noise · print + video composite</p>
-</div>
-<div>
-<img src="/assets/images/project3.jpg" alt="Collage Clip">
-<p class="caption">Visual collage clip · video still</p>
-</div>
-</div>
-</main>
-
-  
-<script>
-// remember scroll intent between pages (mobile)
-const links = document.querySelectorAll('.nav-tree a[href^="/"]');
-links.forEach(a => a.addEventListener('click', () => {
-if (window.matchMedia('(max-width: 760px)').matches) {
-sessionStorage.setItem('scrollToHeader', '1');
-}
-}));
-
-window.addEventListener('DOMContentLoaded', () => {
-if (sessionStorage.getItem('scrollToHeader') === '1') {
-sessionStorage.removeItem('scrollToHeader');
-const h1 = document.querySelector('main h1');
-if (h1) h1.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-});
-</script>
+ <!-- placeholders for 002–004 -->
+ <figure class="work"><img src="/assets/images/SN-02.jpeg" alt="Sensor Noise — composite 002"><figcaption>composite 002</figcaption></figure>
+ <figure class="work"><img src="/assets/images/SN-03.jpeg" alt="Sensor Noise — composite 003"><figcaption>composite 003</figcaption></figure>
+ <figure class="work"><img src="/assets/images/SN-04.jpeg" alt="Sensor Noise — composite 004"><figcaption>composite 004</figcaption></figure>
+ </div>
+ </main>
 </body>
 </html>
-
-
-
-
-
-
-
-
 
 
 
