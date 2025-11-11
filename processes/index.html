@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>processes · zayn wiwchar</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/landing.css">
+<style>
+ html, body { overflow:auto; }
+ .main-wrap { margin-left:320px; padding:3rem 2rem; max-width:1100px; }
+ h1 { font-size:2rem; margin:0 0 .75rem; font-weight:600; }
+ .lede { color:var(--muted,#666); margin:0 0 1.2rem; }
+ .toc { position:sticky; top:0; background:rgba(255,255,255,.85); backdrop-filter:blur(6px);
+ padding:.6rem .5rem; border-bottom:1px solid rgba(0,0,0,.08); margin-bottom:1rem; z-index:2; }
+ .toc a { margin-right:.8rem; text-decoration:none; }
+ section { margin:2rem 0; }
+ .badge { display:inline-block; font-size:.8rem; padding:.1rem .4rem; border-radius:6px;
+ background:rgba(0,0,0,.06); margin:.15rem .3rem 0 0; }
+ details { margin:.4rem 0 .2rem; }
+ summary { cursor:pointer; }
+ .pair { display:grid; grid-template-columns: 180px 1fr; gap:1rem; align-items:start; }
+ @media (max-width:760px){ .main-wrap{ margin-left:0; padding:2rem 1rem; } .pair{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<video class="bg" autoplay muted loop playsinline>
+ <source src="/assets/video/landing-loop.mp4" type="video/mp4">
+</video>
+
+<!-- reuse your existing sidebar -->
+<aside class="side">
+ <h1 class="name"><a href="/">zayn wiwchar</a></h1>
+ <p class="tagline">art · systems · sound</p>
+ <nav class="nav-tree">
+ <details>
+ <summary><span class="caret"></span>works</summary>
+ <div class="children">
+ <details>
+ <summary><span class="caret"></span>visual</summary>
+ <div class="children">
+ <a href="/works/visual/">overview</a>
+ <a href="/works/visual/sensor-noise/">sensor noise</a>
+ <a href="/works/visual/painting/">painting</a>
+ <a href="/works/visual/misc/">misc</a>
+ </div>
+ </details>
+ <details>
+ <summary><span class="caret"></span>audio</summary>
+ <div class="children"><a href="/works/audio/">overview</a></div>
+ </details>
+ </div>
+ </details>
+ <div class="single"><a href="/processes" aria-current="page">processes</a></div>
+ <details>
+ <summary><span class="caret"></span>about</summary>
+ <div class="children">
+ <a href="/about">bio / statement</a>
+ <a href="/about#cv">cv</a>
+ <a href="/contact">contact</a>
+ </div>
+ </details>
+ </nav>
+</aside>
+
+<main class="main-wrap">
+ <h1>processes</h1>
+ <p class="lede">minimal notes on how pieces are made. each step links to examples; examples link back.</p>
+
+ <nav class="toc" aria-label="on-page navigation">
+ <a href="#overview">overview</a>
+ <a href="#capture">capture</a>
+ <a href="#video-edit">video edit</a>
+ <a href="#photo-edit">photo edit</a>
+ <a href="#compose">compose</a>
+ <a href="#output">output</a>
+ <a href="#recipes">recipes</a>
+ <a href="#changelog">changelog</a>
+ <a href="#glossary">glossary</a>
+ </nav>
+
+ <section id="overview">
+ <div class="pair">
+ <strong>pipeline</strong>
+ <p><b>capture</b> → <b>video edit</b> → <b>photo edit</b> → <b>compose</b> → <b>output</b></p><div class="pipeline" role="img" aria-label="Process pipeline: capture → video edit → photo edit → compose → output">
+ <svg viewBox="0 0 1200 210" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+ <!-- arrow marker -->
+ <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+ <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+ </marker>
+ <!-- rounded rect bg -->
+ <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+ <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.12"/>
+ </filter>
+ </defs>
+
+ <!-- layout row y=100 -->
+ <!-- arrows -->
+ <g stroke="currentColor" stroke-width="2" fill="none" class="pipe">
+ <path d="M210,100 L330,100" marker-end="url(#arrow)"/>
+ <path d="M470,100 L590,100" marker-end="url(#arrow)"/>
+ <path d="M730,100 L850,100" marker-end="url(#arrow)"/>
+ <path d="M990,100 L1110,100" marker-end="url(#arrow)"/>
+ </g>
+
+ <!-- nodes (clickable) -->
+ <!-- capture -->
+ <a href="#capture">
+ <g transform="translate(70,46)" class="node">
+ <rect rx="14" ry="14" width="220" height="108" class="box" />
+ <text x="110" y="66" text-anchor="middle" class="t1">capture</text>
+ <text x="110" y="88" text-anchor="middle" class="t2">phone / dslr / field</text>
+ </g>
+ </a>
+
+ <!-- video edit -->
+ <a href="#video-edit">
+ <g transform="translate(330,46)" class="node">
+ <rect rx="14" ry="14" width="220" height="108" class="box" />
+ <text x="110" y="66" text-anchor="middle" class="t1">video edit</text>
+ <text x="110" y="88" text-anchor="middle" class="t2">trim · stabilize · artifacts</text>
+ </g>
+ </a>
+
+ <!-- photo edit -->
+ <a href="#photo-edit">
+ <g transform="translate(590,46)" class="node">
+ <rect rx="14" ry="14" width="220" height="108" class="box" />
+ <text x="110" y="66" text-anchor="middle" class="t1">photo edit</text>
+ <text x="110" y="88" text-anchor="middle" class="t2">stills · tone · texture</text>
+ </g>
+ </a>
+
+ <!-- compose -->
+ <a href="#compose">
+ <g transform="translate(850,46)" class="node">
+ <rect rx="14" ry="14" width="220" height="108" class="box" />
+ <text x="110" y="66" text-anchor="middle" class="t1">compose</text>
+ <text x="110" y="88" text-anchor="middle" class="t2">collage · sequence</text>
+ </g>
+ </a>
+
+ <!-- output -->
+ <a href="#output">
+ <g transform="translate(1110,46)" class="node">
+ <rect rx="14" ry="14" width="220" height="108" class="box" />
+ <text x="110" y="66" text-anchor="middle" class="t1">output</text>
+ <text x="110" y="88" text-anchor="middle" class="t2">print · web video</text>
+ </g>
+ </a>
+ </svg>
+</div>
+ </div>
+ </section>
+
+ <section id="capture">
+ <div class="pair">
+ <strong>capture</strong>
+ <div>
+ <p>record source material; allow sensor artifacts when they add meaning.</p>
+ <div>
+ <span class="badge">inputs: phone video</span>
+ <span class="badge">inputs: field audio</span>
+ <span class="badge">inputs: found footage</span>
+ </div>
+ <p><b>tools</b>: iPhone 13 Pro, Zoom H1n, ND filter</p>
+ <ul>
+ <li>4K/24; lock exposure; disable HDR; minimal stabilization.</li>
+ <li>ISO ≤ 800; above → lean into grain (Sensor Noise).</li>
+ </ul>
+ <details><summary>pitfalls</summary>
+ <ul><li>Over-stabilization causes wobble. Avoid auto HDR black crush.</li></ul>
+ </details>
+ <p><a href="/works/visual/sensor-noise/#ex-sn-glass-city">example: sensor noise · glass city ↗</a></p>
+ </div>
+ </div>
+ </section>
+
+ <section id="video-edit">
+ <div class="pair">
+ <strong>video edit</strong>
+ <div>
+ <p>trim, stabilize lightly, curate artifacts; maintain rhythm over polish.</p>
+ <p><b>tools</b>: Premiere Pro / Resolve</p>
+ <ul>
+ <li>Sequence 24 fps; color temp fixed; avoid heavy NR.</li>
+ <li>Export master ProRes 422; delivery H.264 (see recipes).</li>
+ </ul>
+ </div>
+ </div>
+ </section>
+
+ <section id="photo-edit">
+ <div class="pair">
+ <strong>photo edit</strong>
+ <div>
+ <p>extract stills; emphasize texture; prep for print.</p>
+ <p><b>tools</b>: Photoshop</p>
+ <ul>
+ <li>Curves S-shape (3–5%); selective clarity; keep filmic blacks.</li>
+ <li>Resize to print DPI; soft proof target paper.</li>
+ </ul>
+ </div>
+ </div>
+ </section>
+
+ <section id="compose">
+ <div class="pair">
+ <strong>compose</strong>
+ <div>
+ <p>collage & sequencing; micro-rhythm decides order; accept asymmetry.</p>
+ <ul><li>Board vs timeline: choose by story density.</li></ul>
+ </div>
+ </div>
+ </section>
+
+ <section id="output">
+ <div class="pair">
+ <strong>output</strong>
+ <div>
+ <p>print & video delivery standards.</p>
+ <ul>
+ <li>Print: Hahnemühle Photo Rag 308; perceptual intent; embed profile.</li>
+ <li>Video: 1080×1350 / 1920×1080; H.264 2-pass 12–16 Mbps; -1 dBTP, -14 LUFS.</li>
+ </ul>
+ </div>
+ </div>
+ </section>
+
+ <section id="recipes">
+ <div class="pair">
+ <strong>recipes</strong>
+ <div>
+ <p><b>SN–Still Extract</b>: PNG16 → PS curve/clarity → soft proof → TIFF w/ profile.</p>
+ <p><b>IG 1080×1350 Export</b>: H.264 2-pass 12–16 Mbps; audio -14 LUFS; -1 dBTP.</p>
+ </div>
+ </div>
+ </section>
+
+ <section id="changelog">
+ <div class="pair">
+ <strong>changelog</strong>
+ <div>
+ <ul>
+ <li><b>2025-11-10</b> — added SN still-extract curve; updated IG export bitrates.</li>
+ </ul>
+ </div>
+ </div>
+ </section>
+
+ <section id="glossary">
+ <div class="pair">
+ <strong>glossary</strong>
+ <div>
+ <p><b>artifact curation</b> — treating sensor errors as material to shape.</p>
+ <p><b>soft proof</b> — simulate paper/profile before printing.</p>
+ </div>
+ </div>
+ </section>
+</main>
+
+</body>
+</html>
