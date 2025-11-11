@@ -254,7 +254,47 @@ details[open] .children {
 @media (prefers-reduced-motion: reduce) {
  .children { transition: none; }
  summary, .children a, .single a { transition: none; }
+
+ /* --- collapsible tags block --- */
+.tags-block {
+margin-top: 0.4rem;
+font-size: 0.85rem;
 }
+
+/* summary button styling */
+.tags-block summary {
+list-style: none;
+cursor: pointer;
+padding: 0.25rem 0.4rem;
+border-radius: 4px;
+background: rgba(0,0,0,0.04);
+color: var(--muted, #666);
+transition: background 0.15s ease;
+width: fit-content;
+}
+.tags-block summary:hover {
+background: rgba(0,0,0,0.08);
+}
+.tags-block summary::marker { display: none; }
+
+/* animate open/close */
+.tags-block[open] .tags {
+animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+from { opacity: 0; transform: translateY(-2px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+/* make tag layout behave normally inside */
+.tags-block .tags {
+display: flex;
+flex-wrap: wrap;
+gap: 0.35rem;
+margin-top: 0.4rem;
+}
+}
+
 
 
 
