@@ -57,6 +57,19 @@ color: var(--muted, #666);
   font-size: .9rem;
   color: var(--muted, #666);
 }
+
+@media (min-width: 880px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 879px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
   
 /* optional: highlight current nav link */
 .nav-tree .children a[aria-current="page"]{
@@ -199,6 +212,7 @@ if (h1) h1.scrollIntoView({ behavior: 'smooth', block: 'start' });
 </script>
 </body>
 </html>
+
 
 
 
