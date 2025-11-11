@@ -55,20 +55,6 @@ mix-blend-mode: multiply;
 z-index: 0;
 }
 
-/* subtle background video */
-video.bg {
-position: fixed;
-inset: 0;
-width: 100%;
-height: 100%;
-object-fit: cover;
-opacity: .12;
-filter: grayscale(.4) contrast(1.05);
-z-index: -2;
-pointer-events: none;
-animation: fadeIn 1.2s ease both;
-}
-@keyframes fadeIn { from { opacity: 0; } to { opacity: .12; } }
 
 /* translucent sidebar */
 .side {
@@ -273,5 +259,6 @@ overflow: visible;
 padding-bottom: 1rem;
 }
 }
+
 
 
