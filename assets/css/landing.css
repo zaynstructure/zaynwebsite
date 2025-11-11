@@ -327,10 +327,10 @@ text-decoration: underline;
 .crumbs { display: none; }
 }
 
-/* Centered Vimeo clip on landing */
+/* Shared Vimeo styling */
 .landing-video {
-width: min(70vw, 800px);
-margin: 2rem auto 2.5rem;
+width: min(60vw, 900px);
+aspect-ratio: 16 / 9;
 border-radius: 8px;
 overflow: hidden;
 box-shadow: 0 0 40px rgba(0,0,0,.05);
@@ -343,15 +343,30 @@ filter: grayscale(10%) contrast(1.05);
 opacity: 0.9;
 transition: opacity .3s ease;
 }
-.landing-video iframe:hover {
-opacity: 1;
+.landing-video iframe:hover { opacity: 1; }
+
+/* Desktop layout — video beside sidebar */
+.landing-main {
+margin-left: var(--side-w);
+display: flex;
+align-items: center;
+justify-content: center;
+height: 100vh;
+background: var(--bg);
 }
+.desktop-only { display: block; }
+.in-menu { display: none; }
+
+/* Mobile — video moves into sidebar */
 @media (max-width:760px){
-.landing-video {
-width: 90vw;
-margin: 1.5rem auto 2rem;
+.landing-main { display: none; } /* hide right column */
+.in-menu {
+display: block;
+width: 100%;
+margin: 1rem 0 1.5rem;
 }
 }
+
 
 
 
