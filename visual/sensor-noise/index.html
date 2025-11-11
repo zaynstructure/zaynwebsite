@@ -152,38 +152,10 @@
  <figure class="work"><img src="/assets/images/SN-04.jpeg" alt="Sensor Noise — composite 004"><figcaption>composite 004</figcaption></figure>
  </div>
  </main>
-
- <script>
-// Close open <details> after navigating, only on small screens
-document.querySelectorAll('.nav-tree a[href^="/"]').forEach(a=>{
-a.addEventListener('click', () => {
-if (window.matchMedia('(max-width:760px)').matches) {
-document.querySelectorAll('.nav-tree details[open]').forEach(d => d.open = false);
-}
-});
-});
-</script>
-
-<script>
-// remember scroll intent between pages (mobile)
-const links = document.querySelectorAll('.nav-tree a[href^="/"]');
-links.forEach(a => a.addEventListener('click', () => {
-if (window.matchMedia('(max-width: 760px)').matches) {
-sessionStorage.setItem('scrollToHeader', '1');
-}
-}));
-
-window.addEventListener('DOMContentLoaded', () => {
-if (sessionStorage.getItem('scrollToHeader') === '1') {
-sessionStorage.removeItem('scrollToHeader');
-const h1 = document.querySelector('main h1');
-if (h1) h1.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-});
-</script>
  <script src="/assets/js/global.js"></script>
 </body>
 </html>
+
 
 
 
