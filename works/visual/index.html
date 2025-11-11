@@ -136,7 +136,26 @@ document.querySelectorAll('.nav-tree details[open]').forEach(d => d.open = false
 });
 });
 </script>
+
+<script>
+// remember scroll intent between pages (mobile)
+const links = document.querySelectorAll('.nav-tree a[href^="/"]');
+links.forEach(a => a.addEventListener('click', () => {
+if (window.matchMedia('(max-width: 760px)').matches) {
+sessionStorage.setItem('scrollToHeader', '1');
+}
+}));
+
+window.addEventListener('DOMContentLoaded', () => {
+if (sessionStorage.getItem('scrollToHeader') === '1') {
+sessionStorage.removeItem('scrollToHeader');
+const h1 = document.querySelector('main h1');
+if (h1) h1.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+});
+</script>
 </body>
 </html>
+
 
 
