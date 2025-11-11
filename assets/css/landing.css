@@ -293,14 +293,19 @@ text-transform: lowercase;
  background: rgba(0,0,0,0.04);
 
  /* Fullscreen background video for landing */
-body.is-landing .landing-bg {
+
+body.is-landing {
+margin: 0;
+overflow: hidden;
+background: #000;
+}
+.landing-bg {
 position: fixed;
 inset: 0;
-z-index: -1; /* stays behind sidebar */
+z-index: -1;
 overflow: hidden;
 }
-
-body.is-landing .landing-bg iframe {
+.landing-bg iframe {
 position: absolute;
 top: 50%;
 left: 50%;
@@ -310,9 +315,8 @@ transform: translate(-50%, -50%);
 object-fit: cover;
 pointer-events: none;
 filter: grayscale(10%) contrast(1.05);
-opacity: 0.95; /* adjust for mood */
+opacity: 0.95;
 }
-
 
 
 
