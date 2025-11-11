@@ -19,15 +19,19 @@
 <body class="is-landing">
 
 <!-- Fullscreen background video -->
-<div class="landing-bg" aria-hidden="true">
-<iframe
-src="https://player.vimeo.com/video/1123455684?background=1&autoplay=1&muted=1&loop=1&byline=0&title=0&portrait=0&controls=0"
-frameborder="0"
-allow="autoplay; fullscreen; picture-in-picture"
-allowfullscreen
-loading="eager"
-></iframe>
-</div>
+body.is-landing .landing-bg iframe {
+position: absolute;
+top: 50%;
+left: 50%;
+width: 120vw;
+height: 120vh;
+transform: translate(-50%, -50%);
+object-fit: cover;
+pointer-events: none;
+filter: grayscale(10%) contrast(1.05);
+opacity: 0.95; /* adjust for mood */
+}
+
 
 
 <!-- Sidebar menu (on top of video) -->
@@ -82,6 +86,7 @@ loading="eager"
 <script src="/assets/js/global.js" defer></script>
 </body>
 </html>
+
 
 
 
