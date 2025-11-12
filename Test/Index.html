@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Audio Test</title></head>
+<body style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#111;color:#fff;font-family:system-ui">
+  <button id="btn" style="padding:1rem 2rem;font-size:1.25rem;">Tap to enable sound</button>
+
+  <script>
+    let audioCtx, booted=false;
+    document.getElementById('btn').addEventListener('click', async ()=>{
+      if (!audioCtx){
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtx();
+      }
+      if (audioCtx.state !== 'running'){
+        await audioCtx.resume();
+      }
+      // silent unlock
+      const buf = audioCtx.createBuffer(1,1,audioCtx.sampleRate);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
+      booted = true;
+      console.log('booted, state=', audioCtx.state);
+      btn.textContent = 'Play sound';
+    });
+
+    document.getElementById('btn').addEventListener('click', ()=>{
+      if (!booted) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type='triangle';
+      osc.frequency.value=440;
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now+0.9);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(now); osc.stop(now+1);
+      console.log('played sound');
+    });
+  </script>
+</body>
+</html>
