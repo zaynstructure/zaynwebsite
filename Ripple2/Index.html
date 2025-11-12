@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ripple Reveal · Ambient (Mobile Audio Fix)</title>
+<title>Ripple Reveal · Ambient</title>
 <style>
   html,body { margin:0; height:100%; background:#000; }
   .stage { position:fixed; inset:0; overflow:hidden; }
@@ -35,7 +35,7 @@
   <div class="bg">
     <!-- If this is a user/org site, change to /assets/... -->
     <video id="bgVideo" muted playsinline loop preload="auto">
-      <source src="/zaynwebsite/assets/videos/Landingloop.mp4" type="video/mp4">
+      <source src="/assets/videos/Landingloop.mp4" type="video/mp4">
     </video>
   </div>
   <canvas id="c"></canvas>
@@ -54,7 +54,7 @@
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
 
-  const COVER_ALPHA=0.85, RING_COUNT=4, RING_SPACING=30, BASE_WIDTH=2, LIFE_MS=1600, SPEED=220;
+  const COVER_ALPHA=1.25, RING_COUNT=4, RING_SPACING=30, BASE_WIDTH=2, LIFE_MS=1600, SPEED=220;
   const EDGE='hsla(210,8%,80%,ALPHA)';
   const SHADOW_ALPHA=0.16, SHADOW_BLUR=4, SHADOW_OFFSET_Y=1, SHADOW_WIDTH_SCALE=1.12;
 
