@@ -3,128 +3,97 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ripple Reveal</title>
+<title>Ripple Reveal – Organic Variation</title>
 <style>
 html,body { margin:0; height:100%; background:#000; }
-.stage {
-position:fixed; inset:0; overflow:hidden;
-}
-/* Background can be a VIDEO or an IMG. Keep both; use one at a time. */
-.bg, .bg > * {
-position:absolute; inset:0; width:100%; height:100%;
-object-fit:cover; display:block;
-}
+.stage { position:fixed; inset:0; overflow:hidden; }
+.bg, .bg > * { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.bg { pointer-events:none; }
 canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
 </style>
 </head>
 <body>
 <div class="stage">
 <div class="bg">
-<!-- VIDEO background example -->
-<video id="bgVideo" autoplay muted loop playsinline>
-<!-- Replace with your file(s): -->
+<video id="bgVideo" muted playsinline loop preload="auto">
 <source src="/assets/videos/Landingloop.mp4" type="video/mp4">
 </video>
-
-<!-- IMAGE background example (uncomment if you prefer an image) -->
-<!-- <img src="your-image.jpg" alt="" /> -->
 </div>
-
 <canvas id="c"></canvas>
 </div>
 
 <script>
 (() => {
+const video = document.getElementById('bgVideo');
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-// ----------------- Tweakables -----------------
-const COVER_ALPHA = 1.5; // Dark cover opacity: 0 (none) → 1 (opaque)
-const RING_COUNT = 5; // Rings per ripple
-const RING_SPACING= 30; // px between rings
-const LINE_WIDTH = 2; // ring stroke width
-const LIFE_MS = 1400; // ripple lifetime
-const SPEED_PX_S = 220; // base expansion speed
-const OUTLINE_ALPHA = 0.35; // faint outline on ring edge
-const OUTLINE_COLOR = 'hsl(210,8%,75%)'; // subtle, muted edge
-// ---------------------------------------------
+const COVER_ALPHA=1.25, RING_COUNT=4, RING_SPACING=30, BASE_WIDTH=2, LIFE_MS=1600, SPEED=220;
+const EDGE='hsla(210,8%,80%,ALPHA)';
 
-// DPR scaling
-let dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+let dpr = window.devicePixelRatio || 1;
 function resize(){
-dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-const w = innerWidth, h = innerHeight;
-canvas.width = Math.floor(w * dpr);
-canvas.height = Math.floor(h * dpr);
-canvas.style.width = w + 'px';
-canvas.style.height = h + 'px';
+const w=innerWidth,h=innerHeight;
+dpr=Math.min(3,Math.max(1,dpr));
+canvas.width=w*dpr; canvas.height=h*dpr;
+canvas.style.width=w+'px'; canvas.style.height=h+'px';
 ctx.setTransform(dpr,0,0,dpr,0,0);
-ctx.lineWidth = LINE_WIDTH;
 }
-addEventListener('resize', resize, {passive:true});
-resize();
+window.addEventListener('resize',resize,{passive:true}); resize();
 
-const ripples = [];
-function addRipple(x, y){ ripples.push({x, y, t0: performance.now()}); }
+// ensure autoplay works
+function tryPlay(){ const p=video.play?.(); if(p?.catch) p.catch(()=>{}); }
+video.addEventListener('canplay',tryPlay);
+addEventListener('pointerdown',tryPlay,{once:true,passive:true});
+tryPlay();
 
-// Input
-canvas.addEventListener('pointerdown', e => addRipple(e.clientX, e.clientY), {passive:true});
-canvas.addEventListener('touchstart', e => {
-const t = e.touches[0]; if (t) addRipple(t.clientX, t.clientY);
-}, {passive:true});
+const ripples=[];
+function addRipple(x,y){
+ripples.push({
+x,y,
+t0:performance.now(),
+// random variation per ripple
+opacity:0.2+Math.random()*0.6, // 0.2–0.8
+widthJitter:0.5+Math.random()*1.5, // scale for line width
+});
+}
+canvas.addEventListener('pointerdown',e=>addRipple(e.clientX,e.clientY),{passive:true});
 
-// Animation
-let last = performance.now();
 function frame(now){
-const dt = now - last; last = now;
-const t = now;
+ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
+ctx.fillStyle=`rgba(0,0,0,${COVER_ALPHA})`;
+ctx.fillRect(0,0,canvas.width/dpr,canvas.height/dpr);
 
-// 1) Repaint a full cover each frame (ensures previous holes are re-covered)
-ctx.clearRect(0,0,canvas.width/dpr, canvas.height/dpr);
-ctx.fillStyle = `rgba(0,0,0,${COVER_ALPHA})`;
-ctx.fillRect(0,0,canvas.width/dpr, canvas.height/dpr);
+for(let i=ripples.length-1;i>=0;i--){
+const r=ripples[i];
+const age=now-r.t0;
+if(age>LIFE_MS){ ripples.splice(i,1); continue; }
+const base=(age/1000)*SPEED;
+const life=1-age/LIFE_MS;
+const baseAlpha=(r.opacity*life).toFixed(3);
+const width=BASE_WIDTH*r.widthJitter*(1+0.3*Math.sin(age*0.005));
 
-// 2) Draw ripples as transparent cuts + optional faint outline
-for (let i = ripples.length - 1; i >= 0; i--) {
-const r = ripples[i];
-const age = t - r.t0;
-if (age > LIFE_MS) { ripples.splice(i,1); continue; }
-
-const base = (age/1000) * SPEED_PX_S;
-const lifeRatio = 1 - age / LIFE_MS;
-const outlineAlpha = Math.max(0, lifeRatio) * OUTLINE_ALPHA;
-
-// a) Punch transparency (reveal bg) along ring strokes
-ctx.globalCompositeOperation = 'destination-out';
-ctx.lineWidth = LINE_WIDTH;
-ctx.strokeStyle = 'rgba(0,0,0,1)'; // color irrelevant in destination-out
-for (let k = 0; k < RING_COUNT; k++){
-const radius = base + k * RING_SPACING;
-if (radius <= 0) continue;
-ctx.beginPath();
-ctx.arc(r.x, r.y, radius, 0, Math.PI*2);
-ctx.stroke();
+// cut through veil
+ctx.globalCompositeOperation='destination-out';
+ctx.strokeStyle='rgba(0,0,0,1)';
+ctx.lineWidth=width;
+for(let k=0;k<RING_COUNT;k++){
+const rad=base+k*RING_SPACING; if(rad<=0) continue;
+ctx.beginPath(); ctx.arc(r.x,r.y,rad,0,Math.PI*2); ctx.stroke();
 }
 
-// b) Optional faint outline on top for minimal definition
-if (outlineAlpha > 0.01){
-ctx.globalCompositeOperation = 'source-over';
-// Convert HSL to HSLA without creating a new function
-const edge = OUTLINE_COLOR.replace('hsl','hsla').replace(')',`,`+outlineAlpha.toFixed(3)+`)`);
-ctx.strokeStyle = edge;
-for (let k = 0; k < RING_COUNT; k++){
-const radius = base + k * RING_SPACING;
-if (radius <= 0) continue;
-ctx.beginPath();
-ctx.arc(r.x, r.y, radius, 0, Math.PI*2);
-ctx.stroke();
-}
+// soft edge highlight
+ctx.globalCompositeOperation='source-over';
+const edge=EDGE.replace('ALPHA',(baseAlpha*0.4).toString());
+ctx.strokeStyle=edge;
+ctx.lineWidth=width;
+for(let k=0;k<RING_COUNT;k++){
+const rad=base+k*RING_SPACING; if(rad<=0) continue;
+ctx.beginPath(); ctx.arc(r.x,r.y,rad,0,Math.PI*2); ctx.stroke();
 }
 }
 
-// Reset comp op
-ctx.globalCompositeOperation = 'source-over';
-
+ctx.globalCompositeOperation='source-over';
 requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
