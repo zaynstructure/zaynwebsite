@@ -65,8 +65,27 @@
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
 
-  const COVER_ALPHA=1.15, RING_COUNT=4, RING_SPACING=30, BASE_WIDTH=2, LIFE_MS=1000, SPEED=220;
-  const EDGE='hsla(210,8%,80%,ALPHA)';
+  // --- Ripple appearance controls ---
+const COVER_ALPHA = 1.15,
+      RING_COUNT = 4,
+      RING_SPACING = 30,
+      BASE_WIDTH = 2,
+      LIFE_MS = 1000,
+      SPEED = 220;
+
+// brightness + fade controls
+const RING_GAIN = 1.2;          // ↑ brighter outline, ↓ dimmer (try 0.6–1.8)
+const EDGE_LIGHTNESS = 88;      // % lightness of edge
+const EDGE_SAT = 6;             // % saturation
+const REVEAL_STRENGTH = 1.15;   // ↑ shows more video (stronger cut)
+const FADE_EXP = 1.6;           // lower = longer/brighter linger
+const RING_FALLOFF = 0.9;       // <1 dims outer rings, >1 brightens
+
+// helper for edge color
+function edgeColor(alpha){
+  return `hsla(210, ${EDGE_SAT}%, ${EDGE_LIGHTNESS}%, ${alpha})`;
+}
+  
   const SHADOW_ALPHA=0.16, SHADOW_BLUR=4, SHADOW_OFFSET_Y=1, SHADOW_WIDTH_SCALE=1.12;
 
   let dpr = window.devicePixelRatio || 1;
@@ -113,28 +132,31 @@
       const fade = Math.pow(life, 1.8);   // mid-linger
       const baseAlpha = r.opacity * fade;
 
-      const width=BASE_WIDTH*r.widthJitter*(1+0.75*Math.sin(age*0.005));
+      const width=BASE_WIDTH*r.widthJitter*(1+0.75*Math.sin(age*
 
-      // reveal (mask)
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.strokeStyle = `rgba(0,0,0,${fade.toFixed(3)})`;
-      ctx.lineWidth = width;
-      for (let k = 0; k < RING_COUNT; k++) {
-        const rad = (base + k * RING_SPACING) * r.sizeMul;
-        if (rad <= 0) continue;
-        ctx.beginPath();
-        ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+             for (let k = 0; k < RING_COUNT; k++) {
+  const rad = (base + k * RING_SPACING) * r.sizeMul;
+  if (rad <= 0) continue;
+  const ringGain = Math.pow(RING_FALLOFF, k);}
+      
 
-      // edge
-      ctx.globalCompositeOperation='source-over';
-      const edge=EDGE.replace('ALPHA',(baseAlpha*0.4).toFixed(3));
-      ctx.strokeStyle=edge; ctx.lineWidth=width;
-      for(let k=0;k<RING_COUNT;k++){
-        const rad=(base+k*RING_SPACING)*r.sizeMul; if(rad<=0) continue;
-        ctx.beginPath(); ctx.arc(r.x,r.y,rad,0,Math.PI*2); ctx.stroke();
-      }
+  // reveal mask
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.strokeStyle = `rgba(0,0,0,${Math.min(1, fade * REVEAL_STRENGTH * ringGain).toFixed(3)})`;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // edge
+  ctx.globalCompositeOperation = 'source-over';
+  const edgeAlpha = baseAlpha * 0.4 * RING_GAIN * ringGain;
+  ctx.strokeStyle = edgeColor(edgeAlpha.toFixed(3));
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
+  ctx.stroke();
+}                                               
 
       // depth shadow
       if (r.depth && baseAlpha>0.02){
