@@ -47,6 +47,20 @@ transition: filter .3s ease, transform .3s ease;
 .media:hover { filter: none; transform: scale(1.02); }
 figcaption { margin-top: .6rem; font-size: .9rem; color: var(--muted,#666); }
 .meta { margin-top: .25rem; font-size: .8rem; color: var(--muted,#666); }
+.clip {
+width: 100%;
+height: auto;
+border-radius: 6px;
+object-fit: contain; /* or 'cover' for fill + crop */
+background: #000;
+filter: grayscale(.05) contrast(1.05);
+transition: filter .3s ease, transform .3s ease;
+}
+.clip:hover {
+filter: none;
+transform: scale(1.02);
+}
+  
 </style>
 </head>
 
