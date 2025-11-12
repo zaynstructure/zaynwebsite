@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ripple Reveal · Ambient</title>
+<title>Ripples · Ambient</title>
 <style>
   html,body { margin:0; height:100%; background:#000; }
   .stage { position:fixed; inset:0; overflow:hidden; }
@@ -57,7 +57,9 @@
   <button id="soundBtn" class="btn">sound: enable</button>
   <div id="badge">AUDIO: OFF</div>
 </div>
-
+<audio id="padEl" loop preload="auto">
+  <source src="/assets/Ripplesloop.m4a" type="audio/mp4">   <!-- AAC -->
+</audio>
 <script>
 (() => {
   // ---------------- Visuals ----------------
