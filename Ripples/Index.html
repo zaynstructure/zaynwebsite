@@ -506,15 +506,15 @@ function addRipple(x, y, opts = {}) {
     if (document.visibilityState === 'visible' && audioCtx.state !== 'running') {
       audioCtx.resume().catch(()=>{});
     }
-  });
-  // --- Instruction fade-in/out ---
-const instr = document.getElementById('instruction');
 
-// show briefly on load
-setTimeout(() => instr.style.opacity = 1, 300);  // fade in after 0.3s
-setTimeout(() => instr.style.opacity = 0, 6000); // fade out after 6s
-})();
-</script>
+  // --- Instruction fade-in/out ---
+window.addEventListener('load', () => {
+  const instr = document.getElementById('instruction');
+  if (!instr) return;
+  instr.style.opacity = 1;          // fade in immediately
+  setTimeout(() => instr.style.opacity = 0, 6000); // fade out after 6s
+});
+  
 <div id="instruction"> tap to begin · turn off silent mode for sound</div>
 <div id="credit">v1 · zayn wiwchar</div>
 </body>
