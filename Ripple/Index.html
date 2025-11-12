@@ -2,94 +2,136 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hold Ripple</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ripple Reveal</title>
 <style>
-  html,body{
-    margin:0;height:100%;background:#0e0e10;overflow:hidden;
-    touch-action:none; /* disable browser zoom, text-select, hold menu */
-    user-select:none;
-  }
-  canvas{width:100%;height:100%;display:block;}
+html,body { margin:0; height:100%; background:#000; }
+.stage {
+position:fixed; inset:0; overflow:hidden;
+}
+/* Background can be a VIDEO or an IMG. Keep both; use one at a time. */
+.bg, .bg > * {
+position:absolute; inset:0; width:100%; height:100%;
+object-fit:cover; display:block;
+}
+canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
 </style>
 </head>
 <body>
+<div class="stage">
+<div class="bg">
+<!-- VIDEO background example -->
+<video id="bgVideo" autoplay muted loop playsinline>
+<!-- Replace with your file(s): -->
+<source src="your-video.mp4" type="video/mp4">
+</video>
+
+<!-- IMAGE background example (uncomment if you prefer an image) -->
+<!-- <img src="your-image.jpg" alt="" /> -->
+</div>
+
 <canvas id="c"></canvas>
+</div>
+
 <script>
+(() => {
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-let dpr = window.devicePixelRatio || 1;
+
+// ----------------- Tweakables -----------------
+const COVER_ALPHA = 0.88; // Dark cover opacity: 0 (none) → 1 (opaque)
+const RING_COUNT = 4; // Rings per ripple
+const RING_SPACING= 30; // px between rings
+const LINE_WIDTH = 2; // ring stroke width
+const LIFE_MS = 1400; // ripple lifetime
+const SPEED_PX_S = 220; // base expansion speed
+const OUTLINE_ALPHA = 0.35; // faint outline on ring edge
+const OUTLINE_COLOR = 'hsl(210,8%,75%)'; // subtle, muted edge
+// ---------------------------------------------
+
+// DPR scaling
+let dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 function resize(){
-  canvas.width = innerWidth * dpr;
-  canvas.height = innerHeight * dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+const w = innerWidth, h = innerHeight;
+canvas.width = Math.floor(w * dpr);
+canvas.height = Math.floor(h * dpr);
+canvas.style.width = w + 'px';
+canvas.style.height = h + 'px';
+ctx.setTransform(dpr,0,0,dpr,0,0);
+ctx.lineWidth = LINE_WIDTH;
 }
+addEventListener('resize', resize, {passive:true});
 resize();
-window.addEventListener('resize', resize);
 
 const ripples = [];
-let holdStart = null;
+function addRipple(x, y){ ripples.push({x, y, t0: performance.now()}); }
 
-function randomColor(){
-  const h = Math.floor(Math.random()*360);
-  return `hsl(${h},80%,60%)`;
+// Input
+canvas.addEventListener('pointerdown', e => addRipple(e.clientX, e.clientY), {passive:true});
+canvas.addEventListener('touchstart', e => {
+const t = e.touches[0]; if (t) addRipple(t.clientX, t.clientY);
+}, {passive:true});
+
+// Animation
+let last = performance.now();
+function frame(now){
+const dt = now - last; last = now;
+const t = now;
+
+// 1) Repaint a full cover each frame (ensures previous holes are re-covered)
+ctx.clearRect(0,0,canvas.width/dpr, canvas.height/dpr);
+ctx.fillStyle = `rgba(0,0,0,${COVER_ALPHA})`;
+ctx.fillRect(0,0,canvas.width/dpr, canvas.height/dpr);
+
+// 2) Draw ripples as transparent cuts + optional faint outline
+for (let i = ripples.length - 1; i >= 0; i--) {
+const r = ripples[i];
+const age = t - r.t0;
+if (age > LIFE_MS) { ripples.splice(i,1); continue; }
+
+const base = (age/1000) * SPEED_PX_S;
+const lifeRatio = 1 - age / LIFE_MS;
+const outlineAlpha = Math.max(0, lifeRatio) * OUTLINE_ALPHA;
+
+// a) Punch transparency (reveal bg) along ring strokes
+ctx.globalCompositeOperation = 'destination-out';
+ctx.lineWidth = LINE_WIDTH;
+ctx.strokeStyle = 'rgba(0,0,0,1)'; // color irrelevant in destination-out
+for (let k = 0; k < RING_COUNT; k++){
+const radius = base + k * RING_SPACING;
+if (radius <= 0) continue;
+ctx.beginPath();
+ctx.arc(r.x, r.y, radius, 0, Math.PI*2);
+ctx.stroke();
 }
 
-function addRipple(x, y, holdTime){
-  // duration and size scale with hold time (0.3s → min; 2s → max)
-  const duration = 800 + Math.min(holdTime, 2000);
-  const scale = 0.18 + 0.18 * Math.min(holdTime, 2000)/2000;
-  ripples.push({x, y, t0: performance.now(), color: randomColor(), dur: duration, scale});
+// b) Optional faint outline on top for minimal definition
+if (outlineAlpha > 0.01){
+ctx.globalCompositeOperation = 'source-over';
+// Convert HSL to HSLA without creating a new function
+const edge = OUTLINE_COLOR.replace('hsl','hsla').replace(')',`,`+outlineAlpha.toFixed(3)+`)`);
+ctx.strokeStyle = edge;
+for (let k = 0; k < RING_COUNT; k++){
+const radius = base + k * RING_SPACING;
+if (radius <= 0) continue;
+ctx.beginPath();
+ctx.arc(r.x, r.y, radius, 0, Math.PI*2);
+ctx.stroke();
+}
+}
 }
 
-function getPos(e){
-  if(e.touches && e.touches[0]) return {x:e.touches[0].clientX, y:e.touches[0].clientY};
-  return {x:e.clientX, y:e.clientY};
+// Reset comp op
+ctx.globalCompositeOperation = 'source-over';
+
+requestAnimationFrame(frame);
 }
-
-// prevent long-press menu on mobile
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-// Track hold start/end
-canvas.addEventListener('pointerdown', e=>{
-  holdStart = {t: performance.now(), ...getPos(e)};
-});
-canvas.addEventListener('pointerup', e=>{
-  if(!holdStart) return;
-  const holdTime = performance.now() - holdStart.t;
-  addRipple(holdStart.x, holdStart.y, holdTime);
-  holdStart = null;
-});
-canvas.addEventListener('pointercancel', ()=>holdStart=null);
-canvas.addEventListener('pointerleave', ()=>holdStart=null);
-
-function draw(now){
-  ctx.fillStyle='rgba(14,14,16,0.08)';
-  ctx.fillRect(0,0,canvas.width/dpr,canvas.height/dpr);
-
-  for(let i=ripples.length-1;i>=0;i--){
-    const r = ripples[i];
-    const age = now - r.t0;
-    const t = age / r.dur;
-    if(t >= 1){ ripples.splice(i,1); continue; }
-
-    const base = (age * 0.25) * r.scale; // expansion speed scales
-    const alpha = (1 - t) ** 1.3;
-    ctx.strokeStyle = r.color.replace('hsl','hsla').replace(')',`,`+(alpha*0.9)+`)`);
-    ctx.lineWidth = 2;
-    for(let j=0;j<5;j++){
-      ctx.beginPath();
-      ctx.arc(r.x, r.y, base + j*25, 0, Math.PI*2);
-      ctx.stroke();
-    }
-  }
-  requestAnimationFrame(draw);
-}
-requestAnimationFrame(draw);
+requestAnimationFrame(frame);
+})();
 </script>
 </body>
 </html>
-
 
 
 
