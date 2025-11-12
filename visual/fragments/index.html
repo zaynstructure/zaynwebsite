@@ -164,6 +164,22 @@ transform: scale(1.02);
 </main>
 
 <script src="/assets/js/global.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+const clips = document.querySelectorAll('video.clip');
+const io = new IntersectionObserver(entries => {
+entries.forEach(({target, isIntersecting}) => {
+if (isIntersecting) {
+target.play().catch(() => {});
+} else {
+target.pause();
+target.currentTime = 0;
+}
+});
+}, {threshold: 0.35});
+clips.forEach(v => io.observe(v));
+});
+</script>
 </body>
 </html>
 
