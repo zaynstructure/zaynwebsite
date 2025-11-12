@@ -103,18 +103,23 @@
   addEventListener('pointerdown', tryPlay, {once:true, passive:true});
   tryPlay();
 
-  const ripples=[];
-  function addRipple(x,y,opts={}){
-    ripples.push({
-      x,y,t0:performance.now(),
-      opacity:opts.opacity ?? (0.25+Math.random()*0.5),
-      widthJitter:opts.widthJitter ?? (0.8+Math.random()*0.8),
-      life:opts.life ?? LIFE_MS,
-      speed:opts.speed ?? SPEED,
-      sizeMul:opts.sizeMul ?? 1,
-      depth:!!opts.depth
-    });
-  }
+  const ripples = [];
+
+function addRipple(x, y, opts = {}) {
+  ripples.push({
+    x,
+    y,
+    t0: performance.now(),
+
+    // --- organic settings ---
+    opacity: opts.opacity ?? (0.35 + Math.random() * 0.25),   // brightness variation
+    widthJitter: opts.widthJitter ?? (0.85 + Math.random() * 0.45), // organic line width
+    sizeMul: opts.sizeMul ?? (0.95 + Math.random() * 0.15),   // radius wobble
+    life: opts.life ?? LIFE_MS * (1.15 + Math.random() * 0.25), // linger differences
+    speed: opts.speed ?? SPEED * (0.9 + Math.random() * 0.15),   // speed variation
+    depth: opts.depth ?? false
+  });
+}
 
   function frame(now){
     ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
