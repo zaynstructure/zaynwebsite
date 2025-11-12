@@ -39,6 +39,22 @@
     user-select:none;
     z-index:1;
   }
+ #instruction {
+  position: fixed;
+  bottom: 50%;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  font: 500 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.5px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.5s ease;
+  text-align: center;
+  z-index: 3;
+}
+
+  
 </style>
 </head>
 <body>
@@ -50,6 +66,8 @@
   </div>
   <canvas id="c"></canvas>
 </div>
+
+
 
 <div id="ui">
   <button id="modeSetBtn" class="btn">set: D-minorish</button>
@@ -489,6 +507,12 @@ function addRipple(x, y, opts = {}) {
       audioCtx.resume().catch(()=>{});
     }
   });
+  // --- Instruction fade-in/out ---
+const instr = document.getElementById('instruction');
+
+// show briefly on load
+setTimeout(() => instr.style.opacity = 1, 300);  // fade in after 0.3s
+setTimeout(() => instr.style.opacity = 0, 6000); // fade out after 6s
 })();
 </script>
 
