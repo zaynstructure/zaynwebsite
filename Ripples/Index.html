@@ -54,7 +54,7 @@
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
 
-  const COVER_ALPHA=1.25, RING_COUNT=4, RING_SPACING=30, BASE_WIDTH=2, LIFE_MS=1600, SPEED=220;
+  const COVER_ALPHA=1.15, RING_COUNT=4, RING_SPACING=30, BASE_WIDTH=2, LIFE_MS=1000, SPEED=220;
   const EDGE='hsla(210,8%,80%,ALPHA)';
   const SHADOW_ALPHA=0.16, SHADOW_BLUR=4, SHADOW_OFFSET_Y=1, SHADOW_WIDTH_SCALE=1.12;
 
@@ -103,7 +103,7 @@
       const fade = Math.pow(life, 1.8);   // mid-linger fade curve
       const baseAlpha = r.opacity * fade;
 
-      const width=BASE_WIDTH*r.widthJitter*(1+0.25*Math.sin(age*0.005));
+      const width=BASE_WIDTH*r.widthJitter*(1+0.75*Math.sin(age*0.005));
 
       // fade-out reveal (mask)
       ctx.globalCompositeOperation = 'destination-out';
