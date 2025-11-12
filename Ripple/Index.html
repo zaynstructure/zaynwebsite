@@ -1,138 +1,67 @@
+
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Tap Ripple</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Color Ripple</title>
 <style>
-  html,body { height:100%; margin:0; background:#0e0e10; }
-  canvas { display:block; width:100%; height:100%; touch-action:manipulation; }
-  /* Optional minimal hint text (auto-hides after first tap) */
-  .hint {
-    position:fixed; inset:auto 0 8% 0; text-align:center; color:#bbb;
-    font:500 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    pointer-events:none; opacity:.6; transition:opacity .3s ease;
-  }
-  .hint.hide { opacity:0; }
+  html,body{margin:0;height:100%;background:#0e0e10;overflow:hidden;}
+  canvas{width:100%;height:100%;display:block;touch-action:manipulation;}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div class="hint" id="hint">tap/click to make ripples</div>
 <script>
-(() => {
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let dpr=window.devicePixelRatio||1;
+function resize(){
+  canvas.width=innerWidth*dpr;
+  canvas.height=innerHeight*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+resize();
+window.addEventListener('resize',resize);
 
-  // --------- Tweakables ----------
-  const COLOR = 'rgba(160, 200, 255, ALPHA)'; // ALPHA will be replaced per ring
-  const LINE_WIDTH = 2;                       // px (device-independent)
-  const SPEED = 240;                          // px per second (base ring)
-  const RING_SPACING = 28;                    // distance between rings in px
-  const RING_COUNT = 5;                       // how many concentric rings to draw per ripple
-  const LIFE = 1800;                          // ripple lifetime in ms
-  const FADE_EXP = 1.35;                      // >1 = ease-out fade
-  const MAX_ALPHA = 0.9;                      // peak opacity per ring
-  const BG_FADE = 0.06;                       // faint afterglow; 0 = no trail, 1 = full clear each frame
-  // --------------------------------
+const ripples=[];
+function randomColor(){
+  const h=Math.floor(Math.random()*360);
+  return `hsl(${h},80%,65%)`;
+}
+function addRipple(x,y){
+  ripples.push({x,y,t0:performance.now(),color:randomColor()});
+}
+canvas.addEventListener('pointerdown',e=>{
+  addRipple(e.clientX,e.clientY);
+});
 
-  // Respect reduced motion
-  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ringCount = prefersReduced ? Math.max(2, Math.round(RING_COUNT/2)) : RING_COUNT;
-  const speed = prefersReduced ? SPEED * 0.6 : SPEED;
-
-  // High-DPI scaling
-  let dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-  function resize() {
-    dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-    const { innerWidth:w, innerHeight:h } = window;
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
-    ctx.lineWidth = LINE_WIDTH;
-  }
-  window.addEventListener('resize', resize, { passive:true });
-  resize();
-
-  const ripples = [];
-  function addRipple(x, y) {
-    ripples.push({ x, y, t0: performance.now() });
-    hint?.classList.add('hide');
-  }
-
-  // Pointer handling
-  function posFromEvent(e) {
-    if (e.touches && e.touches[0]) {
-      const t = e.touches[0];
-      return { x: t.clientX, y: t.clientY };
+function draw(now){
+  ctx.fillStyle='rgba(14,14,16,0.08)';
+  ctx.fillRect(0,0,canvas.width/dpr,canvas.height/dpr);
+  for(let i=ripples.length-1;i>=0;i--){
+    const r=ripples[i];
+    const age=now-r.t0;
+    if(age>1500){ripples.splice(i,1);continue;}
+    const base=age*0.25;
+    const alpha=Math.max(0,1-age/1500);
+    ctx.strokeStyle=r.color.replace('hsl','hsla').replace(')',`,`+alpha*0.9+`)`);
+    ctx.lineWidth=2;
+    for(let j=0;j<5;j++){
+      ctx.beginPath();
+      ctx.arc(r.x,r.y,base+j*25,0,Math.PI*2);
+      ctx.stroke();
     }
-    return { x: e.clientX, y: e.clientY };
   }
-  function onDown(e) {
-    const p = posFromEvent(e);
-    addRipple(p.x, p.y);
-  }
-  canvas.addEventListener('pointerdown', onDown);
-  canvas.addEventListener('touchstart', onDown, { passive:true });
-
-  // Rendering loop
-  let last = performance.now();
-  function frame(now) {
-    const dt = now - last;
-    last = now;
-
-    // Slight afterglow to create motion trails (draw translucent rect over canvas)
-    if (BG_FADE > 0 && BG_FADE < 1) {
-      ctx.fillStyle = `rgba(14,14,16,${BG_FADE})`;
-      ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-    } else {
-      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-    }
-
-    // Draw ripples
-    for (let i = ripples.length - 1; i >= 0; i--) {
-      const r = ripples[i];
-      const age = now - r.t0;
-      if (age > LIFE) { ripples.splice(i, 1); continue; }
-
-      // Base radius grows with time
-      const baseRadius = (age / 1000) * speed;
-
-      // Global fade as ripple ages
-      const lifeRatio = Math.max(0, 1 - age / LIFE);
-      const globalAlpha = Math.pow(lifeRatio, FADE_EXP) * MAX_ALPHA;
-
-      for (let k = 0; k < ringCount; k++) {
-        const radius = baseRadius + k * RING_SPACING;
-        if (radius <= 0) continue;
-
-        // Each outer ring fades slightly more
-        const ringAlpha = Math.max(0, globalAlpha * (1 - k / (ringCount + 1)));
-        if (ringAlpha <= 0.005) continue;
-
-        ctx.strokeStyle = COLOR.replace('ALPHA', ringAlpha.toFixed(3));
-        ctx.beginPath();
-        ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-
-  // Optional: tap anywhere to seed a few gentle background ripples on load (desktop)
-  if (!('ontouchstart' in window)) {
-    const { innerWidth:w, innerHeight:h } = window;
-    for (let i=0;i<2;i++) addRipple(Math.random()*w, Math.random()*h);
-  }
-
-  // Hide hint after 5s if untouched
-  const hint = document.getElementById('hint');
-  setTimeout(()=>hint?.classList.add('hide'), 5000);
-})();
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
 </script>
 </body>
 </html>
+
+
+
+
+
+
