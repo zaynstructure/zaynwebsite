@@ -268,6 +268,19 @@
     setScaleByName(scaleNames[currentScaleIndex]);
   });
 
+  // Lower bass (root - 12) + high voice (+12) with a mid spread if 3 fingers
+function pickSpreadExtremeNotes(count){
+  const N = NOTE_POOL.length;
+  if (!N) return [];
+  const top   = NOTE_POOL[N-1] + 12;                  // push the high voice up an octave
+  const mid   = NOTE_POOL[Math.floor(N * 0.7)];       // upper-mid for nice spacing
+  const bass  = ROOT_MIDI - 12;                       // deeper bass anchor (one octave below root)
+
+  if (count === 1) return [ NOTE_POOL[Math.floor(N * 0.6)] ];   // single stays simple
+  if (count === 2) return [ bass, top ];
+  return [ bass, mid, top ]; // 3 touches
+}
+
   function midiToFreq(m){ return 440 * Math.pow(2, (m-69)/12); }
 
   const CLUSTER_RADIUS_STEPS = 2;
@@ -334,29 +347,35 @@
 
   // Touch: 1–3 finger clustered; ripple per finger
   canvas.addEventListener('touchstart', e=>{
-    const touches = Array.from(e.touches);
-    const count = Math.min(touches.length, 3);
-    if (count===0) return;
+  const touches = Array.from(e.touches);
+  const count = Math.min(touches.length, 3);
+  if (count === 0) return;
 
-    const chord = pickClusterNotes(count);
-    for (let i=0;i<count;i++){
-      const t = touches[i];
-      const x=t.clientX, y=t.clientY;
+  // Leftmost finger becomes the bass anchor
+  touches.sort((a,b)=> a.clientX - b.clientX);
 
-      addRipple(x,y,{
-        opacity:0.42 + Math.random()*0.08,
-        widthJitter:0.95 + Math.random()*0.4,
-        life:LIFE_MS * (1.1 + Math.random()*0.25),
-        speed:SPEED * (0.85 + Math.random()*0.15),
-        sizeMul:1 + Math.random()*0.2,
-        depth:count>1
-      });
+  const notes = pickSpreadExtremeNotes(count);
+  const detunesByCount = { 1:[0], 2:[-4,+4], 3:[-5,0,+5] };
 
-      const midi = chord[i];
-      const freq = midiToFreq(midi);
-      playRippleSound(x, count>1, freq, detunesByCount[count][i] || 0);
-    }
-  }, {passive:true});
+  for (let i=0;i<count;i++){
+    const t = touches[i];
+    const x = t.clientX, y = t.clientY;
+
+    // keep your current subtle visual jitter
+    addRipple(x,y,{
+      opacity:0.42 + Math.random()*0.08,
+      widthJitter:0.95 + Math.random()*0.4,
+      life:LIFE_MS * (1.1 + Math.random()*0.25),
+      speed:SPEED * (0.85 + Math.random()*0.15),
+      sizeMul:1 + Math.random()*0.2,
+      depth:count>1
+    });
+
+    const midi = notes[i];
+    const freq = midiToFreq(midi);
+    playRippleSound(x, count>1, freq, detunesByCount[count][i] || 0);
+  }
+}, {passive:true});
 
   document.addEventListener('visibilitychange', ()=>{
     if (!audioCtx || !audioBooted) return;
