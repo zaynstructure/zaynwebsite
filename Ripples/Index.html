@@ -204,7 +204,14 @@
     osc.connect(gain); gain.connect(audioCtx.destination);
     osc.start(now); osc.stop(now + 0.3);
   }
-
+// start ambient pad
+wirePad();
+try {
+  await padEl.play();          // may be blocked if not in a gesture; our button tap counts
+  fadePadTo(0.22, 4);          // gentle fade in (target volume ≈ -13 dB)
+} catch (e) {
+  console.log('pad autoplay blocked:', e);
+}
   // Scales
   const SCALES = {
     major:[0,2,4,5,7,9,11],
@@ -282,7 +289,25 @@
 
     osc.start(now); osc.stop(now + dur + 0.1);
   }
+let padEl = document.getElementById('padEl');
+let padNode = null;
+let padGain = null;
 
+function wirePad() {
+  if (!audioCtx || padNode) return;
+  padNode = audioCtx.createMediaElementSource(padEl);
+  padGain = audioCtx.createGain();
+  padGain.gain.setValueAtTime(0.0, audioCtx.currentTime); // start silent
+  padNode.connect(padGain).connect(audioCtx.destination);
+}
+
+function fadePadTo(target, seconds = 3) {
+  if (!padGain) return;
+  const now = audioCtx.currentTime;
+  padGain.gain.cancelScheduledValues(now);
+  padGain.gain.setValueAtTime(padGain.gain.value, now);
+  padGain.gain.linearRampToValueAtTime(target, now + seconds);
+}
   // ---------------- Input (with audio unlock hooks) ----------------
   const detunesByCount = { 1:[0], 2:[-4,+4], 3:[-5,0,+5] };
 
