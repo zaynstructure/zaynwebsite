@@ -76,7 +76,7 @@ body.is-landing {
   border-bottom: var(--thin, 1px) solid var(--rule, #d0d7dd);
 
   background: rgba(255,255,255,0.45);
-  backdrop-filter: blur(8px);
+  
   z-index: 2;
 }
 
