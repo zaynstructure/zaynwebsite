@@ -36,10 +36,28 @@
 <script>
 (() => {
   // ---------------- Visuals ----------------
-  const video  = document.getElementById('bgVideo');
-  const canvas = document.getElementById('c');
-  const ctx    = canvas.getContext('2d');
-const appBox = document.getElementById('appBox');
+  const appBox = document.getElementById('appBox');
+
+let dpr = window.devicePixelRatio || 1;
+function resize(){
+  const rect = appBox.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+
+  canvas.width  = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+window.addEventListener('resize', resize, { passive: true });
+window.addEventListener('orientationchange', () => {
+  // iOS sometimes reports wrong size immediately on rotate
+  setTimeout(resize, 300);
+});
+resize();
   // Ripple appearance controls
   const COVER_ALPHA   = 1.15;
   const RING_COUNT    = 4;
