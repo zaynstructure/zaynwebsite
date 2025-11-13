@@ -357,26 +357,7 @@ body.is-landing .side{
   outline-offset: 2px;
   border-radius: 2px;
 }
-
-/* remove the default blue glow some browsers add */
-:focus {
-  box-shadow: none;
-}
-
-/* === sidebar background image === */
-
-.side {
-  position: fixed;
-  top: 0;
-  height: 100vh;
-  width: var(--side-w, 300px);
-  max-width: 85vw;
-
-  /* your existing backdrop stuff */
-  backdrop-filter: blur(8px);
-  background: rgba(255,255,255,0.60);
-
- /* refined focus style — thin black rectangle */
+/* refined focus style — thin black rectangle */
 :focus-visible {
   outline: 1px solid rgba(0,0,0,0.85);
   outline-offset: 2px;
@@ -413,3 +394,4 @@ body.is-landing .side{
     background-position: center top;
   }
 }
+
