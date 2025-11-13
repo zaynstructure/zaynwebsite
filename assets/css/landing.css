@@ -329,7 +329,7 @@ body.is-landing .bg-video {
 @media (max-width: 760px) {
   body.is-landing .bg-video {
     top: auto;                 /* override desktop */
-    bottom: 0;
+    bottom: -40;
     left: 50%;
     transform: translateX(-50%);
 
