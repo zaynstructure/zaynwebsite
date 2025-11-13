@@ -73,7 +73,7 @@ body.is-landing {
   padding: 1.5rem 1.5rem 1.2rem;
 
   border-right: 0;
-  border-bottom: var(--thin, 1px) solid var(--rule, #d0d7dd);
+  border-bottom: 0;
   background: rgba(255,255,255,0.75); /* was 0.75 */
   
 
@@ -166,7 +166,7 @@ main h1, main h2, [id] {
 ========================================================= */
 
 .nav-tree { 
-  border-top: var(--thin) solid var(--rule); 
+  border-top: 0; 
   padding-top: .7rem; 
 }
 
@@ -183,6 +183,7 @@ summary {
   background: transparent;
   border-radius: var(--radius);
   font-weight: 500;
+  font-color: #00;
   transition: background var(--t-fast);
 }
 
