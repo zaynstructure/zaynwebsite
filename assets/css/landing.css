@@ -394,4 +394,8 @@ body.is-landing .side{
     background-position: center top;
   }
 }
-
+/* landing: let the sidebar text sit directly on the collage/video */
+body.is-landing .side {
+  background: transparent;
+  border-right: none;
+}
