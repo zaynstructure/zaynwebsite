@@ -306,10 +306,12 @@ body.is-landing .landing-bg {
   overflow: hidden;
 }
 
+/* desktop / default: centered, cover */
 body.is-landing .bg-video {
   position: absolute;
-  top: 50%; 
+  top: 50%;
   left: 50%;
+
   min-width: 100vw;
   min-height: 100vh;
   width: auto;
@@ -322,6 +324,27 @@ body.is-landing .bg-video {
   opacity: .75;
   pointer-events: none;
 }
+
+/* mobile: contain, anchored to bottom */
+@media (max-width: 760px) {
+  body.is-landing .bg-video {
+    top: auto;                 /* override desktop */
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+
+    width: 100vw;
+    height: auto;
+    min-width: 100vw;
+    min-height: 0;             /* remove the 100vh constraint */
+
+    object-fit: contain;       /* no cropping, full frame */
+    background-color: #000;    /* letterbox fill if needed */
+  }
+}
+
+
+
 /* === frosty overlay on landing video === */
 body.is-landing .frost {
   content: "";
