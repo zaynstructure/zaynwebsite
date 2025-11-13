@@ -584,12 +584,12 @@ function fireCascade(x, voice, midi, isDepth, detuneBase){
 
   // simple ascending 3-note arp in the current scale
   // try [baseIdx-1, baseIdx, baseIdx+1] for a tighter shape
-  const idxs = [baseIdx, baseIdx + 1, baseIdx + 2].map(i =>
+  const idxs = [baseIdx-1, baseIdx, baseIdx + 1].map(i =>
     Math.max(0, Math.min(NOTE_POOL.length - 1, i))
   );
 
   // timing between notes – tweak to taste
-  const offsets = [0.0, 0.14, 0.28]; // slightly faster than before
+  const offsets = [0.0, 0.09, 0.18]; // slightly faster than before
 
   idxs.forEach((idx, i) => {
     const freq = midiToFreq(NOTE_POOL[idx]);
