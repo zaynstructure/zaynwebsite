@@ -376,14 +376,26 @@ body.is-landing .side{
   backdrop-filter: blur(8px);
   background: rgba(255,255,255,0.60);
 
- /* == sidebar collage image (global, including landing) == */
+ /* refined focus style — thin black rectangle */
+:focus-visible {
+  outline: 1px solid rgba(0,0,0,0.85);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* remove the default blue glow some browsers add */
+:focus {
+  box-shadow: none;
+}
+
+/* == sidebar collage image (global, including landing) == */
 .side::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
 
-  background-image: url("/assets/images/IMG_4523.png"); /* using your file */
+  background-image: url("/assets/images/IMG_4523.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
