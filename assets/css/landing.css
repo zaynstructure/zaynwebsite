@@ -363,6 +363,42 @@ body.is-landing .side{
   box-shadow: none;
 }
 
+/* === sidebar background image === */
+
+.side {
+  position: fixed;
+  top: 0;
+  height: 100vh;
+  width: var(--side-w, 300px);
+  max-width: 85vw;
+
+  /* your existing backdrop stuff */
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.60);
+
+  /* NEW: image background */
+  background-image: url("/assets/images/sidebar-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  /* faint veil so text stays readable */
+  box-shadow: inset 0 0 0 2000px rgba(255,255,255,0.30);
+}
+
+/* mobile version */
+@media (max-width: 760px) {
+  .side {
+    width: 100%;
+    height: auto;
+
+    background-image: url("/assets/images/sidebar-bg.jpg");
+    background-size: cover;
+    background-position: center top;
+
+    box-shadow: inset 0 0 0 2000px rgba(255,255,255,0.45);
+  }
+}
 
 
 
