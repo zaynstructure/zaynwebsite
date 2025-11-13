@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Art System · Node Web</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #f4f4f4;
+    --ink: #111;
+    --muted: #777;
+    --panel-bg: #ffffff;
+    --rule: #dddddd;
+    --line: #cccccc;
+    --line-active: #111;
+    --node-fill: #ffffff;
+    --node-stroke: #222;
+    --radius: 16;
+    --font: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.8rem;
+    text-transform: lowercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  header span {
+    color: var(--muted);
+  }
+
+  .main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  .graph-wrap {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: var(--bg);
+    touch-action: none; /* allow pan without scrolling the page */
+  }
+
+  .panel {
+    width: 260px;
+    max-width: 40%;
+    border-left: 1px solid var(--rule);
+    background: var(--panel-bg);
+    padding: 0.9rem 0.9rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+  }
+
+  .panel-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: lowercase;
+  }
+
+  .panel-pill {
+    display: inline-block;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    font-size: 0.68rem;
+    text-transform: lowercase;
+    color: var(--muted);
+    margin-right: 0.2rem;
+  }
+
+  .panel-body {
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  .panel-section-label {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-top: 0.4rem;
+  }
+
+  .panel-list {
+    margin: 0.15rem 0 0;
+    padding-left: 0.9rem;
+  }
+
+  .panel-list li {
+    margin: 0.08rem 0;
+  }
+
+  footer {
+    padding: 0.4rem 0.9rem 0.6rem;
+    font-size: 0.7rem;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+  }
+
+  /* graph styling */
+  .link {
+    stroke: var(--line);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    transition: stroke 0.15s ease, stroke-width 0.15s ease, opacity 0.15s ease;
+  }
+  .link.active {
+    stroke: var(--line-active);
+    stroke-width: 2;
+  }
+  .link.dimmed {
+    opacity: 0.25;
+  }
+
+  .node-group { cursor: pointer; }
+
+  .node-circle {
+    fill: var(--node-fill);
+    stroke: var(--node-stroke);
+    stroke-width: 1;
+    transition: transform 0.15s ease, stroke-width 0.15s ease, opacity 0.15s ease;
+  }
+
+  .node-label {
+    font-size: 11px;
+    fill: var(--ink);
+    pointer-events: none;
+  }
+
+  .node-group.hover .node-circle {
+    stroke-width: 2;
+    transform: scale(1.08);
+  }
+
+  .node-group.dimmed .node-circle {
+    opacity: 0.35;
+  }
+
+  .node-group.selected .node-circle {
+    stroke-width: 2;
+    transform: scale(1.12);
+  }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    left: 0.6rem;
+    bottom: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    z-index: 10;
+  }
+
+  .zoom-btn {
+    border: 1px solid var(--rule);
+    background: rgba(255,255,255,0.9);
+    padding: 0.15rem 0.45rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .zoom-btn:active {
+    transform: translateY(1px);
+  }
+
+  /* Mobile layout */
+  @media (max-width: 768px) {
+    .main {
+      flex-direction: column;
+    }
+    .panel {
+      width: 100%;
+      max-width: 100%;
+      border-left: none;
+      border-top: 1px solid var(--rule);
+    }
+    .graph-wrap {
+      height: 55vh; /* graph on top */
+    }
+    svg {
+      height: 100%;
+    }
+    .zoom-controls {
+      left: 0.5rem;
+      bottom: 0.5rem;
+      flex-direction: row;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>art system · node web</div>
+  <span>drag to pan · use +/- or scroll to zoom · tap nodes</span>
+</header>
+
+<div class="main">
+  <div class="graph-wrap">
+    <svg id="graphSvg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="zoomIn">+</button>
+      <button class="zoom-btn" id="zoomOut">−</button>
+      <button class="zoom-btn" id="zoomReset">reset</button>
+    </div>
+  </div>
+  <aside class="panel">
+    <div class="panel-title" id="panelTitle">no node selected</div>
+    <div id="panelTags"></div>
+    <div class="panel-body" id="panelBody">
+      click or tap any node in the web to see how it behaves in your system.
+    </div>
+    <div class="panel-section-label">connections</div>
+    <ul class="panel-list" id="panelConnections"></ul>
+  </aside>
+</div>
+
+<footer>
+  edit the <code>nodes</code>, <code>links</code> and <code>nodeMeta</code> objects in the script to grow and describe your system.
+</footer>
+
+<script>
+  // ---------- NODE + LINK DATA ----------
+
+  const nodes = [
+    // cognitive–affective loop
+    { id: "feelings",  label: "feelings",  x: 260, y: 120 },
+    { id: "memories",  label: "memories",  x: 500, y: 120 },
+    { id: "thoughts",  label: "thoughts",  x: 740, y: 120 },
+
+    // recursion hub
+    { id: "recursion", label: "recursion", x: 500, y: 200 },
+
+    // creative engine – mid row
+    { id: "static",    label: "static (prints)",   x: 260, y: 280 },
+    { id: "fragments", label: "fragments",         x: 500, y: 280 },
+    { id: "movement",  label: "movement (videos)", x: 740, y: 280 },
+    { id: "collage",   label: "collage",           x: 640, y: 340 },
+
+    // deep engine + sound – bottom row
+    { id: "sensor-noise",   label: "sensor noise",   x: 500, y: 380 },
+    { id: "audio-synthesis",label: "audio synthesis",x: 740, y: 420 },
+    { id: "sampling",       label: "sampling",       x: 620, y: 360 }
+  ];
+
+  const links = [
+    // creative engine
+    { from: "sensor-noise", to: "movement" },
+    { from: "movement",     to: "static" },
+    { from: "movement",     to: "fragments" },
+    { from: "static",       to: "fragments" },
+    { from: "fragments",    to: "collage" },
+    { from: "collage",      to: "movement" },
+    { from: "fragments",    to: "recursion" },
+    { from: "collage",      to: "recursion" },
+    { from: "recursion",    to: "sensor-noise" },
+
+    // sound
+    { from: "audio-synthesis", to: "sampling" },
+    { from: "sampling",        to: "fragments" },
+
+    // cognitive–affective loop
+    { from: "thoughts",  to: "memories" },
+    { from: "memories",  to: "feelings" },
+    { from: "feelings",  to: "thoughts" },
+
+    // bridges
+    { from: "movement",        to: "feelings" },
+    { from: "static",          to: "feelings" },
+    { from: "audio-synthesis", to: "feelings" },
+    { from: "fragments",       to: "memories" },
+    { from: "feelings",        to: "sensor-noise" },
+    { from: "feelings",        to: "fragments" },
+    { from: "thoughts",        to: "recursion" },
+    { from: "memories",        to: "recursion" }
+  ];
+
+  // ---------- PER-NODE INFO FOR PANEL ----------
+
+  const nodeMeta = {
+    "sensor-noise": {
+      title: "sensor noise",
+      type: "engine · input",
+      tags: ["raw input", "variation", "jitter"],
+      body: "Randomness and interference from sensors, environment, and experiments. It seeds the whole system with unpredictable starting conditions that later become video, sound, and prints."
+    },
+    "movement": {
+      title: "movement (videos)",
+      type: "visual · time-based",
+      tags: ["video", "flow", "gesture"],
+      body: "Your moving images: video pieces, timeline experiments, and motion fields. Movement turns noise into visible flow, and later freezes into still prints and fragments."
+    },
+    "static": {
+      title: "static (prints)",
+      type: "visual · still",
+      tags: ["prints", "frames", "artifacts"],
+      body: "Still images and prints that capture a single state of the moving field. They are artifacts of movement that can be cut, re-fragmented, and fed back into the system."
+    },
+    "fragments": {
+      title: "fragments",
+      type: "material · shared",
+      tags: ["cuts", "loops", "snippets"],
+      body: "Cut-up pieces: cropped frames, loops, audio slices, tiny gestures. Fragments are the shared currency between sound and image, ready for collage and recursion."
+    },
+    "collage": {
+      title: "collage",
+      type: "visual · composition",
+      tags: ["layering", "reassembly"],
+      body: "Layered compositions made from fragments. Collage reorganizes cut material into new structures that you then re-animate, print, or push back into recursive processing."
+    },
+    "recursion": {
+      title: "recursion",
+      type: "engine · transformation",
+      tags: ["feedback", "mutation", "reprocessing"],
+      body: "The transformation furnace. Recursion takes fragments, collages, and memory traces and reprocesses them repeatedly, generating new noise and new material for the system."
+    },
+    "audio-synthesis": {
+      title: "audio synthesis",
+      type: "sound · generation",
+      tags: ["synths", "tones", "textures"],
+      body: "Sound you generate directly: synth tones, drones, textures. These become raw material that can be sampled, sliced, and linked to your visual fragments."
+    },
+    "sampling": {
+      title: "sampling",
+      type: "sound · selection",
+      tags: ["cuts", "loops", "grabs"],
+      body: "Taking pieces of sound—recorded or synthesized—and turning them into loops and one-shots. Sampling connects the sound world to the fragment layer of the system."
+    },
+    "feelings": {
+      title: "feelings",
+      type: "field · driver/receiver",
+      tags: ["affect", "mood", "field"],
+      body: "Your emotional field. Feelings both drive the system (what you choose, how you push it) and receive its outputs. Every sound, image, and fragment lands back here."
+    },
+    "memories": {
+      title: "memories",
+      type: "field · storage",
+      tags: ["traces", "history"],
+      body: "Accumulated traces of past sessions, works, and experiences. Memories shape how new work feels, what stands out, and how recursion is biased over time."
+    },
+    "thoughts": {
+      title: "thoughts",
+      type: "field · interpretation",
+      tags: ["meaning", "structure", "decisions"],
+      body: "Interpretation and decision-making: naming, understanding, planning. Thoughts organize feelings and memories into strategies for what to cut, process, or pursue next."
+    }
+  };
+
+  // ---------- RENDER GRAPH ----------
+
+  const svg = document.getElementById("graphSvg");
+  const nodeById = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const outgoing = {};
+  const incoming = {};
+  links.forEach(l => {
+    (outgoing[l.from] ||= []).push(l.to);
+    (incoming[l.to]   ||= []).push(l.from);
+  });
+
+  const nodeElements = [];
+  const linkElements = [];
+
+  // draw links
+  links.forEach(link => {
+    const a = nodeById[link.from];
+    const b = nodeById[link.to];
+    if (!a || !b) return;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", a.x);
+    line.setAttribute("y1", a.y);
+    line.setAttribute("x2", b.x);
+    line.setAttribute("y2", b.y);
+    line.classList.add("link");
+    svg.appendChild(line);
+    linkElements.push({ el: line, from: link.from, to: link.to });
+  });
+
+  // draw nodes
+  const r = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--radius")) || 16;
+
+  nodes.forEach(node => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.classList.add("node-group");
+    g.dataset.id = node.id;
+
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.classList.add("node-circle");
+    c.setAttribute("cx", node.x);
+    c.setAttribute("cy", node.y);
+    c.setAttribute("r", r);
+
+    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.classList.add("node-label");
+    t.setAttribute("x", node.x + r + 4);
+    t.setAttribute("y", node.y + 4);
+    t.textContent = node.label;
+
+    g.appendChild(c);
+    g.appendChild(t);
+    svg.appendChild(g);
+
+    nodeElements.push({ el: g, id: node.id });
+  });
+
+  // ---------- VIEWBOX / ZOOM / PAN ----------
+
+  let viewBox = { x: 0, y: 0, w: 1000, h: 500 };
+  const minW = 300;
+  const maxW = 2000;
+
+  function applyViewBox() {
+    svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+  }
+  applyViewBox();
+
+  function zoomAt(factor, centerX, centerY) {
+    const { x, y, w, h } = viewBox;
+    const cx = centerX !== undefined ? centerX : x + w / 2;
+    const cy = centerY !== undefined ? centerY : y + h / 2;
+
+    let newW = w * factor;
+    newW = Math.max(minW, Math.min(maxW, newW));
+    let newH = newW * (h / w);
+
+    const scale = newW / w;
+    viewBox = {
+      w: newW,
+      h: newH,
+      x: cx - (cx - x) * scale,
+      y: cy - (cy - y) * scale
+    };
+    applyViewBox();
+  }
+
+  // mouse wheel zoom (desktop)
+  svg.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+    const cx = viewBox.x + (offsetX / rect.width) * viewBox.w;
+    const cy = viewBox.y + (offsetY / rect.height) * viewBox.h;
+    const factor = e.deltaY < 0 ? 0.9 : 1.1; // in vs out
+    zoomAt(factor, cx, cy);
+  }, { passive: false });
+
+  // zoom buttons
+  document.getElementById("zoomIn").addEventListener("click", () => zoomAt(0.9));
+  document.getElementById("zoomOut").addEventListener("click", () => zoomAt(1.1));
+  document.getElementById("zoomReset").addEventListener("click", () => {
+    viewBox = { x: 0, y: 0, w: 1000, h: 500 };
+    applyViewBox();
+  });
+
+  // pan (drag on empty background)
+  let isPanning = false;
+  let panStart = { x: 0, y: 0 };
+  let vbStart = { x: 0, y: 0 };
+
+  svg.addEventListener("pointerdown", (e) => {
+    // only pan if clicking background, not node group
+    if (e.target.closest(".node-group")) return;
+    isPanning = true;
+    svg.setPointerCapture(e.pointerId);
+    panStart = { x: e.clientX, y: e.clientY };
+    vbStart = { x: viewBox.x, y: viewBox.y };
+  });
+
+  svg.addEventListener("pointermove", (e) => {
+    if (!isPanning) return;
+    const rect = svg.getBoundingClientRect();
+    const dx = (e.clientX - panStart.x) / rect.width * viewBox.w;
+    const dy = (e.clientY - panStart.y) / rect.height * viewBox.h;
+    viewBox.x = vbStart.x - dx;
+    viewBox.y = vbStart.y - dy;
+    applyViewBox();
+  });
+
+  svg.addEventListener("pointerup", (e) => {
+    if (!isPanning) return;
+    isPanning = false;
+    svg.releasePointerCapture(e.pointerId);
+  });
+
+  svg.addEventListener("pointercancel", () => {
+    isPanning = false;
+  });
+
+  // ---------- HOVER + SELECTION + PANEL LOGIC ----------
+
+  let selectedId = null;
+
+  const panelTitle = document.getElementById("panelTitle");
+  const panelTags = document.getElementById("panelTags");
+  const panelBody = document.getElementById("panelBody");
+  const panelConnections = document.getElementById("panelConnections");
+
+  const outgoingMap = {};
+  const incomingMap = {};
+  links.forEach(l => {
+    (outgoingMap[l.from] ||= []).push(l.to);
+    (incomingMap[l.to]   ||= []).push(l.from);
+  });
+
+  function setHover(activeId) {
+    nodeElements.forEach(({ el, id }) => {
+      el.classList.remove("hover", "dimmed");
+      if (activeId) {
+        if (id === activeId) {
+          el.classList.add("hover");
+        } else {
+          const connected = links.some(
+            l => (l.from === activeId && l.to === id) || (l.to === activeId && l.from === id)
+          );
+          if (!connected) el.classList.add("dimmed");
+        }
+      }
+    });
+
+    linkElements.forEach(({ el, from, to }) => {
+      el.classList.remove("active", "dimmed");
+      if (activeId) {
+        if (from === activeId || to === activeId) {
+          el.classList.add("active");
+        } else {
+          el.classList.add("dimmed");
+        }
+      }
+    });
+  }
+
+  function setSelected(id) {
+    selectedId = id;
+    nodeElements.forEach(({ el, id: nid }) => {
+      el.classList.toggle("selected", nid === id);
+    });
+    updatePanel(id);
+  }
+
+  function updatePanel(id) {
+    const meta = nodeMeta[id] || {};
+    const node = nodeById[id];
+
+    if (!node) {
+      panelTitle.textContent = "no node selected";
+      panelTags.innerHTML = "";
+      panelBody.textContent = "click or tap any node in the web to see more details.";
+      panelConnections.innerHTML = "";
+      return;
+    }
+
+    panelTitle.textContent = meta.title || node.label;
+    panelBody.textContent = meta.body || "no description yet — add one in nodeMeta.";
+
+    // tags + type
+    panelTags.innerHTML = "";
+    if (meta.type) {
+      const pill = document.createElement("span");
+      pill.className = "panel-pill";
+      pill.textContent = meta.type;
+      panelTags.appendChild(pill);
+    }
+    if (meta.tags && meta.tags.length) {
+      meta.tags.forEach(tag => {
+        const pill = document.createElement("span");
+        pill.className = "panel-pill";
+        pill.textContent = tag;
+        panelTags.appendChild(pill);
+      });
+    }
+
+    // connections
+    panelConnections.innerHTML = "";
+    const outs = outgoingMap[id] || [];
+    const ins  = incomingMap[id] || [];
+    const uniq = new Set([
+      ...outs.map(t => `→ ${nodeById[t]?.label || t}`),
+      ...ins.map(f => `← ${nodeById[f]?.label || f}`)
+    ]);
+    uniq.forEach(label => {
+      const li = document.createElement("li");
+      li.textContent = label;
+      panelConnections.appendChild(li);
+    });
+  }
+
+  nodeElements.forEach(({ el, id }) => {
+    el.addEventListener("mouseenter", () => setHover(id));
+    el.addEventListener("mouseleave", () => setHover(null));
+    el.addEventListener("click", () => setSelected(id));
+  });
+</script>
+</body>
+</html>
