@@ -595,11 +595,14 @@ function fireCascade(x, voice, midi, isDepth, detuneBase){
     if (count === 0) return;
     if (!audioBooted) return; // first touch can be unlock-only
 
-    const h = window.innerHeight;
+    const rect = appBox.getBoundingClientRect();
+const h = rect.height;
 
     for (let i = 0; i < count; i++){
       const t = touches[i];
-      const x = t.clientX, y = t.clientY;
+      const x = t.clientX;
+      const y = t.clientY;
+      
 
       let voice, midi;
       if (y > h*(2/3)){
