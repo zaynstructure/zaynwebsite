@@ -127,7 +127,7 @@ body.is-landing {
 
   .side::before {
     opacity: 0.22;
-    background-position: left top; /* moves collage left */
+    background-position: 100% 100%; /* moves collage left */
     background-size: contain;
   }
 }
