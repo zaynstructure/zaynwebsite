@@ -472,7 +472,7 @@ const appBox = document.getElementById('appBox');
 
     let last = gain;
     if (pan){
-      const pVal   = (x / window.innerWidth)*2 - 1;
+      const pVal   = (x / canvas.clientWidth)*2 - 1;
       const pScale = (voice === 'bass') ? 0.25 : 0.6;
       pan.pan.setValueAtTime(pVal * pScale, now);
       osc.connect(gain);
