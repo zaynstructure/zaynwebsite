@@ -392,13 +392,14 @@ body.is-landing .side{
     width: 100%;
     height: auto;
 
-    background-image: url("/assets/images/sidebar-bg.jpg");
+    background-image: url("/assets/images/IMG-4263.PNG");
     background-size: cover;
     background-position: center top;
 
     box-shadow: inset 0 0 0 2000px rgba(255,255,255,0.45);
   }
 }
+
 
 
 
