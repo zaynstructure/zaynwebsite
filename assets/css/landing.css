@@ -332,13 +332,23 @@ body.is-landing .frost {
   backdrop-filter: blur(4px) saturate(1.02);
   pointer-events: none;
 }
-@media (max-width:760px){
+@media (max-width: 760px) {
   body.is-landing .bg-video {
-    transform: scale(0.7) translate(-50%, -50%);
-    object-fit: cover;
-    background-color: #000;
+    object-fit: contain !important;   /* show whole video */
+    width: 100vw;
+    height: 100vh;
+
+    top: auto;
+    bottom: 0;                        /* anchor to bottom */
+    left: 50%;
+    transform: translateX(-50%);      /* center horizontally */
+
+    background-color: #000;           /* letterbox area */
   }
 }
+
+
+
 
 @media (prefers-reduced-motion: reduce) {
   body.is-landing .bg-video { display:none; }
