@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Art Web · Basic</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<style>
+  :root {
+    --bg: #f4f4f4;
+    --ink: #111;
+    --muted: #777;
+    --line: #cccccc;
+    --line-strong: #111;
+    --node-fill: #ffffff;
+    --node-stroke: #222;
+    --radius: 16;
+    --font: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    text-transform: lowercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  header span {
+    color: var(--muted);
+  }
+
+  .graph-wrap {
+    flex: 1;
+    min-height: 0;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: var(--bg);
+    touch-action: none; /* let us handle drag + pinch ourselves */
+  }
+
+  .link {
+    stroke: var(--line);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+  }
+
+  .node-group {
+    cursor: pointer;
+  }
+
+  .node-circle {
+    fill: var(--node-fill);
+    stroke: var(--node-stroke);
+    stroke-width: 1;
+    transition: transform 0.15s ease, stroke-width 0.15s ease;
+  }
+
+  .node-label {
+    font-size: 11px;
+    fill: var(--ink);
+    pointer-events: none;
+  }
+
+  .node-group:hover .node-circle {
+    stroke-width: 2;
+    transform: scale(1.08);
+  }
+
+  footer {
+    padding: 0.35rem 0.75rem 0.5rem;
+    font-size: 0.7rem;
+    border-top: 1px solid #ddd;
+    color: var(--muted);
+  }
+
+  @media (max-width: 768px) {
+    header {
+      font-size: 0.75rem;
+      padding: 0.45rem 0.6rem;
+    }
+    footer {
+      padding: 0.3rem 0.6rem 0.45rem;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>art web · basic</div>
+  <span>drag to pan · pinch to zoom</span>
+</header>
+
+<div class="graph-wrap">
+  <svg id="graphSvg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
+    <g id="zoomLayer"></g>
+  </svg>
+</div>
+
+<footer>
+  edit the <code>nodes</code> and <code>links</code> in the script to reshape your web.
+</footer>
+
+<script>
+  // ---------------- BASIC NODE WEB DATA ----------------
+
+  const nodes = [
+    // affective / cognitive
+    { id: "feelings",  label: "feelings",  x: 200, y: 130 },
+    { id: "memories",  label: "memories",  x: 320, y: 155 },
+    { id: "thoughts",  label: "thoughts",  x: 440, y: 130 },
+    { id: "potential", label: "potential", x: 320, y: 210 },
+
+    // visual engine
+    { id: "movement",  label: "movement (videos)", x: 650, y: 200 },
+    { id: "static",    label: "static (prints)",   x: 520, y: 260 },
+    { id: "fragments", label: "fragments",         x: 650, y: 260 },
+    { id: "collage",   label: "collage",           x: 780, y: 260 },
+
+    // sound + noise
+    { id: "synthesis", label: "synthesis",         x: 780, y: 150 },
+    { id: "noise",     label: "noise",             x: 900, y: 210 },
+    { id: "audio",     label: "audio synthesis",   x: 650, y: 340 },
+    { id: "sampling",  label: "sampling",          x: 780, y: 340 },
+    { id: "field-rec", label: "field recording",   x: 900, y: 340 },
+
+    // deep engine + context
+    { id: "sensor",    label: "sensor noise",      x: 440, y: 340 },
+    { id: "recursion", label: "recursion",         x: 440, y: 230 },
+    { id: "body",      label: "body / gesture",    x: 200, y: 260 },
+    { id: "env",       label: "environment",       x: 200, y: 340 }
+  ];
+
+  const links = [
+    // affective / cognitive / potential
+    { from: "thoughts",  to: "memories" },
+    { from: "memories",  to: "feelings" },
+    { from: "feelings",  to: "thoughts" },
+    { from: "feelings",  to: "potential" },
+    { from: "memories",  to: "potential" },
+
+    // potential influencing work
+    { from: "potential", to: "fragments" },
+    { from: "potential", to: "synthesis" },
+    { from: "potential", to: "recursion" },
+
+    // environment + body
+    { from: "env",    to: "sensor" },
+    { from: "env",    to: "feelings" },
+    { from: "body",   to: "movement" },
+    { from: "body",   to: "audio" },
+    { from: "feelings", to: "body" },
+
+    // visual engine
+    { from: "sensor",   to: "movement" },
+    { from: "movement", to: "static" },
+    { from: "movement", to: "fragments" },
+    { from: "static",   to: "fragments" },
+    { from: "fragments",to: "collage" },
+    { from: "collage",  to: "movement" },
+
+    // recursion loop
+    { from: "fragments", to: "recursion" },
+    { from: "collage",   to: "recursion" },
+    { from: "recursion", to: "sensor" },
+
+    // sound + sampling
+    { from: "synthesis",   to: "sampling" },
+    { from: "audio",       to: "sampling" },
+    { from: "field-rec",   to: "sampling" },
+    { from: "sampling",    to: "fragments" },
+
+    // noise as novel input
+    { from: "noise",   to: "sampling" },
+    { from: "noise",   to: "fragments" },
+    { from: "noise",   to: "recursion" },
+
+    // affect feeding generators
+    { from: "feelings", to: "synthesis" },
+    { from: "feelings", to: "noise" }
+  ];
+
+  // ---------------- DRAW NODES + LINKS ----------------
+
+  const svg       = document.getElementById("graphSvg");
+  const zoomLayer = document.getElementById("zoomLayer");
+  const nodeById  = Object.fromEntries(nodes.map(n => [n.id, n]));
+
+  const linkEls = [];
+  const nodeEls = [];
+
+  // lines
+  links.forEach(link => {
+    const a = nodeById[link.from];
+    const b = nodeById[link.to];
+    if (!a || !b) return;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", a.x);
+    line.setAttribute("y1", a.y);
+    line.setAttribute("x2", b.x);
+    line.setAttribute("y2", b.y);
+    line.setAttribute("class", "link");
+    zoomLayer.appendChild(line);
+    linkEls.push(line);
+  });
+
+  // nodes
+  const baseR = 16;
+  nodes.forEach(node => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.classList.add("node-group");
+    g.dataset.id = node.id;
+
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.classList.add("node-circle");
+    c.setAttribute("cx", node.x);
+    c.setAttribute("cy", node.y);
+    c.setAttribute("r", baseR);
+
+    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.classList.add("node-label");
+    t.setAttribute("x", node.x + baseR + 4);
+    t.setAttribute("y", node.y + 4);
+    t.textContent = node.label;
+
+    g.appendChild(c);
+    g.appendChild(t);
+    zoomLayer.appendChild(g);
+
+    nodeEls.push(g);
+  });
+
+  // ---------------- PAN + PINCH-ZOOM ----------------
+
+  let scale = 1;
+  let translateX = 0;
+  let translateY = 0;
+
+  function applyTransform() {
+    zoomLayer.setAttribute(
+      "transform",
+      `translate(${translateX.toFixed(2)},${translateY.toFixed(2)}) scale(${scale.toFixed(3)})`
+    );
+  }
+  applyTransform();
+
+  const activePointers = new Map();
+  let lastCenter = null;
+  let lastDistance = null;
+
+  function getSvgPoint(clientX, clientY) {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const inv = svg.getScreenCTM().inverse();
+    return pt.matrixTransform(inv);
+  }
+
+  function updatePinchState() {
+    const pts = Array.from(activePointers.values());
+    if (pts.length === 0) {
+      lastCenter = null;
+      lastDistance = null;
+      return;
+    }
+    if (pts.length === 1) {
+      // single pointer: we treat as pan
+      lastCenter = pts[0];
+      lastDistance = null;
+      return;
+    }
+    // two pointers: compute center + distance in SVG coords
+    const [p1, p2] = pts;
+    const cx = (p1.x + p2.x) / 2;
+    const cy = (p1.y + p2.y) / 2;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    lastCenter = { x: cx, y: cy };
+    if (lastDistance === null) lastDistance = dist;
+  }
+
+  svg.addEventListener("pointerdown", e => {
+    svg.setPointerCapture(e.pointerId);
+    const pt = getSvgPoint(e.clientX, e.clientY);
+    activePointers.set(e.pointerId, pt);
+    updatePinchState();
+  });
+
+  svg.addEventListener("pointermove", e => {
+    if (!activePointers.has(e.pointerId)) return;
+    const pt = getSvgPoint(e.clientX, e.clientY);
+    activePointers.set(e.pointerId, pt);
+
+    const pts = Array.from(activePointers.values());
+
+    if (pts.length === 1 && lastCenter) {
+      // PAN with one finger / mouse
+      const curr = pts[0];
+      const dx = curr.x - lastCenter.x;
+      const dy = curr.y - lastCenter.y;
+      translateX += dx * scale;
+      translateY += dy * scale;
+      lastCenter = curr;
+      applyTransform();
+      return;
+    }
+
+    if (pts.length === 2 && lastCenter !== null) {
+      // PINCH ZOOM with two fingers
+      const [p1, p2] = pts;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (lastDistance && dist) {
+        const ratio = dist / lastDistance;
+        // clamp ratio a bit
+        const newScale = Math.max(0.4, Math.min(4, scale * ratio));
+
+        // zoom around center of current pinch
+        const cx = lastCenter.x;
+        const cy = lastCenter.y;
+        // adjust translation so that pinch center stays visually stable
+        translateX = cx - (cx - translateX) * (newScale / scale);
+        translateY = cy - (cy - translateY) * (newScale / scale);
+
+        scale = newScale;
+        applyTransform();
+      }
+      lastDistance = dist;
+      // update center for next frame
+      const cx = (p1.x + p2.x) / 2;
+      const cy = (p1.y + p2.y) / 2;
+      lastCenter = { x: cx, y: cy };
+    }
+  });
+
+  function endPointer(e) {
+    if (activePointers.has(e.pointerId)) {
+      activePointers.delete(e.pointerId);
+    }
+    if (activePointers.size === 0) {
+      lastCenter = null;
+      lastDistance = null;
+    } else {
+      updatePinchState();
+    }
+  }
+
+  svg.addEventListener("pointerup", endPointer);
+  svg.addEventListener("pointercancel", endPointer);
+  svg.addEventListener("pointerleave", endPointer);
+
+  // scroll wheel zoom on desktop
+  svg.addEventListener("wheel", e => {
+    e.preventDefault();
+    const delta = e.deltaY;
+    const factor = delta < 0 ? 0.9 : 1.1;
+    const rect = svg.getBoundingClientRect();
+    const pt = getSvgPoint(e.clientX, e.clientY);
+
+    const newScale = Math.max(0.4, Math.min(4, scale * factor));
+    // zoom around mouse position
+    translateX = pt.x - (pt.x - translateX) * (newScale / scale);
+    translateY = pt.y - (pt.y - translateY) * (newScale / scale);
+
+    scale = newScale;
+    applyTransform();
+  }, { passive: false });
+
+</script>
+</body>
+</html>
