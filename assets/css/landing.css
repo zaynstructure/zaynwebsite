@@ -145,6 +145,7 @@ main h1, main h2, [id] {
   font-weight: 600;
   letter-spacing: .5px;
   font-size: clamp(1.8rem, 3vw + 1rem, 3rem);
+  transition: transform 0.25s ease;
 }
 
 .name a {
@@ -202,6 +203,10 @@ summary .caret {
 details[open] summary .caret {
   transform: rotate(45deg);
   opacity: .7;
+}
+/* when any nav section is open, nudge the name downward */
+.side:has(.nav-tree details[open]) .name {
+  transform: translateY(10px);  /* tweak value to taste */
 }
 
 .children {
