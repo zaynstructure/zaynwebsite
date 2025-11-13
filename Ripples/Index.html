@@ -34,31 +34,35 @@
 
   <!-- Your entire <script>…</script> block goes here -->
 <script>
-(() => {
+ (() => {
   // ---------------- Visuals ----------------
   const appBox = document.getElementById('appBox');
+  const video  = document.getElementById('bgVideo');
+  const canvas = document.getElementById('c');
+  const ctx    = canvas.getContext('2d');
 
-let dpr = window.devicePixelRatio || 1;
-function resize(){
-  const rect = appBox.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
+  let dpr = window.devicePixelRatio || 1;
 
-  canvas.width  = Math.floor(w * dpr);
-  canvas.height = Math.floor(h * dpr);
-  canvas.style.width  = w + 'px';
-  canvas.style.height = h + 'px';
+  function resize(){
+    const rect = appBox.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
 
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
+    canvas.width  = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
 
-window.addEventListener('resize', resize, { passive: true });
-window.addEventListener('orientationchange', () => {
-  // iOS sometimes reports wrong size immediately on rotate
-  setTimeout(resize, 300);
-});
-resize();
-  // Ripple appearance controls
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  window.addEventListener('resize', resize, { passive: true });
+  window.addEventListener('orientationchange', () => {
+    // iOS sometimes reports wrong size immediately on rotate
+    setTimeout(resize, 300);
+  });
+  resize();
+
   const COVER_ALPHA   = 1.15;
   const RING_COUNT    = 4;
   const RING_SPACING  = 30;
@@ -66,7 +70,6 @@ resize();
   const LIFE_MS       = 1000;
   const SPEED         = 220;
 
-  // brightness + fade
   const RING_GAIN       = 1.8;
   const EDGE_LIGHTNESS  = 93;
   const EDGE_SAT        = 6;
@@ -82,18 +85,6 @@ resize();
   const SHADOW_BLUR        = 4;
   const SHADOW_OFFSET_Y    = 1;
   const SHADOW_WIDTH_SCALE = 1.12;
-
-  let dpr = window.devicePixelRatio || 1;
-  function resize(){
-    const w = innerWidth, h = innerHeight;
-    canvas.width  = Math.floor(w*dpr);
-    canvas.height = Math.floor(h*dpr);
-    canvas.style.width  = w+'px';
-    canvas.style.height = h+'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  addEventListener('resize', resize, {passive:true});
-  resize();
 
   function tryPlay(){
     const p = video.play?.();
@@ -119,10 +110,13 @@ resize();
   }
 
   function frame(now){
-    ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+
+    ctx.clearRect(0,0,w,h);
     const veilAlpha = Math.min(1, Math.max(0, COVER_ALPHA));
     ctx.fillStyle = `rgba(0,0,0,${veilAlpha})`;
-    ctx.fillRect(0,0,canvas.width/dpr,canvas.height/dpr);
+    ctx.fillRect(0,0,w,h);
 
     for (let i = ripples.length - 1; i >= 0; i--){
       const r   = ripples[i];
@@ -158,7 +152,6 @@ resize();
         ctx.stroke();
       }
 
-      // depth shadow
       if (r.depth && baseAlpha > 0.02){
         ctx.save();
         ctx.shadowBlur    = SHADOW_BLUR;
@@ -217,7 +210,6 @@ resize();
     return audioCtx;
   }
 
-  // --- Pad loading / trimming ---
   async function loadPadBuffer(url){
     const res = await fetch(url, {cache:'force-cache'});
     const arr = await res.arrayBuffer();
@@ -244,7 +236,6 @@ resize();
   }
 
   function startPadBuffer(loopStart = 0.0, loopEndSec = null, targetGain = 0.0, fadeSec = 0){
-    // note: default targetGain=0 so pad starts "loaded but silent"
     if (!padBuf || !masterGain) return;
 
     if (!padSrc){
@@ -284,14 +275,12 @@ resize();
     try {
       if (audioCtx.state !== 'running') await audioCtx.resume();
 
-      // 1-sample unlock
       const silent = audioCtx.createBuffer(1,1,audioCtx.sampleRate);
       const src    = audioCtx.createBufferSource();
       src.buffer = silent;
       src.connect(audioCtx.destination);
       src.start(0);
 
-      // master + delay bus
       if (!masterGain){
         masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
@@ -312,7 +301,6 @@ resize();
         delayMix.connect(masterGain);
       }
 
-      // load pad buffer ONLY (do not start it yet)
       if (!padBuf){
         padBuf     = await loadPadBuffer('/assets/Ripplesloop.m4a');
         padLoopEnd = analyzeTail(padBuf, 3.0, 0.0008, 20);
@@ -322,7 +310,6 @@ resize();
       badge.textContent = 'AUDIO: ON';
       badge.classList.add('on');
 
-      // tiny confirmation ping
       const now = audioCtx.currentTime;
       const osc = audioCtx.createOscillator();
       const g   = audioCtx.createGain();
@@ -332,14 +319,11 @@ resize();
       g.gain.exponentialRampToValueAtTime(0.0001, now+0.25);
       osc.connect(g); g.connect(masterGain);
       osc.start(now); osc.stop(now+0.3);
-
-      console.log('[ripples] audio unlocked; padBufferLoaded, loopEnd =', padLoopEnd.toFixed(3),'s');
     } catch(e){
       console.warn('[ripples] audio unlock failed:', e);
     }
   }
 
-  // ---------------- Scales / Modes ----------------
   const SCALES = {
     major:[0,2,4,5,7,9,11],
     naturalMinor:[0,2,3,5,7,8,10],
@@ -402,7 +386,6 @@ resize();
   modeSetBtn.textContent = `set: ${modeSetNames[currentModeSetIdx]}`;
   setScaleByName('dorian');
 
-  // D/E/A bias
   function degreeFromRoot(m){ return ((m - ROOT_MIDI) % 12 + 12) % 12; }
   function degreeWeight(deg){
     const setName = modeSetNames[currentModeSetIdx];
@@ -423,7 +406,6 @@ resize();
     return pool[Math.max(0, idx)];
   }
 
-  // Register-based note picks
   function pickBassNote(){
     const N = NOTE_POOL.length; if (!N) return ROOT_MIDI-12;
     const lowSliceEnd = Math.max(1, Math.floor(N*0.45));
@@ -449,7 +431,6 @@ resize();
     return weightedPick(hiPool) ?? NOTE_POOL[N-1];
   }
 
-  // ---------------- Synth + delay ----------------
   function midiToFreq(m){ return 440 * Math.pow(2, (m-69)/12); }
 
   function playRippleSound(
@@ -490,7 +471,9 @@ resize();
 
     let last = gain;
     if (pan){
-      const pVal   = (x / canvas.clientWidth)*2 - 1;
+      const rect = appBox.getBoundingClientRect();
+      const localX = x - rect.left;
+      const pVal   = (localX / rect.width)*2 - 1;
       const pScale = (voice === 'bass') ? 0.25 : 0.6;
       pan.pan.setValueAtTime(pVal * pScale, now);
       osc.connect(gain);
@@ -501,7 +484,6 @@ resize();
       last.connect(masterGain);
     }
 
-    // delay send only if delayMode is enabled AND this is high register
     if (delayNode && delayMode && voice === 'high'){
       const send = audioCtx.createGain();
       send.gain.setValueAtTime(0.6, now);
@@ -513,47 +495,38 @@ resize();
     osc.stop(now + dur + 0.1);
   }
 
-  // Cascade helper
-function nearestIndexForMidi(m){
-  if (!NOTE_POOL.length) return 0;
-  let best = 0;
-  let bestDiff = Infinity;
-  for (let i = 0; i < NOTE_POOL.length; i++){
-    const diff = Math.abs(NOTE_POOL[i] - m);
-    if (diff < bestDiff){
-      bestDiff = diff;
-      best = i;
+  function nearestIndexForMidi(m){
+    if (!NOTE_POOL.length) return 0;
+    let best = 0;
+    let bestDiff = Infinity;
+    for (let i = 0; i < NOTE_POOL.length; i++){
+      const diff = Math.abs(NOTE_POOL[i] - m);
+      if (diff < bestDiff){
+        bestDiff = diff;
+        best = i;
+      }
     }
-  }
     return best;
-}
+  }
 
-function fireCascade(x, voice, midi, isDepth, detuneBase){
-  if (!NOTE_POOL.length) return;
+  function fireCascade(x, voice, midi, isDepth, detuneBase){
+    if (!NOTE_POOL.length) return;
 
-  const baseIdx = nearestIndexForMidi(midi);
+    const baseIdx = nearestIndexForMidi(midi);
+    const idxs = [baseIdx-1, baseIdx, baseIdx + 1].map(i =>
+      Math.max(0, Math.min(NOTE_POOL.length - 1, i))
+    );
+    const offsets = [0.0, 0.09, 0.18];
 
-  // simple ascending 3-note arp in the current scale
-  // try [baseIdx-1, baseIdx, baseIdx+1] for a tighter shape
-  const idxs = [baseIdx-1, baseIdx, baseIdx + 1].map(i =>
-    Math.max(0, Math.min(NOTE_POOL.length - 1, i))
-  );
+    idxs.forEach((idx, i) => {
+      const freq = midiToFreq(NOTE_POOL[idx]);
+      const d = detuneBase || 0;
+      playRippleSound(x, isDepth, freq, d, voice, offsets[i]);
+    });
+  }
 
-  // timing between notes – tweak to taste
-  const offsets = [0.0, 0.09, 0.18]; // slightly faster than before
-
-  idxs.forEach((idx, i) => {
-    const freq = midiToFreq(NOTE_POOL[idx]);
-    const d = detuneBase || 0;   // you can keep small detune if you want
-    playRippleSound(x, isDepth, freq, d, voice, offsets[i]);
-  });
-}
-
-
-  // ---------------- UI behaviours ----------------
   const detunesByCount = { 1:[0], 2:[-4,+4], 3:[-5,0,+5] };
 
-  // pad toggle
   padBtn.addEventListener('click', () => {
     if (!audioBooted){
       bootAudioOnce();
@@ -562,7 +535,6 @@ function fireCascade(x, voice, midi, isDepth, detuneBase){
     if (!padBuf) return;
 
     if (!padSrc){
-      // first time: start pad with 0 gain (silent), then fade up
       startPadBuffer(0.0, padLoopEnd, 0.0, 0);
     }
 
@@ -577,25 +549,26 @@ function fireCascade(x, voice, midi, isDepth, detuneBase){
     }
   });
 
-  // note mode (single vs cascade)
   noteModeBtn.addEventListener('click', () => {
     cascadeMode = !cascadeMode;
     noteModeBtn.textContent = cascadeMode ? 'notes: cascade' : 'notes: single';
   });
 
-  // delay mode on/off
   delayModeBtn.addEventListener('click', () => {
     delayMode = !delayMode;
     delayModeBtn.textContent = delayMode ? 'delay: on' : 'delay: off';
   });
 
-  // Mouse: first tap also boots audio; mid register sound
+  // Mouse: use local coords inside appBox
   canvas.addEventListener('pointerdown', e => {
     if (e.touches) return;
-    bootAudioOnce(); // first tap anywhere on canvas unlocks audio
-    const x = e.clientX, y = e.clientY;
+    bootAudioOnce();
+    const rect = appBox.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
     addRipple(x,y);
-    if (!audioBooted) return; // unlock-only on very first tap
+    if (!audioBooted) return;
 
     if (cascadeMode){
       const midi = pickMidNote();
@@ -605,22 +578,21 @@ function fireCascade(x, voice, midi, isDepth, detuneBase){
     }
   }, {passive:true});
 
-  // Touch: vertical thirds + also boots audio
+  // Touch: thirds based on appBox height
   canvas.addEventListener('touchstart', e => {
     bootAudioOnce();
+    const rect    = appBox.getBoundingClientRect();
     const touches = Array.from(e.touches);
     const count   = Math.min(touches.length, 3);
     if (count === 0) return;
-    if (!audioBooted) return; // first touch can be unlock-only
+    if (!audioBooted) return;
 
-    const rect = appBox.getBoundingClientRect();
-const h = rect.height;
+    const h = rect.height;
 
     for (let i = 0; i < count; i++){
       const t = touches[i];
-      const x = t.clientX;
-      const y = t.clientY;
-      
+      const x = t.clientX - rect.left;
+      const y = t.clientY - rect.top;
 
       let voice, midi;
       if (y > h*(2/3)){
@@ -651,7 +623,6 @@ const h = rect.height;
     }
   }, {passive:true});
 
-  // Safari resume
   document.addEventListener('visibilitychange', () => {
     if (!audioCtx || !audioBooted) return;
     if (document.visibilityState === 'visible' && audioCtx.state !== 'running'){
@@ -659,7 +630,6 @@ const h = rect.height;
     }
   });
 
-  // Instruction fade
   window.addEventListener('load', () => {
     if (!instruction) return;
     instruction.style.opacity = 1;
