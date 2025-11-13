@@ -1,37 +1,34 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ripples · Ambient</title>
-<link rel="stylesheet" href="/Ripples/ripples.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Ripples · Ambient</title>
+  <link rel="stylesheet" href="/Ripples/ripples.css">
 </head>
 <body>
-<div class="stage">
-  <div class="bg">
-    <video id="bgVideo" muted playsinline loop preload="auto">
-      <source src="/assets/videos/Landingloop.mp4" type="video/mp4">
-    </video>
-  </div>
-  <canvas id="c"></canvas>
-</div>
-<div id="appBox">
-  <div class="stage">
-    ...
-  </div>
-</div>
-<div id="ui">
-  <button id="modeSetBtn"   class="btn">set: D-minorish</button>
-  <button id="scaleBtn"     class="btn">scale: dorian</button>
-  <button id="padBtn"       class="btn">pad: off</button>
-  <button id="noteModeBtn"  class="btn">notes: single</button>
-  <button id="delayModeBtn" class="btn">delay: on</button>
-  <div id="badge">AUDIO: OFF</div>
-</div>
+  <div id="appBox">
+    <div class="stage">
+      <div class="bg">
+        <video id="bgVideo" muted playsinline loop preload="auto">
+          <source src="/assets/videos/Landingloop.mp4" type="video/mp4">
+        </video>
+      </div>
+      <canvas id="c"></canvas>
+    </div>
 
-<div id="instruction">tap to begin · turn off silent mode for sound</div>
-<div id="credit">v1.0 · zayn wiwchar</div>
+    <div id="ui">
+      <button id="modeSetBtn"   class="btn">set: D-minorish</button>
+      <button id="scaleBtn"     class="btn">scale: dorian</button>
+      <button id="padBtn"       class="btn">pad: off</button>
+      <button id="noteModeBtn"  class="btn">notes: single</button>
+      <button id="delayModeBtn" class="btn">delay: on</button>
+      <div id="badge">AUDIO: OFF</div>
+    </div>
 
+    <div id="instruction">tap to begin · turn off silent mode for sound</div>
+    <div id="credit">v1.0 · zayn wiwchar</div>
+  </div>
 <script>
 (() => {
   // ---------------- Visuals ----------------
