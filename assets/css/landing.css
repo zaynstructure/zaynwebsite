@@ -92,7 +92,7 @@ body.is-landing {
 
   background-image: url("/assets/images/IMG_4523.png");
   background-size: cover;
-  background-position: center;
+  background-position: left;
   background-repeat: no-repeat;
 
   opacity: 0.4;              /* adjust to taste */
