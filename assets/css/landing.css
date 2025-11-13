@@ -107,24 +107,30 @@ body.is-landing {
   z-index: 1;
 }
 
-/* mobile: sidebar becomes a top bar */
-@media (max-width: 760px) {
+@media (max-width:760px){
   .side {
-    position: relative;
-    height: auto;
-    width: 100%;
-    max-width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+
+    height: 100vh;
+    width: var(--side-w, 300px);
+    max-width: 85vw;
+
     padding: 1.2rem 1rem;
-    border-right: 0;
-    border-bottom: var(--thin, 1px) solid var(--rule, #d0d7dd);
+    border-right: var(--thin) solid var(--rule);
+
+    overflow-y: auto;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(8px);
   }
 
   .side::before {
-    opacity: 0.25;
-    background-position: top left;
+    opacity: 0.22;
+    background-position: left top; /* moves collage left */
+    background-size: cover;
   }
 }
-
 /* =========================================================
    NAME + TAGLINE
 ========================================================= */
