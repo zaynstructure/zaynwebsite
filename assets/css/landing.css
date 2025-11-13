@@ -55,62 +55,74 @@ body.is-landing {
   background: #000;
 }
 
-/* =========================================================
-   ** SIDEBAR (GLOBAL) — transparent with collage background **
-========================================================= */
-/* GLOBAL SIDEBAR BASE (clean) */
+/* -------------------- sidebar -------------------- */
+/* base sidebar for all pages (including landing) */
 .side {
   position: fixed;
   top: 0;
   left: 0;
-
-  width: var(--side-w, 300px);
   height: 100vh;
+  width: var(--side-w, 300px);
   max-width: 85vw;
-
-  background: transparent;
-  border: none;
-  backdrop-filter: blur(8px);
 
   display: flex;
   flex-direction: column;
   justify-content: center;
-
   padding: 2rem 1.5rem;
 
-  overflow-y: auto;
-  z-index: 2;
+  /* make the box itself transparent, let the image do the work */
+  background: transparent;
+  backdrop-filter: blur(8px);
+  border-right: var(--thin, 1px) solid var(--rule, #d0d7dd);
 
-  position: relative; /* IMPORTANT: lets ::before fill it */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,.2) transparent;
+
+  z-index: 2;
 }
 
-
-/* mobile sidebar — still transparent */
-@media (max-width:760px){
-  .side {
-    position: relative;
-    width: 100%;
-    height: auto;
-    background: transparent;
-    border: none;
-    padding: 1.2rem 1rem;
-  }
-
-  .side::before {
+/* collage image behind everything in the sidebar */
+.side::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
 
   background-image: url("/assets/images/IMG_4523.png");
-  background-size: 140% auto;        /* zoom in, vertical emphasis */
-  background-position: center 20%;   /* shift up for better framing */
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
 
-  opacity: 0.33;
-  filter: grayscale(100%) contrast(1.15);
+  opacity: 0.4;              /* adjust to taste */
+  filter: grayscale(100%) contrast(1.1);
   mix-blend-mode: multiply;
   pointer-events: none;
+}
+
+/* make sure sidebar *content* is above the image */
+.side > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* mobile: sidebar becomes a top bar */
+@media (max-width: 760px) {
+  .side {
+    position: relative;
+    height: auto;
+    width: 100%;
+    max-width: 100%;
+    padding: 1.2rem 1rem;
+    border-right: 0;
+    border-bottom: var(--thin, 1px) solid var(--rule, #d0d7dd);
+  }
+
+  .side::before {
+    opacity: 0.25;
+    background-position: center top;
+  }
 }
 
 /* =========================================================
