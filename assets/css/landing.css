@@ -322,7 +322,16 @@ body.is-landing .bg-video {
   opacity: .75;
   pointer-events: none;
 }
-
+/* === frosty overlay on landing video === */
+body.is-landing .frost {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1; /* sits ABOVE video, BELOW sidebar/name/nav */
+  background: rgba(255, 255, 255, 0.10); /* subtle white veil */
+  backdrop-filter: blur(4px) saturate(1.02);
+  pointer-events: none;
+}
 @media (max-width:760px){
   body.is-landing .bg-video {
     transform: scale(0.7) translate(-50%, -50%);
