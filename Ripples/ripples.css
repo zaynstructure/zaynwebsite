@@ -1,15 +1,4 @@
-/* ---------------- Base layout ---------------- */
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  background: #000;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-}
-
-/* Container box to keep everything stable */
+/* --- container --- */
 #appBox {
   position: fixed;
   top: 0;
@@ -19,13 +8,10 @@ body {
   overflow: hidden;
 }
 
-/* ---------------- Stage / background / canvas ---------------- */
-
+/* --- layout --- */
 .stage {
-  position: relative;
+  position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   overflow: hidden;
 }
 
@@ -37,9 +23,6 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.bg {
   pointer-events: none;
 }
 
@@ -51,80 +34,67 @@ canvas {
   display: block;
 }
 
-/* ---------------- UI buttons ---------------- */
-
+/* --- UI --- */
 #ui {
   position: fixed;
-  inset: auto 0 0 auto; /* bottom-right */
-  padding: 12px;
+  bottom: 0.75rem;
+  right: 0.75rem;
   display: flex;
   gap: 8px;
-  align-items: center;
-  z-index: 2;
+  padding: 12px;
 }
 
 .btn {
-  background: rgba(20, 20, 22, 0.5);
+  background: rgba(20,20,22,.5);
   color: #cfcfd4;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255,255,255,.15);
   border-radius: 6px;
-  padding: 0.35rem 0.6rem;
-  font: 500 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  padding: .35rem .6rem;
+  font: 500 13px system-ui, -apple-system, sans-serif;
   cursor: pointer;
   backdrop-filter: blur(6px);
-  transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
-  opacity: 0.9;
+  opacity: .9;
 }
-
 .btn:hover {
-  background: rgba(26, 26, 30, 0.62);
+  background: rgba(26,26,30,.65);
   color: #fff;
   opacity: 1;
 }
 
-/* ---------------- Audio badge ---------------- */
-
 #badge {
-  font: 600 11px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #bbb;
-  padding: 0.35rem 0.5rem;
+  font: 600 11px system-ui;
+  padding: .35rem .5rem;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.15);
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #bbb;
 }
-
 #badge.on {
   color: #7fffb2;
-  border-color: rgba(127, 255, 178, 0.35);
+  border-color: rgba(127,255,178,.35);
 }
 
-/* ---------------- Credit label ---------------- */
-
-#credit {
-  position: fixed;
-  top: 0.6rem;
-  right: 0.75rem;
-  font: 400 11px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: rgba(255, 255, 255, 0.35);
-  letter-spacing: 0.4px;
-  pointer-events: none;
-  user-select: none;
-  z-index: 3;
-}
-
-/* ---------------- Instruction text ---------------- */
-
+/* --- overlay text --- */
 #instruction {
   position: fixed;
   bottom: 50%;
   left: 50%;
-  transform: translate(-50%, 50%);
-  font: 500 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: rgba(255, 255, 255, 0.8);
-  letter-spacing: 0.5px;
+  transform: translate(-50%,50%);
+  font: 500 14px system-ui;
+  color: rgba(255,255,255,0.8);
   opacity: 0;
-  pointer-events: none;
   transition: opacity 1.5s ease;
-  text-align: center;
-  z-index: 3;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#credit {
+  position: fixed;
+  top: .6rem;
+  right: .75rem;
+  color: rgba(255,255,255,.35);
+  font: 400 11px system-ui;
+  letter-spacing: .4px;
+  pointer-events: none;
+  z-index: 5;
 }
