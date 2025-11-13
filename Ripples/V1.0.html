@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ripples · Ambient</title>
+<style>
+  html,body { margin:0; height:100%; background:#000; }
+  .stage { position:fixed; inset:0; overflow:hidden; }
+  .bg, .bg > * {
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover; display:block;
+  }
+  .bg { pointer-events:none; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  #ui {
+    position:fixed;
+    inset:auto 0 0 auto;
+    padding:12px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .btn {
+    background:rgba(20,20,22,.5);
+    color:#cfcfd4;
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:6px;
+    padding:.35rem .6rem;
+    font:500 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    cursor:pointer;
+    backdrop-filter:blur(6px);
+    transition:background .2s ease, color .2s ease, opacity .2s ease;
+    opacity:.9;
+  }
+  .btn:hover{ background:rgba(26,26,30,.62); color:#fff; opacity:1; }
+
+  #badge {
+    font:600 11px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color:#bbb;
+    padding:.35rem .5rem;
+    border-radius:6px;
+    background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.12);
+  }
+  #badge.on {
+    color:#7fffb2;
+    border-color:rgba(127,255,178,.35);
+  }
+
+  #credit {
+    position:fixed;
+    top:0.6rem;
+    right:0.75rem;
+    font:400 11px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color:rgba(255,255,255,0.35);
+    letter-spacing:0.4px;
+    pointer-events:none;
+    user-select:none;
+    z-index:3;
+  }
+
+  #instruction {
+    position:fixed;
+    bottom:50%;
+    left:50%;
+    transform:translate(-50%,50%);
+    font:500 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color:rgba(255,255,255,0.8);
+    letter-spacing:0.5px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 1.5s ease;
+    text-align:center;
+    z-index:3;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="bg">
+    <video id="bgVideo" muted playsinline loop preload="auto">
+      <source src="/assets/videos/Landingloop.mp4" type="video/mp4">
+    </video>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+
+<div id="ui">
+  <button id="modeSetBtn"   class="btn">set: D-minorish</button>
+  <button id="scaleBtn"     class="btn">scale: dorian</button>
+  <button id="padBtn"       class="btn">pad: off</button>
+  <button id="noteModeBtn"  class="btn">notes: single</button>
+  <button id="delayModeBtn" class="btn">delay: on</button>
+  <div id="badge">AUDIO: OFF</div>
+</div>
+
+<div id="instruction">tap to begin · turn off silent mode for sound</div>
+<div id="credit">v1.0 · zayn wiwchar</div>
+
+<script>
+(() => {
+  // ---------------- Visuals ----------------
+  const video  = document.getElementById('bgVideo');
+  const canvas = document.getElementById('c');
+  const ctx    = canvas.getContext('2d');
+
+  // Ripple appearance controls
+  const COVER_ALPHA   = 1.15;
+  const RING_COUNT    = 4;
+  const RING_SPACING  = 30;
+  const BASE_WIDTH    = 2;
+  const LIFE_MS       = 1000;
+  const SPEED         = 220;
+
+  // brightness + fade
+  const RING_GAIN       = 1.8;
+  const EDGE_LIGHTNESS  = 93;
+  const EDGE_SAT        = 6;
+  const REVEAL_STRENGTH = 1.15;
+  const FADE_EXP        = 1.6;
+  const RING_FALLOFF    = 0.9;
+
+  function edgeColor(alpha){
+    return `hsla(210, ${EDGE_SAT}%, ${EDGE_LIGHTNESS}%, ${alpha})`;
+  }
+
+  const SHADOW_ALPHA       = 0.16;
+  const SHADOW_BLUR        = 4;
+  const SHADOW_OFFSET_Y    = 1;
+  const SHADOW_WIDTH_SCALE = 1.12;
+
+  let dpr = window.devicePixelRatio || 1;
+  function resize(){
+    const w = innerWidth, h = innerHeight;
+    canvas.width  = Math.floor(w*dpr);
+    canvas.height = Math.floor(h*dpr);
+    canvas.style.width  = w+'px';
+    canvas.style.height = h+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  addEventListener('resize', resize, {passive:true});
+  resize();
+
+  function tryPlay(){
+    const p = video.play?.();
+    if (p && p.catch) p.catch(()=>{});
+  }
+  video.addEventListener('canplay', tryPlay);
+  tryPlay();
+
+  const ripples = [];
+
+  function addRipple(x, y, opts = {}){
+    ripples.push({
+      x,
+      y,
+      t0: performance.now(),
+      opacity:     opts.opacity     ?? (0.35 + Math.random()*0.25),
+      widthJitter: opts.widthJitter ?? (0.85 + Math.random()*0.45),
+      sizeMul:     opts.sizeMul     ?? (0.95 + Math.random()*0.15),
+      life:        opts.life        ?? (LIFE_MS * (1.15 + Math.random()*0.25)),
+      speed:       opts.speed       ?? (SPEED * (0.9 + Math.random()*0.15)),
+      depth:       opts.depth       ?? false
+    });
+  }
+
+  function frame(now){
+    ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
+    const veilAlpha = Math.min(1, Math.max(0, COVER_ALPHA));
+    ctx.fillStyle = `rgba(0,0,0,${veilAlpha})`;
+    ctx.fillRect(0,0,canvas.width/dpr,canvas.height/dpr);
+
+    for (let i = ripples.length - 1; i >= 0; i--){
+      const r   = ripples[i];
+      const age = now - r.t0;
+      if (age > r.life){ ripples.splice(i,1); continue; }
+
+      const base = (age/1000) * r.speed;
+      const life = 1 - age / r.life;
+      const fade = Math.pow(life, FADE_EXP);
+      const baseAlpha = r.opacity * fade;
+      const width = BASE_WIDTH * r.widthJitter * (1 + 0.75*Math.sin(age*0.005));
+
+      for (let k = 0; k < RING_COUNT; k++){
+        const rad = (base + k*RING_SPACING) * r.sizeMul;
+        if (rad <= 0) continue;
+        const ringGain = Math.pow(RING_FALLOFF, k);
+
+        // reveal mask
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = `rgba(0,0,0,${Math.min(1, fade * REVEAL_STRENGTH * ringGain).toFixed(3)})`;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, rad, 0, Math.PI*2);
+        ctx.stroke();
+
+        // edge
+        ctx.globalCompositeOperation = 'source-over';
+        const edgeAlpha = baseAlpha * 0.4 * RING_GAIN * ringGain;
+        ctx.strokeStyle = edgeColor(edgeAlpha.toFixed(3));
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, rad, 0, Math.PI*2);
+        ctx.stroke();
+      }
+
+      // depth shadow
+      if (r.depth && baseAlpha > 0.02){
+        ctx.save();
+        ctx.shadowBlur    = SHADOW_BLUR;
+        ctx.shadowColor   = `rgba(0,0,0,${(SHADOW_ALPHA*life).toFixed(3)})`;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = SHADOW_OFFSET_Y;
+        ctx.strokeStyle   = 'rgba(0,0,0,0)';
+        ctx.lineWidth     = width * SHADOW_WIDTH_SCALE;
+        for (let k = 0; k < RING_COUNT; k++){
+          const rad = (base + k*RING_SPACING) * r.sizeMul;
+          if (rad <= 0) continue;
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, rad, 0, Math.PI*2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------------- Audio + UI refs ----------------
+  const modeSetBtn   = document.getElementById('modeSetBtn');
+  const scaleBtn     = document.getElementById('scaleBtn');
+  const padBtn       = document.getElementById('padBtn');
+  const noteModeBtn  = document.getElementById('noteModeBtn');
+  const delayModeBtn = document.getElementById('delayModeBtn');
+  const badge        = document.getElementById('badge');
+  const instruction  = document.getElementById('instruction');
+
+  let audioCtx        = null;
+  let audioBooted     = false;
+  let audioBootPromise = null;
+
+  let padBuf     = null;
+  let padSrc     = null;
+  let padGain    = null;
+  let padLoopEnd = null;
+  let padActive  = false;
+
+  let masterGain    = null;
+  let delayNode     = null;
+  let delayFeedback = null;
+  let delayMix      = null;
+  let delayMode     = true;
+
+  let cascadeMode   = false;
+
+  function ensureAudioContext(){
+    if (!audioCtx){
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioCtx();
+    }
+    return audioCtx;
+  }
+
+  // --- Pad loading / trimming ---
+  async function loadPadBuffer(url){
+    const res = await fetch(url, {cache:'force-cache'});
+    const arr = await res.arrayBuffer();
+    return await audioCtx.decodeAudioData(arr);
+  }
+
+  function analyzeTail(buffer, searchSec = 3.0, threshold = 0.0008, safetyMs = 20){
+    const sr   = buffer.sampleRate;
+    const len  = buffer.length;
+    const start= Math.max(0, len - Math.floor(searchSec * sr));
+    const ch0  = buffer.getChannelData(0);
+    const ch1  = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+
+    let lastLoud = start;
+    for (let i = len - 1; i >= start; i--){
+      const a0 = Math.abs(ch0[i]);
+      const a1 = ch1 ? Math.abs(ch1[i]) : 0;
+      const a  = a0 > a1 ? a0 : a1;
+      if (a > threshold){ lastLoud = i; break; }
+    }
+    const safety = Math.floor((safetyMs/1000) * sr);
+    const endIdx = Math.min(len, lastLoud + safety);
+    return endIdx / sr;
+  }
+
+  function startPadBuffer(loopStart = 0.0, loopEndSec = null, targetGain = 0.0, fadeSec = 0){
+    if (!padBuf || !masterGain) return;
+
+    if (!padSrc){
+      padSrc = audioCtx.createBufferSource();
+      padSrc.buffer = padBuf;
+      padSrc.loop = true;
+      padSrc.loopStart = loopStart;
+      padSrc.loopEnd   = loopEndSec ?? padBuf.duration;
+
+      if (!padGain){
+        padGain = audioCtx.createGain();
+        padGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+        padGain.connect(masterGain);
+      }
+
+      padSrc.connect(padGain);
+      padSrc.start();
+    }
+
+    const now = audioCtx.currentTime;
+    padGain.gain.cancelScheduledValues(now);
+    padGain.gain.setValueAtTime(padGain.gain.value, now);
+    padGain.gain.linearRampToValueAtTime(targetGain, now + fadeSec);
+  }
+
+  function fadePadTo(target, seconds = 3){
+    if (!padGain) return;
+    const now = audioCtx.currentTime;
+    padGain.gain.cancelScheduledValues(now);
+    padGain.gain.setValueAtTime(padGain.gain.value, now);
+    padGain.gain.linearRampToValueAtTime(target, now + seconds);
+  }
+
+  async function bootAudioOnce(){
+    if (audioBooted) return;
+    if (audioBootPromise) return audioBootPromise;
+
+    audioBootPromise = (async () => {
+      ensureAudioContext();
+      if (audioCtx.state !== 'running') await audioCtx.resume();
+
+      // 1-sample unlock
+      const silent = audioCtx.createBuffer(1,1,audioCtx.sampleRate);
+      const src    = audioCtx.createBufferSource();
+      src.buffer = silent;
+      src.connect(audioCtx.destination);
+      src.start(0);
+
+      // master + delay bus
+      if (!masterGain){
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+        masterGain.connect(audioCtx.destination);
+
+        delayNode     = audioCtx.createDelay(1.0);
+        delayNode.delayTime.setValueAtTime(0.28, audioCtx.currentTime);
+
+        delayFeedback = audioCtx.createGain();
+        delayFeedback.gain.setValueAtTime(0.35, audioCtx.currentTime);
+
+        delayMix      = audioCtx.createGain();
+        delayMix.gain.setValueAtTime(0.4, audioCtx.currentTime);
+
+        delayNode.connect(delayFeedback);
+        delayFeedback.connect(delayNode);
+        delayNode.connect(delayMix);
+        delayMix.connect(masterGain);
+      }
+
+      // load pad buffer ONLY (do not start it yet)
+      if (!padBuf){
+        padBuf     = await loadPadBuffer('/assets/Ripplesloop.m4a');
+        padLoopEnd = analyzeTail(padBuf, 3.0, 0.0008, 20);
+      }
+
+      audioBooted = true;
+      badge.textContent = 'AUDIO: ON';
+      badge.classList.add('on');
+
+      // tiny confirmation ping
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const g   = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 660;
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now+0.25);
+      osc.connect(g); g.connect(masterGain);
+      osc.start(now); osc.stop(now+0.3);
+
+      console.log('[ripples] audio unlocked; padBufferLoaded, loopEnd =', padLoopEnd.toFixed(3),'s');
+    })();
+
+    return audioBootPromise;
+  }
+
+  // ---------------- Scales / Modes ----------------
+  const SCALES = {
+    major:[0,2,4,5,7,9,11],
+    naturalMinor:[0,2,3,5,7,8,10],
+    dorian:[0,2,3,5,7,9,10],
+    pentatonicMajor:[0,2,4,7,9],
+    pentatonicMinor:[0,3,5,7,10],
+    lydian:[0,2,4,6,7,9,11],
+    mixolydian:[0,2,4,5,7,9,10],
+  };
+  const scaleNames = Object.keys(SCALES);
+
+  let ROOT_MIDI    = 62; // D4
+  let OCTAVES_UP   = 1;
+  let OCTAVES_DOWN = 1;
+
+  const MODE_SETS = {
+    'D-minorish':['dorian','pentatonicMinor'],
+    'D-majorish':['mixolydian','pentatonicMajor'],
+    'D-moodier' :['naturalMinor','pentatonicMinor'],
+  };
+  const modeSetNames = Object.keys(MODE_SETS);
+  let currentModeSetIdx = 0;
+  let activeModes       = MODE_SETS[modeSetNames[currentModeSetIdx]];
+
+  let currentScaleIndex = scaleNames.indexOf('dorian');
+  let SCALE     = SCALES['dorian'];
+  let NOTE_POOL = buildScalePool(ROOT_MIDI, SCALE, OCTAVES_UP, OCTAVES_DOWN);
+
+  function buildScalePool(rootMidi, steps, up, down){
+    const pool = [];
+    for (let o = -down; o <= up; o++){
+      const base = rootMidi + 12*o;
+      for (const s of steps) pool.push(base+s);
+    }
+    return pool.sort((a,b)=>a-b);
+  }
+
+  function setScaleByName(name){
+    if (!activeModes.includes(name)) name = activeModes[0];
+    SCALE = SCALES[name];
+    NOTE_POOL = buildScalePool(ROOT_MIDI, SCALE, OCTAVES_UP, OCTAVES_DOWN);
+    currentScaleIndex = scaleNames.indexOf(name);
+    scaleBtn.textContent = `scale: ${name}`;
+  }
+
+  scaleBtn.addEventListener('click', () => {
+    const currentName = scaleNames[currentScaleIndex];
+    const i = activeModes.indexOf(currentName);
+    const next = activeModes[(i+1) % activeModes.length];
+    setScaleByName(next);
+  });
+
+  modeSetBtn.addEventListener('click', () => {
+    currentModeSetIdx = (currentModeSetIdx + 1) % modeSetNames.length;
+    activeModes = MODE_SETS[modeSetNames[currentModeSetIdx]];
+    modeSetBtn.textContent = `set: ${modeSetNames[currentModeSetIdx]}`;
+    setScaleByName(activeModes[0]);
+  });
+
+  modeSetBtn.textContent = `set: ${modeSetNames[currentModeSetIdx]}`;
+  setScaleByName('dorian');
+
+  // D/E/A bias
+  function degreeFromRoot(m){ return ((m - ROOT_MIDI) % 12 + 12) % 12; }
+  function degreeWeight(deg){
+    const setName = modeSetNames[currentModeSetIdx];
+    if (setName === 'D-moodier'){
+      const table = {0:2.0, 2:1.6, 7:1.5, 5:1.3, 3:1.2, 8:0.7, 10:0.7};
+      return (table[deg] ?? 1.0);
+    }
+    const base = {0:1.8, 7:1.5, 2:1.3};
+    return (base[deg] ?? 1.0);
+  }
+
+  function weightedPick(pool){
+    if (!pool.length) return null;
+    let total = 0;
+    const acc = pool.map(m => (total += degreeWeight(degreeFromRoot(m))));
+    const r   = Math.random() * total;
+    const idx = acc.findIndex(a => a >= r);
+    return pool[Math.max(0, idx)];
+  }
+
+  // Register-based note picks
+  function pickBassNote(){
+    const N = NOTE_POOL.length; if (!N) return ROOT_MIDI-12;
+    const lowSliceEnd = Math.max(1, Math.floor(N*0.45));
+    const lowPool = NOTE_POOL.slice(0, lowSliceEnd);
+    const lowPick = weightedPick(lowPool) ?? NOTE_POOL[0];
+    const drop = (Math.random() < 0.7 ? 12 : 24);
+    const minBassMidi = ROOT_MIDI - 24;
+    const maxBassMidi = ROOT_MIDI - 12;
+    return Math.max(minBassMidi, Math.min(maxBassMidi, lowPick - drop));
+  }
+
+  function pickMidNote(){
+    const N = NOTE_POOL.length; if (!N) return ROOT_MIDI;
+    const midStart = Math.floor(N*0.35), midEnd = Math.floor(N*0.8);
+    const midPool = NOTE_POOL.slice(midStart, Math.max(midStart+1, midEnd));
+    return weightedPick(midPool) ?? NOTE_POOL[Math.floor(N*0.55)];
+  }
+
+  function pickHighNote(){
+    const N = NOTE_POOL.length; if (!N) return ROOT_MIDI+7;
+    const hiStart = Math.floor(N*0.65);
+    let hiPool = NOTE_POOL.slice(hiStart).filter(m => m <= ROOT_MIDI+24);
+    return weightedPick(hiPool) ?? NOTE_POOL[N-1];
+  }
+
+  // ---------------- Synth + delay ----------------
+  function midiToFreq(m){ return 440 * Math.pow(2, (m-69)/12); }
+
+  function playRippleSound(
+    x,
+    isDepth = false,
+    freqOverride = null,
+    detuneCents = 0,
+    voice = 'normal',
+    startOffset = 0
+  ){
+    if (!audioBooted || !masterGain) return;
+
+    const half = Math.floor(NOTE_POOL.length/2);
+    const idx = isDepth
+      ? Math.floor(Math.random()*Math.max(1, half))
+      : Math.floor(half + Math.random()*Math.max(1, NOTE_POOL.length-half));
+    const freq = freqOverride ?? midiToFreq(
+      NOTE_POOL[Math.min(NOTE_POOL.length-1, Math.max(0, idx))]
+    );
+
+    const now  = audioCtx.currentTime + startOffset;
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const pan  = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, now);
+    if (detuneCents) osc.detune.setValueAtTime(detuneCents, now);
+    osc.frequency.linearRampToValueAtTime(
+      freq * (isDepth ? 0.997 : 1.003),
+      now + 0.15
+    );
+
+    const startGain = (voice === 'bass') ? 0.05 : (isDepth ? 0.05 : 0.04);
+    const dur       = (voice === 'bass') ? 1.5  : (isDepth ? 1.2 : 0.9);
+    gain.gain.setValueAtTime(startGain, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    let last = gain;
+    if (pan){
+      const pVal   = (x / window.innerWidth)*2 - 1;
+      const pScale = (voice === 'bass') ? 0.25 : 0.6;
+      pan.pan.setValueAtTime(pVal * pScale, now);
+      osc.connect(gain);
+      last.connect(pan);
+      pan.connect(masterGain);
+    } else {
+      osc.connect(gain);
+      last.connect(masterGain);
+    }
+
+    // delay send only if delayMode is enabled AND this is high register
+    if (delayNode && delayMode && voice === 'high'){
+      const send = audioCtx.createGain();
+      send.gain.setValueAtTime(0.6, now);
+      gain.connect(send);
+      send.connect(delayNode);
+    }
+
+    osc.start(now);
+    osc.stop(now + dur + 0.1);
+  }
+
+  // Cascade helpers
+  function nearestIndexForMidi(m){
+    if (!NOTE_POOL.length) return 0;
+    let best = 0;
+    let bestDiff = Infinity;
+    for (let i = 0; i < NOTE_POOL.length; i++){
+      const diff = Math.abs(NOTE_POOL[i] - m);
+      if (diff < bestDiff){
+        bestDiff = diff;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  function fireCascade(x, voice, midi, isDepth, detuneBase){
+    if (!NOTE_POOL.length) return;
+
+    const baseIdx = nearestIndexForMidi(midi);
+    const idxs = [baseIdx-1, baseIdx, baseIdx+1].map(i =>
+      Math.max(0, Math.min(NOTE_POOL.length - 1, i))
+    );
+
+    const offsets = [0.0, 0.09, 0.18];
+
+    idxs.forEach((idx, i) => {
+      const freq = midiToFreq(NOTE_POOL[idx]);
+      const d = detuneBase || 0;
+      playRippleSound(x, isDepth, freq, d, voice, offsets[i]);
+    });
+  }
+
+  // ---------------- UI behaviours ----------------
+  const detunesByCount = { 1:[0], 2:[-4,+4], 3:[-5,0,+5] };
+
+  // pad toggle
+  padBtn.addEventListener('click', async () => {
+    await bootAudioOnce();
+    if (!padBuf) return;
+
+    if (!padSrc){
+      startPadBuffer(0.0, padLoopEnd, 0.0, 0);
+    }
+
+    if (padActive){
+      fadePadTo(0.0, 3);
+      padActive = false;
+      padBtn.textContent = 'pad: off';
+    } else {
+      fadePadTo(0.22, 3);
+      padActive = true;
+      padBtn.textContent = 'pad: on';
+    }
+  });
+
+  // note mode (single vs cascade)
+  noteModeBtn.addEventListener('click', () => {
+    cascadeMode = !cascadeMode;
+    noteModeBtn.textContent = cascadeMode ? 'notes: cascade' : 'notes: single';
+  });
+
+  // delay mode on/off
+  delayModeBtn.addEventListener('click', () => {
+    delayMode = !delayMode;
+    delayModeBtn.textContent = delayMode ? 'delay: on' : 'delay: off';
+  });
+
+  // Mouse: first tap boots audio and plays a note
+  canvas.addEventListener('pointerdown', async e => {
+    if (e.touches) return;
+    const x = e.clientX, y = e.clientY;
+
+    await bootAudioOnce();      // ensure audio is ready for this tap
+
+    addRipple(x,y);
+
+    if (cascadeMode){
+      const midi = pickMidNote();
+      fireCascade(x, 'normal', midi, false, 0);
+    } else {
+      playRippleSound(x, false);
+    }
+  }, {passive:true});
+
+  // Touch: vertical thirds + boots audio and plays on first gesture
+  canvas.addEventListener('touchstart', async e => {
+    const touches = Array.from(e.touches);
+    const count   = Math.min(touches.length, 3);
+    if (count === 0) return;
+
+    await bootAudioOnce();
+
+    const h = window.innerHeight;
+
+    for (let i = 0; i < count; i++){
+      const t = touches[i];
+      const x = t.clientX, y = t.clientY;
+
+      let voice, midi;
+      if (y > h*(2/3)){
+        voice = 'bass';   midi = pickBassNote();
+      } else if (y > h*(1/3)){
+        voice = 'normal'; midi = pickMidNote();
+      } else {
+        voice = 'high';   midi = pickHighNote();
+      }
+
+      addRipple(x,y,{
+        opacity:0.42 + Math.random()*0.08,
+        widthJitter:0.95 + Math.random()*0.4,
+        life:LIFE_MS * (1.1 + Math.random()*0.25),
+        speed:SPEED * (0.85 + Math.random()*0.15),
+        sizeMul:1 + Math.random()*0.2,
+        depth:count>1
+      });
+
+      const detuneBase = detunesByCount[count][i] || 0;
+
+      if (cascadeMode){
+        fireCascade(x, voice, midi, count>1, detuneBase);
+      } else {
+        const freq = midiToFreq(midi);
+        playRippleSound(x, count>1, freq, detuneBase, voice);
+      }
+    }
+  }, {passive:true});
+
+  // Safari resume
+  document.addEventListener('visibilitychange', () => {
+    if (!audioCtx || !audioBooted) return;
+    if (document.visibilityState === 'visible' && audioCtx.state !== 'running'){
+      audioCtx.resume().catch(()=>{});
+    }
+  });
+
+  // Instruction fade
+  window.addEventListener('load', () => {
+    if (!instruction) return;
+    instruction.style.opacity = 1;
+    setTimeout(() => {
+      instruction.style.opacity = 0;
+    }, 6000);
+  });
+})();
+</script>
+</body>
+</html>
