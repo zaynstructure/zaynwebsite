@@ -1,0 +1,330 @@
+/* =========================================================
+   landing-archivo.css (clean unified version)
+   minimal, soft-technical, lowercase
+   fonts: archivo + stack sans notch
+========================================================= */
+
+:root {
+  --bg: #e8eef3;
+  --rule: #d0d7dd;
+  --ink: #111;
+  --muted: #666;
+
+  --side-w: 300px;      /* used mostly for feel, not layout now */
+  --radius: 8px;
+  --thin: 1px;
+
+  --font: 'Archivo', system-ui, sans-serif;
+
+  --t-fast: .15s;
+  --t-med: .25s;
+}
+
+/* ---------- base ---------- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  letter-spacing: .1px;
+  line-height: 1.55;
+  overflow: auto;
+}
+
+/* ---------- landing noise overlay ---------- */
+body.is-landing::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.02), transparent 100%),
+    repeating-linear-gradient(45deg, rgba(0,0,0,.02) 0 1px, transparent 1px 2px);
+  opacity: .6;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.is-landing {
+  overflow: hidden;
+  background: #000;
+}
+
+/* =========================================================
+   SIMPLE TOP-LEFT NAV BAR (ALL PAGES)
+========================================================= */
+
+/* sidebar becomes a top-left nav block, not fixed full-height */
+.side {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+
+  padding: 1.5rem 1.5rem 1.2rem;
+
+  border-right: 0;
+  border-bottom: var(--thin, 1px) solid var(--rule, #d0d7dd);
+
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: blur(8px);
+  z-index: 2;
+}
+
+/* collage image behind the nav, same on ALL pages */
+.side::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+
+  background-image: url("/assets/images/IMG_4523.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;   /* image tied to nav box size */
+  background-position: left top;
+
+  opacity: 0.28;
+  filter: grayscale(100%) contrast(1.15);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* ensure nav contents are above the image */
+.side > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* main content now lives BELOW the nav, no overlapping */
+main {
+  margin-left: 0;
+  padding: 1.5rem 1.5rem 3rem;
+  max-width: 1200px;
+}
+
+/* tighter padding on mobile */
+@media (max-width: 760px) {
+  .side {
+    padding: 1.2rem 1rem 1rem;
+  }
+  .side::before {
+    opacity: 0.2;
+    background-position: left top;
+  }
+  main {
+    padding: 1.5rem 1rem 2.5rem;
+  }
+}
+
+/* Ensure anchor targets aren’t hidden under sticky UI (if you add any later) */
+main h1, main h2, [id] {
+  scroll-margin-top: 2.5rem;
+}
+
+/* =========================================================
+   NAME + TAGLINE
+========================================================= */
+
+.name {
+  margin: 0 0 1.1rem;
+  font-family: 'Stack Sans Notch', sans-serif;
+  font-weight: 600;
+  letter-spacing: .5px;
+  font-size: clamp(1.8rem, 3vw + 1rem, 3rem);
+}
+
+.name a {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity .2s ease;
+}
+
+.name a:hover { opacity: .7; }
+
+.tagline {
+  margin: 0 0 1.05rem;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+/* =========================================================
+   NAV TREE
+========================================================= */
+
+.nav-tree { 
+  border-top: var(--thin) solid var(--rule); 
+  padding-top: .7rem; 
+}
+
+details { margin: .25rem 0; }
+
+summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  cursor: pointer;
+  padding: .4rem .55rem;
+
+  background: transparent;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background var(--t-fast);
+}
+
+summary::-webkit-details-marker { display: none; }
+summary:hover { background: rgba(0,0,0,.05); }
+
+summary .caret {
+  width: 9px; height: 9px;
+  border-right: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  transform: rotate(-45deg);
+  opacity: .5;
+  transition: transform var(--t-med);
+}
+
+details[open] summary .caret {
+  transform: rotate(45deg);
+  opacity: .7;
+}
+
+.children {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-left: 1.3rem;
+  border-left: var(--thin) dashed var(--rule);
+  padding-left: .6rem;
+
+  transition: 
+    max-height var(--t-med),
+    opacity var(--t-med),
+    padding var(--t-med);
+}
+
+details[open] .children {
+  max-height: 40rem;
+  padding: .3rem 0 .3rem .6rem;
+  margin-top: .35rem;
+  opacity: 1;
+}
+
+.children a {
+  display: block;
+  padding: .35rem .25rem;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: 6px;
+  opacity: .9;
+}
+
+.children a:hover {
+  background: rgba(0,0,0,.06);
+}
+
+.single a {
+  display: block;
+  padding: .45rem .55rem;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--radius);
+  font-weight: 500;
+}
+
+.single a:hover {
+  background: rgba(0,0,0,.06);
+}
+
+/* =========================================================
+   FOCUS STATE
+========================================================= */
+
+:focus-visible {
+  outline: 1px solid rgba(0,0,0,0.85);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+:focus { box-shadow: none; }
+
+/* =========================================================
+   COLLAPSIBLE TAGS BLOCK (GLOBAL, IF USED)
+========================================================= */
+
+.tags-block { margin-top: 0.4rem; font-size: 0.85rem; }
+.tags-block summary{
+  list-style: none;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.04);
+  color: var(--muted);
+  width: fit-content;
+  transition: background .15s ease;
+}
+.tags-block summary:hover { background: rgba(0,0,0,0.08); }
+.tags-block summary::marker { display: none; }
+.tags-block[open] .tags { animation: fadeIn .2s ease; }
+@keyframes fadeIn {
+  from {opacity:0; transform: translateY(-2px);}
+  to   {opacity:1; transform: translateY(0);}
+}
+.tags-block .tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:.35rem;
+  margin-top:.4rem;
+}
+
+/* =========================================================
+   LANDING VIDEO BACKGROUND
+========================================================= */
+
+body.is-landing .landing-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+body.is-landing .bg-video {
+  position: absolute;
+  top: 50%; 
+  left: 50%;
+  min-width: 100vw;
+  min-height: 100vh;
+  width: auto;
+  height: auto;
+
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+
+  filter: grayscale(10%) contrast(1.05);
+  opacity: .95;
+  pointer-events: none;
+}
+
+@media (max-width:760px){
+  body.is-landing .bg-video {
+    transform: scale(0.7) translate(-50%, -50%);
+    object-fit: cover;
+    background-color: #000;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.is-landing .bg-video { display:none; }
+  body.is-landing {
+    background: #000 url("/assets/videos/Landingloop.jpg") center/cover no-repeat;
+  }
+}
