@@ -110,9 +110,20 @@ body.is-landing {
   }
 
   .side::before {
-    opacity: 0.18;
-    background-position: center top;
-  }
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+
+  background-image: url("/assets/images/IMG_4523.png");
+  background-size: 140% auto;        /* zoom in, vertical emphasis */
+  background-position: center 20%;   /* shift up for better framing */
+  background-repeat: no-repeat;
+
+  opacity: 0.33;
+  filter: grayscale(100%) contrast(1.15);
+  mix-blend-mode: multiply;
+  pointer-events: none;
 }
 
 /* =========================================================
