@@ -299,4 +299,68 @@ body.is-landing .bg-video {
   body.is-landing {
     background: #000 url("/assets/videos/Landingloop.jpg") center/cover no-repeat;
   }
+/* === SIMPLE TOP-LEFT NAV BAR LAYOUT (OVERRIDE) =================== */
+
+/* sidebar becomes a top-left nav block, not fixed, not full-height */
+.side {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+
+  padding: 1.5rem 1.5rem 1.2rem;
+
+  /* no more vertical full-height border */
+  border-right: 0;
+  border-bottom: var(--thin, 1px) solid var(--rule, #d0d7dd);
+
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: blur(8px);
+  z-index: 2;
+}
+
+/* collage image behind the nav, same on ALL pages */
+.side::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+
+  background-image: url("/assets/images/IMG_4523.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;     /* tie image size directly to nav box */
+  background-position: left top;
+
+  opacity: 0.28;
+  filter: grayscale(100%) contrast(1.15);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* main content now lives BELOW the nav, no overlapping */
+main {
+  margin-left: 0;
+  padding: 1.5rem 1.5rem 3rem;
+  max-width: 1200px;
+}
+
+/* tighten padding on mobile, same structure */
+@media (max-width: 760px) {
+  .side {
+    padding: 1.2rem 1rem 1rem;
+    border-bottom: var(--thin, 1px) solid var(--rule, #d0d7dd);
+  }
+  .side::before {
+    opacity: 0.2;
+    background-position: left top;
+  }
+  main {
+    padding: 1.5rem 1rem 2.5rem;
+  }
+}
+   
 }
