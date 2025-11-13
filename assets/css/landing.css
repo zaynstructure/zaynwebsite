@@ -92,7 +92,7 @@ body.is-landing {
 
   background-image: url("/assets/images/IMG_4523.png");
   background-size: cover;
-  background-position: left;
+  background-position: 0% center;
   background-repeat: no-repeat;
 
   opacity: 0.4;              /* adjust to taste */
@@ -121,7 +121,7 @@ body.is-landing {
 
   .side::before {
     opacity: 0.25;
-    background-position: center top;
+    background-position: 0%. center;
   }
 }
 
