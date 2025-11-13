@@ -90,7 +90,7 @@ body.is-landing {
   background-image: url("/assets/images/IMG_4524.png");
   background-repeat: no-repeat;
   background-size: 110% auto;   /* image tied to nav box size */
-  background-position: -15% -5%;
+  background-position: -25% -5%;
 
   opacity: 0.28;
   filter: grayscale(100%) contrast(1.15);
