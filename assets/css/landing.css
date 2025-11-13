@@ -383,7 +383,7 @@ body.is-landing .side{
   inset: 0;
   z-index: -1;
 
-  background-image: url("/assets/images/IMG_4523.png");
+  background-image: url("/assets/images/IMG_4523.png"); /* using your file */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -394,7 +394,7 @@ body.is-landing .side{
   pointer-events: none;
 }
 
-/* mobile adjustments */
+/* mobile: keep it softer */
 @media (max-width:760px) {
   .side::before {
     opacity: 0.18;
