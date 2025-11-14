@@ -17,21 +17,18 @@
     }
     
     #controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-
-  background: #000;             /* true black */
-  padding: 18px 16px;           /* more breathing room */
-  border-top: 1px solid #222;   /* subtle separation line */
+  background: #000;
+  padding: 16px;
+  border-top: 1px solid #222;
 
   display: flex;
   flex-wrap: wrap;
   gap: 10px 18px;
   align-items: center;
-z-index: 20;
+
   font-size: 12px;
+  color: #d4d4d4;
+}
   color: #d4d4d4;
 }
     .artist-summary {
@@ -77,19 +74,12 @@ z-index: 20;
   </style>
 </head>
 <body>
+  <div id="glWrap">
+  <canvas id="glCanvas"></canvas>
+  <canvas id="particles"></canvas>
+</div>
 <div id="controls">
   
-  <div class="artist-summary">
-  This view models emotion as a multi-parameter system. 
-  Damping is the rate at which an emotional signal returns to baseline. 
-  Coupling is the degree to which external emotional inputs alter your state. 
-  Noise is background mental interference during emotion. 
-  Rhythm is the stability of your emotional cycles across the day. 
-  Gradient is the directional drive produced by motivation or intent. 
-  Attractor is the dominance of a single emotional theme. 
-  Coherence is how well emotional signals align into a unified state.
-</div>
-
   <label class="label">
     <span class="name">damping</span>
     <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
@@ -126,12 +116,17 @@ z-index: 20;
   </label>
 
 </div>
-
-<div id="glWrap">
-  <canvas id="glCanvas"></canvas>
-  <canvas id="particles"></canvas>
+ <div class="artist-summary">
+  This view models emotion as a multi-parameter system. 
+  Damping is the rate at which an emotional signal returns to baseline. 
+  Coupling is the degree to which external emotional inputs alter your state. 
+  Noise is background mental interference during emotion. 
+  Rhythm is the stability of your emotional cycles across the day. 
+  Gradient is the directional drive produced by motivation or intent. 
+  Attractor is the dominance of a single emotional theme. 
+  Coherence is how well emotional signals align into a unified state.
 </div>
-
+  
 <script>
   // ------------------ WEBGL SETUP ------------------
   const canvas = document.getElementById('glCanvas');
