@@ -985,7 +985,297 @@
       infoModalBackdrop.style.display='none';
     }
   });
+// ===============================
+// EVF v0.3 GEOMETRY PATCH
+// topology-aware field diagram
+// ===============================
 
+// canonical axis layout (matching our topology & icons)
+// angles measured from canvas center, 0 at +x, CCW
+const EVF_AXES = [
+  { key: 'coupling',  label: 'c',         baseAngle: -Math.PI / 2 },                 // top
+  { key: 'noise',     label: 'ξ',         baseAngle: -Math.PI / 2 + 2 * Math.PI / 7 }, // upper-right
+  { key: 'coherence', label: 'C',         baseAngle: -Math.PI / 2 + 4 * Math.PI / 7 }, // lower-right
+  { key: 'attractor', label: 'A',         baseAngle: -Math.PI / 2 + 6 * Math.PI / 7 }, // bottom-right
+  { key: 'gradient',  label: '∇φ',        baseAngle: -Math.PI / 2 + 8 * Math.PI / 7 }, // bottom-left
+  { key: 'rhythm',    label: 'R',         baseAngle: -Math.PI / 2 + 10 * Math.PI / 7 }, // lower-left
+  { key: 'damping',   label: 'γ',         baseAngle: -Math.PI / 2 + 12 * Math.PI / 7 }  // upper-left
+];
+
+// simple clamp / lerp helpers
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// magnitude helper (0–1) for each param
+function normParam(val) {
+  const v = (val == null ? 0 : val);
+  return clamp01(v / 100);
+}
+
+// pair strength (used for γ–R, ∇φ–A)
+function pairStrength(a, b) {
+  const na = normParam(a);
+  const nb = normParam(b);
+  // we care about both being “on” and similar
+  const mean = 0.5 * (na + nb);
+  const diff = Math.abs(na - nb);
+  return clamp01(mean * (1 - diff)); // strong when both high and close
+}
+
+// tension strength (ξ–C hinge)
+function tensionStrength(noiseVal, cohVal) {
+  const n = normParam(noiseVal);
+  const c = normParam(cohVal);
+  const diff = Math.abs(n - c);
+  const mean = 0.5 * (n + c);
+  // strong tension when both moderately active and far apart
+  return clamp01(diff * (0.3 + 0.7 * mean));
+}
+
+// compute topology-aware geometry from params
+function analyzeEVFStateV03(params, canvas) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // base radius range (min so it never collapses to center)
+  const R_MIN = Math.min(w, h) * 0.12;
+  const R_MAX = Math.min(w, h) * 0.42;
+
+  // normalized values
+  const n = {
+    damping:   normParam(params.damping),
+    coupling:  normParam(params.coupling),
+    noise:     normParam(params.noise),
+    rhythm:    normParam(params.rhythm),
+    gradient:  normParam(params.gradient),
+    attractor: normParam(params.attractor),
+    coherence: normParam(params.coherence)
+  };
+
+  // pair metrics
+  const sReg   = pairStrength(params.damping, params.rhythm);      // γ–R
+  const sDir   = pairStrength(params.gradient, params.attractor);  // ∇φ–A
+  const sHinge = tensionStrength(params.noise, params.coherence);  // ξ–C
+
+  // base radius per axis (before topology tweaks)
+  const baseRadius = {};
+  EVF_AXES.forEach(ax => {
+    baseRadius[ax.key] = lerp(R_MIN, R_MAX, n[ax.key]);
+  });
+
+  // ---------- ANGLE DEFORMATION (cluster compression) ----------
+
+  const angles = {};
+  EVF_AXES.forEach(ax => {
+    angles[ax.key] = ax.baseAngle;
+  });
+
+  // helper to find axis index by key
+  function idx(key) {
+    return EVF_AXES.findIndex(ax => ax.key === key);
+  }
+
+  const sep = 2 * Math.PI / EVF_AXES.length;
+  const ANGLE_CLUSTER_FACTOR = 0.25; // how much of base separation can be compressed
+
+  // γ–R pair (regulation cluster on left)
+  {
+    const k1 = 'damping';
+    const k2 = 'rhythm';
+    const a1 = EVF_AXES[idx(k1)].baseAngle;
+    const a2 = EVF_AXES[idx(k2)].baseAngle;
+    const mid = 0.5 * (a1 + a2);
+    const maxDelta = ANGLE_CLUSTER_FACTOR * sep * sReg;
+
+    angles[k1] = mid - maxDelta;
+    angles[k2] = mid + maxDelta;
+  }
+
+  // ∇φ–A pair (directional cluster on bottom)
+  {
+    const k1 = 'gradient';
+    const k2 = 'attractor';
+    const a1 = EVF_AXES[idx(k1)].baseAngle;
+    const a2 = EVF_AXES[idx(k2)].baseAngle;
+    const mid = 0.5 * (a1 + a2);
+    const maxDelta = ANGLE_CLUSTER_FACTOR * sep * sDir;
+
+    angles[k1] = mid - maxDelta;
+    angles[k2] = mid + maxDelta;
+  }
+
+  // ---------- RADIUS DEFORMATION ----------
+
+  // ξ–C hinge: exaggerate radial contrast
+  const kNoise = 'noise';
+  const kCoh   = 'coherence';
+  {
+    const rN0 = baseRadius[kNoise];
+    const rC0 = baseRadius[kCoh];
+    const mean = 0.5 * (rN0 + rC0);
+    const diff = rN0 - rC0;
+    const K_HINGE = 0.4; // strength of hinge exaggeration
+
+    const factor = 1 + K_HINGE * sHinge;
+
+    baseRadius[kNoise] = mean + diff * factor;
+    baseRadius[kCoh]   = mean - diff * factor;
+  }
+
+  // global coupling: compression / fragmentation around mean
+  const cNorm = n.coupling;
+  const radii = {};
+  const allR = EVF_AXES.map(ax => baseRadius[ax.key]);
+  const rMean = allR.reduce((a, b) => a + b, 0) / allR.length;
+
+  // α_c controls pull toward mean (higher coupling → tighter cluster)
+  const ALPHA_MIN = 0.0;
+  const ALPHA_MAX = 0.7;
+  const alphaC = lerp(ALPHA_MIN, ALPHA_MAX, cNorm);
+
+  EVF_AXES.forEach(ax => {
+    const r0 = baseRadius[ax.key];
+    const r1 = lerp(r0, rMean, alphaC);
+    radii[ax.key] = r1;
+  });
+
+  // directional tilt: strong ∇φ–A pulls centroid downwards
+  const dirScore = clamp01(sDir * ((params.gradient + params.attractor) / 200));
+  const tiltOffset = (Math.min(w, h) * 0.06) * dirScore; // pixels
+
+  // ---------- FINAL POINTS & METRICS ----------
+
+  const points = EVF_AXES.map(ax => {
+    const ang = angles[ax.key];
+    const r   = radii[ax.key];
+
+    const x = cx + r * Math.cos(ang);
+    const y = (cy + tiltOffset) + r * Math.sin(ang); // apply tilt downward
+
+    return { key: ax.key, label: ax.label, x, y, r, angle: ang };
+  });
+
+  // centroid of polygon
+  let centroidX = 0, centroidY = 0;
+  points.forEach(p => { centroidX += p.x; centroidY += p.y; });
+  centroidX /= points.length;
+  centroidY /= points.length;
+
+  // simple spikiness / variance
+  const rs = points.map(p => p.r);
+  const rAvg = rs.reduce((a, b) => a + b, 0) / rs.length;
+  const rVar = rs.reduce((acc, rv) => acc + Math.pow(rv - rAvg, 2), 0) / rs.length;
+  const spikiness = Math.sqrt(rVar);
+
+  return {
+    points,
+    centroid: { x: centroidX, y: centroidY },
+    rAvg,
+    rVar,
+    spikiness,
+    pairs: { sReg, sDir, sHinge },
+    cNorm,
+    n
+  };
+}
+
+// ===============================
+// DRAW FUNCTION (replaces old drawGeometry)
+// ===============================
+function drawGeometry(ctx, params) {
+  const canvas = ctx.canvas;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const geom = analyzeEVFStateV03(params, canvas);
+  const { points, centroid, rAvg, spikiness, cNorm } = geom;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // background ring (ghost field)
+  ctx.save();
+  ctx.translate(0, 0);
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rAvg, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // polygon fill (field shape)
+  ctx.save();
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
+
+  // fill slightly more solid if coupling is high (compressed field)
+  const fillAlpha = lerp(0.08, 0.18, cNorm);
+  ctx.fillStyle = `rgba(0,0,0,${fillAlpha.toFixed(3)})`;
+  ctx.fill();
+
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.stroke();
+  ctx.restore();
+
+  // radial spokes + nodes
+  ctx.save();
+  ctx.lineWidth = 0.7;
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.font = '10px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  points.forEach(p => {
+    // spoke
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+
+    // node
+    ctx.beginPath();
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // label (parameter symbol)
+    const labelR = 10;
+    const lx = p.x + labelR * Math.cos(p.angle);
+    const ly = p.y + labelR * Math.sin(p.angle);
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillText(p.label, lx, ly);
+  });
+  ctx.restore();
+
+  // centroid dot
+  ctx.save();
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.arc(centroid.x, centroid.y, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // optional: tiny metrics in corner (spikiness, coupling)
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.font = '10px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  const sp = spikiness.toFixed(1);
+  const cP = Math.round(geom.cNorm * 100);
+  ctx.fillText(`spike: ${sp}`, 8, 8);
+  ctx.fillText(`coupling: ${cP}`, 8, 20);
+  ctx.restore();
+}
   // ---------- init ----------
   createAssessment();
   createSliders();
