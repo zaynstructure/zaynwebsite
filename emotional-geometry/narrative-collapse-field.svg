@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Narrative Collapse Field · ring broken near coherence -->
+
+  <rect x="0" y="0" width="64" height="64" fill="none"/>
+
+  <!-- partial ring path (gap on lower-right) -->
+  <path d="M 32 10
+           A 22 22 0 0 0 10 32
+           A 22 22 0 0 0 28 52"
+        fill="none" stroke="#4b5563" stroke-width="0.8"/>
+
+  <!-- faint extension on left-bottom to bottom pair -->
+  <line x1="28" y1="52" x2="32" y2="56" stroke="#4b5563" stroke-width="0.8"/>
+
+  <!-- dashed hint where ring is 'missing' -->
+  <path d="M 36 52
+           A 22 22 0 0 0 54 28"
+        fill="none" stroke="#6b7280" stroke-width="0.6" stroke-dasharray="2 2"/>
+
+  <!-- nodes -->
+  <!-- coupling -->
+  <circle cx="32" cy="10" r="2.2" fill="#e5e7eb"/>
+
+  <!-- damping / rhythm (left-normal) -->
+  <circle cx="16" cy="24" r="2.2" fill="#e5e7eb"/>
+  <circle cx="16" cy="40" r="2.2" fill="#e5e7eb"/>
+
+  <!-- noise (upper-right normal) -->
+  <circle cx="50" cy="20" r="2.2" fill="#e5e7eb"/>
+
+  <!-- coherence (weakened, off-ring) -->
+  <circle cx="50" cy="40" r="1.6" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- gradient / attractor bottom pair -->
+  <circle cx="28" cy="52" r="2.2" fill="#e5e7eb"/>
+  <circle cx="36" cy="54" r="2.2" fill="#e5e7eb"/>
+</svg>
