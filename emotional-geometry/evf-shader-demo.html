@@ -558,13 +558,12 @@ const uAttrPosLoc   = gl.getUniformLocation(program, "uAttractorPos");
     pCtx.setTransform(dpr,0,0,dpr,0,0);
   }
 function initParticles() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const rect = pCanvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
   particles = [];
 
-  // density: fairly high but not overwhelming
   const count = Math.floor(w * 5.0);
-
   for (let i = 0; i < count; i++) {
     particles.push({
       x: Math.random() * w,
@@ -576,6 +575,34 @@ function initParticles() {
       maxLife: 5 + Math.random() * 5
     });
   }
+}
+
+function updateParticles() {
+  const rect = pCanvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+
+  const gVal = evf.gradient;
+  const aVal = evf.attractor;
+  const cVal = evf.coupling;
+
+  const drive   = Math.max(gVal, aVal);
+  const aimless = 1.0 - drive;
+
+  const GRAD_STRENGTH  = 0.025 * gVal;
+  const ATTR_STRENGTH  = 0.07  * aVal;
+  const NOISE_STRENGTH = 0.02  + 0.06 * evf.noise;
+  const DRIFT_STRENGTH = 0.02  + 0.06 * aimless;
+
+  // attractor center in the SAME rect as the shader
+  const ax = w * 0.72;
+  const ay = h * 0.65;
+
+  const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
+  const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
+
+  // ... keep the rest of your updateParticles code the same,
+  // just with this new w, h, and ax, ay ...
 }
   function updateParticles() {
   const w = window.innerWidth;
