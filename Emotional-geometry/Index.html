@@ -255,6 +255,29 @@
       <div class="panel-title">parameters (0–10)</div>
       <div class="hint">drag to change the field; all updates are live.</div>
       <div id="sliders"></div>
+      <hr style="border: 0; border-top: 1px solid #111827; margin: 10px 0 8px;" />
+
+<div class="panel-title" style="font-size:12px;">quick self-assessment</div>
+<div class="hint">
+  answer a few questions; we’ll convert them into EVF parameters.
+</div>
+
+<div id="assessment"></div>
+
+<button id="applyAssessmentBtn" style="
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e5e7eb;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+">
+  Apply self-assessment
+</button>
     </section>
 
     <!-- Canvas + readout -->
@@ -312,7 +335,44 @@
     attractor: 'attractor',
     coherence: 'coherence'
   };
-
+// --------- self-assessment questions ---------
+const ASSESSMENT_QUESTIONS = [
+  {
+    param: 'damping',
+    id: 'q_damping',
+    text: 'How easy is it to settle or calm yourself after strong emotion?'
+  },
+  {
+    param: 'coupling',
+    id: 'q_coupling',
+    text: 'How strongly do you feel pulled or shaped by other people / environments right now?'
+  },
+  {
+    param: 'noise',
+    id: 'q_noise',
+    text: 'How noisy is your inner world (intrusive thoughts, mental clutter, emotional static)?'
+  },
+  {
+    param: 'rhythm',
+    id: 'q_rhythm',
+    text: 'How steady are your daily rhythms (sleep, meals, work / rest cycles)?'
+  },
+  {
+    param: 'gradient',
+    id: 'q_gradient',
+    text: 'How much drive or directional pull do you feel toward anything that matters?'
+  },
+  {
+    param: 'attractor',
+    id: 'q_attractor',
+    text: 'How strong is a single dominant focus (worry, goal, obsession, storyline) in your mind?'
+  },
+  {
+    param: 'coherence',
+    id: 'q_coherence',
+    text: 'How coherent does your life / emotional picture feel overall?'
+  }
+];
   const MAX_SCALE = 10;
   const BASE_RADIUS = 120;
 
@@ -433,6 +493,10 @@
 
   // --------- UI wiring ---------
   const slidersContainer = document.getElementById('sliders');
+  const assessmentContainer = document.getElementById('assessment');
+  const applyAssessmentBtn  = document.getElementById('applyAssessmentBtn');
+
+  const assessmentInputs = {};
   const canvas = document.getElementById('evfCanvas');
   const ctx = canvas.getContext('2d');
 
@@ -462,7 +526,49 @@
       input.step = '1';
       input.value = String(state[name] ?? 0);
       inputs[name] = input;
+function createAssessment() {
+  ASSESSMENT_QUESTIONS.forEach(q => {
+    const wrap = document.createElement('div');
+    wrap.style.margin = '6px 0 4px';
 
+    const label = document.createElement('div');
+    label.style.fontSize = '11px';
+    label.style.color = 'var(--muted)';
+    label.style.marginBottom = '2px';
+    label.textContent = q.text;
+
+    const row = document.createElement('div');
+    row.className = 'slider-row';
+    row.style.gridTemplateColumns = '0.7fr 3fr auto';
+
+    const low = document.createElement('span');
+    low.style.fontSize = '10px';
+    low.style.color = 'var(--muted)';
+    low.textContent = '0';
+
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '0';
+    input.max = String(MAX_SCALE);
+    input.step = '1';
+    input.value = String(state[q.param] ?? 5);
+
+    const high = document.createElement('span');
+    high.style.fontSize = '10px';
+    high.style.color = 'var(--muted)';
+    high.textContent = '10';
+
+    assessmentInputs[q.id] = input;
+
+    row.appendChild(low);
+    row.appendChild(input);
+    row.appendChild(high);
+
+    wrap.appendChild(label);
+    wrap.appendChild(row);
+    assessmentContainer.appendChild(wrap);
+  });
+}
       const valueSpan = document.createElement('span');
       valueSpan.className = 'slider-value';
       valueSpan.textContent = input.value;
@@ -695,7 +801,21 @@
     });
     update();
   });
+applyAssessmentBtn.addEventListener('click', () => {
+  // For now: direct mapping 0–10 → EVF param (same scale).
+  ASSESSMENT_QUESTIONS.forEach(q => {
+    const value = Number(assessmentInputs[q.id].value) || 0;
+    state[q.param] = value;
 
+    // also push into the main EVF sliders so the UI stays in sync
+    if (inputs[q.param]) {
+      inputs[q.param].value = String(value);
+      inputs[q.param].nextSibling.textContent = String(value);
+    }
+  });
+
+  update();
+});
   exportSvgBtn.addEventListener('click', () => {
     if (!lastResult) {
       lastResult = analyzeEVFState(state, {
@@ -706,11 +826,51 @@
     downloadSVG(lastResult);
   });
 
-  // --------- init ---------
-  createSliders();
-  resizeCanvas();
+// --------- init ---------
+createSliders();
+createAssessment();
+resizeCanvas();
+update();
+
+// keep lastResult updated through update()
+let lastResult = null;
+
+// reset button
+resetBtn.addEventListener('click', () => {
+  PARAM_ORDER.forEach(name => {
+    state[name] = 5;
+    inputs[name].value = '5';
+    inputs[name].nextSibling.textContent = '5';
+  });
   update();
+});
+
+// SVG export
+exportSvgBtn.addEventListener('click', () => {
+  if (!lastResult) {
+    lastResult = analyzeEVFState(state, {
+      maxScale: MAX_SCALE,
+      baseRadius: BASE_RADIUS
+    });
+  }
+  downloadSVG(lastResult);
+});
+
+// apply self-assessment → state + sliders
+applyAssessmentBtn.addEventListener('click', () => {
+  ASSESSMENT_QUESTIONS.forEach(q => {
+    const value = Number(assessmentInputs[q.id].value) || 0;
+    state[q.param] = value;
+
+    // sync with the main EVF sliders
+    if (inputs[q.param]) {
+      inputs[q.param].value = String(value);
+      inputs[q.param].nextSibling.textContent = String(value);
+    }
+  });
+
+  update();
+});
 </script>
 </body>
 </html>
-
