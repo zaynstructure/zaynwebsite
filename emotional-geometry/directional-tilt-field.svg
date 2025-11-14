@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Directional Tilt Field · strong ∇φ–A bottom pair pulling field down -->
+
+  <rect x="0" y="0" width="64" height="64" fill="none"/>
+
+  <!-- tilted ring -->
+  <ellipse cx="32" cy="30" rx="22" ry="20"
+           fill="none" stroke="#374151" stroke-width="0.6"
+           transform="rotate(8 32 30)"/>
+
+  <!-- main ring connections (subtle) -->
+  <g stroke="#6b7280" stroke-width="0.8">
+    <line x1="22" y1="24" x2="22" y2="40"/>   <!-- γ–R -->
+    <line x1="42" y1="24" x2="42" y2="40"/>   <!-- ξ–C -->
+    <line x1="22" y1="40" x2="28" y2="50"/>   <!-- R→bottom -->
+    <line x1="42" y1="40" x2="36" y2="50"/>   <!-- C→bottom -->
+  </g>
+
+  <!-- heavy gradient–attractor connection -->
+  <line x1="28" y1="52" x2="36" y2="52"
+        stroke="#e5e7eb" stroke-width="2"/>
+
+  <!-- coupling to bottom cluster (thin) -->
+  <line x1="32" y1="10" x2="32" y2="26" stroke="#6b7280" stroke-width="0.8"/>
+
+  <!-- nodes -->
+  <!-- coupling (top, slightly light) -->
+  <circle cx="32" cy="10" r="2.2" fill="#e5e7eb"/>
+
+  <!-- damping / rhythm (left) -->
+  <circle cx="22" cy="24" r="2.2" fill="#e5e7eb"/>
+  <circle cx="22" cy="40" r="2.2" fill="#e5e7eb"/>
+
+  <!-- noise / coherence (right) -->
+  <circle cx="42" cy="24" r="2.2" fill="#e5e7eb"/>
+  <circle cx="42" cy="40" r="2.2" fill="#e5e7eb"/>
+
+  <!-- gradient / attractor (bottom heavy pair) -->
+  <circle cx="28" cy="52" r="2.6" fill="#e5e7eb"/>
+  <circle cx="36" cy="52" r="2.6" fill="#e5e7eb"/>
+</svg>
