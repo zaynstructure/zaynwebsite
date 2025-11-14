@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EVF Emotional Geometry · v0.3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #020617;
+      --ink: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --border: #1f2937;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      background: radial-gradient(circle at top, #111827, #020617 60%);
+      color: var(--ink);
+      font-family: var(--font);
+    }
+    .app {
+      width: min(960px, 100vw);
+      margin: 16px;
+      border-radius: 16px;
+      background: #020617;
+      border: 1px solid #111827;
+      box-shadow: 0 18px 45px rgba(0,0,0,.75), 0 0 0 1px rgba(148,163,184,.07);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .app-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid #111827;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .app-title {
+      font-size: 14px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .app-sub {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: .8;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      border-radius: 999px;
+      border: 1px solid #1e293b;
+      padding: 2px 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--muted);
+    }
+    .badge.alert {
+      border-color: rgba(248,113,113,.7);
+      color: #fecaca;
+    }
+    .info-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid #1e293b;
+      background: #020617;
+      color: #cbd5f5;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .app-body {
+      padding: 10px 16px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Geometry section */
+    .geometry-card {
+      border-radius: 12px;
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top, #020617, #020617 55%, #000);
+      padding: 10px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .geometry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 0 2px;
+    }
+    .geometry-title {
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: 11px;
+    }
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      padding: 2px 2px 0;
+      flex-wrap: wrap;
+    }
+    .mini-btn {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+    .mini-btn.secondary { background: #1e293b; }
+    #evfCanvas {
+      width: 100%;
+      height: 320px;
+      background: radial-gradient(circle at center, #020617, #020617 60%, #000);
+      display: block;
+      border-radius: 10px;
+      margin-top: 4px;
+    }
+    @media (min-width: 780px) {
+      #evfCanvas {
+        height: 380px;
+      }
+    }
+    .readout {
+      border-top: 1px solid #111827;
+      margin-top: 8px;
+      padding-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .metric { font-variant-numeric: tabular-nums; }
+    .metric strong { font-weight: 500; color: var(--ink); }
+    .notes-list {
+      margin: 0;
+      padding-left: 14px;
+    }
+    .notes-list li { margin: 2px 0; }
+
+    /* Assessment section */
+    .assessment-card {
+      border-radius: 12px;
+      border: 1px solid #111827;
+      background: #020617;
+      padding: 10px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .item-group-title {
+      font-size: 11px;
+      color: #e5e7eb;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin: 6px 0 2px;
+    }
+    .item-row {
+      padding: 4px 0 2px;
+      border-bottom: 1px solid #0b1220;
+    }
+    .item-text {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .item-control-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 6px;
+      align-items: center;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .item-label {
+      opacity: .8;
+    }
+    .item-slider {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .item-value {
+      font-variant-numeric: tabular-nums;
+      min-width: 20px;
+      text-align: right;
+      color: #e5e7eb;
+    }
+
+    .assessment-actions {
+      margin-top: 6px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Advanced parameters */
+    .advanced-toggle {
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: underline;
+      margin-top: 8px;
+      align-self: flex-start;
+    }
+    .advanced-panel {
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px solid #111827;
+      display: none;
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1.3fr 3fr auto;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+    }
+    .slider-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .slider-value {
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      min-width: 24px;
+      text-align: right;
+      color: var(--ink);
+    }
+
+    .app-footer {
+      border-top: 1px solid #111827;
+      padding: 6px 14px 8px;
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+    .modal {
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid #1f2933;
+      max-width: 420px;
+      width: calc(100% - 40px);
+      padding: 14px 16px 14px;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.8);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .modal-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .modal-close {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .modal-section-title {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #e5e7eb;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .modal p {
+      margin: 4px 0;
+      line-height: 1.45;
+    }
+    .modal ul {
+      margin: 4px 0 4px 18px;
+      padding: 0;
+    }
+    .modal li {
+      margin: 2px 0;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="header-left">
+      <div class="app-title">emotional vector field · geometry</div>
+      <div class="app-sub">diagram first · multi-item self-assessment feeding 7-axis EVF</div>
+    </div>
+    <div class="header-right">
+      <button id="infoBtn" class="info-btn">i</button>
+      <div class="badge" id="balanceBadge">pattern: mixed</div>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- Geometry first -->
+    <section class="geometry-card">
+      <div class="geometry-header">
+        <span class="geometry-title">emotional geometry</span>
+        <span id="dominantLabel"></span>
+      </div>
+      <div class="controls-row">
+        <button id="exportSvgBtn" class="mini-btn">download svg</button>
+        <button id="resetBtn" class="mini-btn secondary">reset to neutral</button>
+      </div>
+      <canvas id="evfCanvas"></canvas>
+      <div class="readout">
+        <div class="metric-row">
+          <div class="metric"><strong>spikiness:</strong> <span id="spikinessValue">—</span></div>
+          <div class="metric"><strong>avg radius:</strong> <span id="avgRadiusValue">—</span></div>
+        </div>
+        <div>
+          <strong>notes:</strong>
+          <ul class="notes-list" id="notesList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Assessment underneath -->
+    <section class="assessment-card">
+      <div class="section-title">multi-item self-assessment</div>
+      <div class="hint">
+        For each statement, rate how true it feels <strong>recently</strong>. Scores are combined into EVF parameters.
+      </div>
+      <div id="assessment"></div>
+      <div class="assessment-actions">
+        <button id="applyAssessmentBtn" class="mini-btn">apply assessment → update diagram</button>
+      </div>
+
+      <div class="advanced-toggle" id="advancedToggle">
+        show advanced parameters (manual override)
+      </div>
+      <div class="advanced-panel" id="advancedPanel">
+        <div class="section-title" style="font-size:12px;margin-bottom:0;">advanced EVF parameters</div>
+        <div class="hint">Adjust these if you want to directly shape the field (0–10 per axis).</div>
+        <div id="sliders"></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="app-footer">
+    <span>© 2025 Zayn Wiwchar</span>
+    <span>EVF Geometry · v0.3 experimental</span>
+  </footer>
+</div>
+
+<!-- info modal -->
+<div class="modal-backdrop" id="infoModalBackdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">EVF Emotional Geometry · Info</div>
+      <button class="modal-close" id="infoModalClose">&times;</button>
+    </div>
+    <p>
+      This tool visualizes an <strong>emotional vector field (EVF)</strong> as a 7-axis field:
+      damping, coupling, noise, rhythm, gradient, attractor, and coherence.
+      Your answers are mapped into these parameters to shape the geometry in real time.
+    </p>
+
+    <div class="modal-section-title">how to use</div>
+    <ul>
+      <li>Scroll through the statements and rate each from 0–4.</li>
+      <li>Click <strong>“apply assessment”</strong> to recompute the EVF parameters and update the diagram.</li>
+      <li>Use <strong>advanced parameters</strong> only if you want manual control of each axis.</li>
+      <li>Watch how spikiness, average radius, and notes shift as the field changes.</li>
+    </ul>
+
+    <div class="modal-section-title">disclaimer</div>
+    <p>
+      This is an <strong>experimental reflection tool</strong>, not a diagnostic test. It does not
+      replace therapy or medical care and should not be used for clinical decisions.
+    </p>
+    <p>
+      If you are struggling or in crisis, please seek support from a qualified mental health
+      professional or local support services.
+    </p>
+  </div>
+</div>
+
+<script>
+  // ---------- core config ----------
+  const PARAM_ORDER = [
+    'damping','coupling','noise','rhythm','gradient','attractor','coherence'
+  ];
+  const PARAM_LABELS = {
+    damping:'damping',
+    coupling:'coupling',
+    noise:'noise',
+    rhythm:'rhythm',
+    gradient:'gradient',
+    attractor:'attractor',
+    coherence:'coherence'
+  };
+
+  const ASSESSMENT_ITEMS = [
+    // damping
+    { id:'d1', param:'damping', reverse:false,
+      text:'When I get emotionally activated, I can usually settle or calm down within a reasonable time.' },
+    { id:'d2', param:'damping', reverse:true,
+      text:'Emotions tend to linger in my body for a long time before easing.' },
+
+    // coupling
+    { id:'c1', param:'coupling', reverse:false,
+      text:'Other people’s moods strongly affect my own mood.' },
+    { id:'c2', param:'coupling', reverse:true,
+      text:'I feel mostly insulated from other people’s emotional states.' },
+
+    // noise
+    { id:'n1', param:'noise', reverse:false,
+      text:'My mind feels cluttered or noisy lately.' },
+    { id:'n2', param:'noise', reverse:true,
+      text:'It is easy for me to find a quiet, clear channel in my thoughts.' },
+
+    // rhythm
+    { id:'r1', param:'rhythm', reverse:false,
+      text:'My days follow a fairly steady rhythm (sleep, meals, activity, rest).' },
+    { id:'r2', param:'rhythm', reverse:true,
+      text:'My routines feel all over the place or unpredictable.' },
+
+    // gradient
+    { id:'g1', param:'gradient', reverse:false,
+      text:'I feel a clear sense of direction or pull toward something meaningful.' },
+    { id:'g2', param:'gradient', reverse:true,
+      text:'It is hard to care enough about anything to move toward it.' },
+
+    // attractor
+    { id:'a1', param:'attractor', reverse:false,
+      text:'One theme, worry, or goal takes up a lot of my mental space.' },
+    { id:'a2', param:'attractor', reverse:true,
+      text:'My attention feels scattered rather than anchored to anything in particular.' },
+
+    // coherence
+    { id:'h1', param:'coherence', reverse:false,
+      text:'My life and emotions make sense to me as a mostly coherent story.' },
+    { id:'h2', param:'coherence', reverse:true,
+      text:'Different parts of my life feel fragmented or contradictory.' }
+  ];
+
+  const MAX_SCALE = 10;
+
+  const state = {
+    damping:4, coupling:6, noise:5, rhythm:3,
+    gradient:5, attractor:7, coherence:4
+  };
+
+  // ---------- DOM refs ----------
+  const canvas       = document.getElementById('evfCanvas');
+  const ctx          = canvas.getContext('2d');
+  const spikinessEl  = document.getElementById('spikinessValue');
+  const avgRadiusEl  = document.getElementById('avgRadiusValue');
+  const notesListEl  = document.getElementById('notesList');
+  const badgeEl      = document.getElementById('balanceBadge');
+  const domLabelEl   = document.getElementById('dominantLabel');
+  const exportSvgBtn = document.getElementById('exportSvgBtn');
+  const resetBtn     = document.getElementById('resetBtn');
+
+  const assessmentContainer = document.getElementById('assessment');
+  const applyAssessmentBtn  = document.getElementById('applyAssessmentBtn');
+  const advancedToggle      = document.getElementById('advancedToggle');
+  const advancedPanel       = document.getElementById('advancedPanel');
+  const slidersContainer    = document.getElementById('sliders');
+
+  const infoBtn           = document.getElementById('infoBtn');
+  const infoModalBackdrop = document.getElementById('infoModalBackdrop');
+  const infoModalClose    = document.getElementById('infoModalClose');
+
+  const itemInputs = {};
+  const inputs     = {};
+  let advancedVisible = false;
+
+  // ---------- small helpers ----------
+  function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+  function mean(a){ return a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0; }
+  function variance(a,m){ if(!a.length) return 0; const mm=m??mean(a); return mean(a.map(v=>(v-mm)**2)); }
+
+  // ---------- assessment UI ----------
+  function createAssessment() {
+    const grouped = {};
+    ASSESSMENT_ITEMS.forEach(item => {
+      if (!grouped[item.param]) grouped[item.param] = [];
+      grouped[item.param].push(item);
+    });
+
+    PARAM_ORDER.forEach(param => {
+      if (!grouped[param]) return;
+      const groupTitle = document.createElement('div');
+      groupTitle.className = 'item-group-title';
+      groupTitle.textContent = param;
+      assessmentContainer.appendChild(groupTitle);
+
+      grouped[param].forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'item-row';
+
+        const text = document.createElement('div');
+        text.className = 'item-text';
+        text.textContent = item.text;
+
+        const ctrl = document.createElement('div');
+        ctrl.className = 'item-control-row';
+
+        const labelLow = document.createElement('span');
+        labelLow.className = 'item-label';
+        labelLow.textContent = '0';
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '0';
+        slider.max = '4';
+        slider.step = '1';
+        slider.value = '2';
+        slider.className = 'item-slider';
+
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'item-value';
+        valueSpan.textContent = slider.value;
+
+        slider.addEventListener('input', () => {
+          valueSpan.textContent = slider.value;
+        });
+
+        itemInputs[item.id] = slider;
+
+        ctrl.appendChild(labelLow);
+        ctrl.appendChild(slider);
+        ctrl.appendChild(valueSpan);
+
+        row.appendChild(text);
+        row.appendChild(ctrl);
+        assessmentContainer.appendChild(row);
+      });
+    });
+  }
+
+  // ---------- advanced sliders ----------
+  function createSliders() {
+    PARAM_ORDER.forEach(name => {
+      const row = document.createElement('div');
+      row.className = 'slider-row';
+
+      const label = document.createElement('label');
+      label.textContent = PARAM_LABELS[name];
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = '0';
+      input.max = String(MAX_SCALE);
+      input.step = '1';
+      input.value = String(state[name] ?? 0);
+      inputs[name] = input;
+
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'slider-value';
+      valueSpan.textContent = input.value;
+
+      input.addEventListener('input', () => {
+        state[name] = Number(input.value);
+        valueSpan.textContent = input.value;
+        update();
+      });
+
+      row.appendChild(label);
+      row.appendChild(input);
+      row.appendChild(valueSpan);
+      slidersContainer.appendChild(row);
+    });
+  }
+
+  // ---------- canvas DPI ----------
+  let lastGeom = null;
+
+  function resizeCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0); // draw in CSS pixels
+  }
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    update();
+  });
+
+  // ---------- v0.3 geometry core ----------
+  const EVF_AXES = [
+    { key: 'coupling',  label: 'c',   baseAngle: -Math.PI / 2 },
+    { key: 'noise',     label: 'ξ',   baseAngle: -Math.PI / 2 + 2 * Math.PI / 7 },
+    { key: 'coherence', label: 'C',   baseAngle: -Math.PI / 2 + 4 * Math.PI / 7 },
+    { key: 'attractor', label: 'A',   baseAngle: -Math.PI / 2 + 6 * Math.PI / 7 },
+    { key: 'gradient',  label: '∇φ',  baseAngle: -Math.PI / 2 + 8 * Math.PI / 7 },
+    { key: 'rhythm',    label: 'R',   baseAngle: -Math.PI / 2 + 10 * Math.PI / 7 },
+    { key: 'damping',   label: 'γ',   baseAngle: -Math.PI / 2 + 12 * Math.PI / 7 }
+  ];
+
+  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function normParam(val) {
+    const v = (val == null ? 0 : val);
+    return clamp01(v / MAX_SCALE);
+  }
+
+  function pairStrength(a, b) {
+    const na = normParam(a);
+    const nb = normParam(b);
+    const mean = 0.5 * (na + nb);
+    const diff = Math.abs(na - nb);
+    return clamp01(mean * (1 - diff));
+  }
+
+  function tensionStrength(noiseVal, cohVal) {
+    const n = normParam(noiseVal);
+    const c = normParam(cohVal);
+    const diff = Math.abs(n - c);
+    const mean = 0.5 * (n + c);
+    return clamp01(diff * (0.3 + 0.7 * mean));
+  }
+
+  function analyzeEVFGeometryV03(params, width, height) {
+    const w = width;
+    const h = height;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    const R_MIN = Math.min(w, h) * 0.12;
+    const R_MAX = Math.min(w, h) * 0.42;
+
+    const n = {
+      damping:   normParam(params.damping),
+      coupling:  normParam(params.coupling),
+      noise:     normParam(params.noise),
+      rhythm:    normParam(params.rhythm),
+      gradient:  normParam(params.gradient),
+      attractor: normParam(params.attractor),
+      coherence: normParam(params.coherence)
+    };
+
+    const sReg   = pairStrength(params.damping, params.rhythm);
+    const sDir   = pairStrength(params.gradient, params.attractor);
+    const sHinge = tensionStrength(params.noise, params.coherence);
+
+    const baseRadius = {};
+    EVF_AXES.forEach(ax => {
+      baseRadius[ax.key] = lerp(R_MIN, R_MAX, n[ax.key]);
+    });
+
+    const angles = {};
+    EVF_AXES.forEach(ax => {
+      angles[ax.key] = ax.baseAngle;
+    });
+
+    function idx(key) {
+      return EVF_AXES.findIndex(ax => ax.key === key);
+    }
+
+    const sep = 2 * Math.PI / EVF_AXES.length;
+    const ANGLE_CLUSTER_FACTOR = 0.25;
+
+    // γ–R cluster
+    {
+      const k1 = 'damping';
+      const k2 = 'rhythm';
+      const a1 = EVF_AXES[idx(k1)].baseAngle;
+      const a2 = EVF_AXES[idx(k2)].baseAngle;
+      const mid = 0.5 * (a1 + a2);
+      const maxDelta = ANGLE_CLUSTER_FACTOR * sep * sReg;
+      angles[k1] = mid - maxDelta;
+      angles[k2] = mid + maxDelta;
+    }
+
+    // ∇φ–A cluster
+    {
+      const k1 = 'gradient';
+      const k2 = 'attractor';
+      const a1 = EVF_AXES[idx(k1)].baseAngle;
+      const a2 = EVF_AXES[idx(k2)].baseAngle;
+      const mid = 0.5 * (a1 + a2);
+      const maxDelta = ANGLE_CLUSTER_FACTOR * sep * sDir;
+      angles[k1] = mid - maxDelta;
+      angles[k2] = mid + maxDelta;
+    }
+
+    // ξ–C hinge
+    const kNoise = 'noise';
+    const kCoh   = 'coherence';
+    {
+      const rN0 = baseRadius[kNoise];
+      const rC0 = baseRadius[kCoh];
+      const meanR = 0.5 * (rN0 + rC0);
+      const diffR = rN0 - rC0;
+      const K_HINGE = 0.4;
+      const factor = 1 + K_HINGE * sHinge;
+      baseRadius[kNoise] = meanR + diffR * factor;
+      baseRadius[kCoh]   = meanR - diffR * factor;
+    }
+
+    // global coupling compression
+    const cNorm = n.coupling;
+    const radii = {};
+    const allR = EVF_AXES.map(ax => baseRadius[ax.key]);
+    const rMean = allR.reduce((a, b) => a + b, 0) / allR.length;
+
+    const ALPHA_MIN = 0.0;
+    const ALPHA_MAX = 0.7;
+    const alphaC = lerp(ALPHA_MIN, ALPHA_MAX, cNorm);
+
+    EVF_AXES.forEach(ax => {
+      const r0 = baseRadius[ax.key];
+      const r1 = lerp(r0, rMean, alphaC);
+      radii[ax.key] = r1;
+    });
+
+    // directional tilt
+    const dirScore = clamp01(sDir * ((params.gradient + params.attractor) / (2 * MAX_SCALE)));
+    const tiltOffset = (Math.min(w, h) * 0.06) * dirScore;
+
+    const points = EVF_AXES.map(ax => {
+      const ang = angles[ax.key];
+      const r   = radii[ax.key];
+      const x = cx + r * Math.cos(ang);
+      const y = (cy + tiltOffset) + r * Math.sin(ang);
+      return { key: ax.key, label: ax.label, x, y, r, angle: ang };
+    });
+
+    let centroidX = 0, centroidY = 0;
+    points.forEach(p => { centroidX += p.x; centroidY += p.y; });
+    centroidX /= points.length;
+    centroidY /= points.length;
+
+    const rs = points.map(p => p.r);
+    const rAvg = rs.reduce((a, b) => a + b, 0) / rs.length;
+    const rVar = rs.reduce((acc, rv) => acc + Math.pow(rv - rAvg, 2), 0) / rs.length;
+    const spikinessAbs = Math.sqrt(rVar);
+    const spikinessNorm = spikinessAbs / (R_MAX || 1);
+    const avgRadiusNorm = rAvg / (R_MAX || 1);
+
+    return {
+      points,
+      centroid: { x: centroidX, y: centroidY },
+      rAvg,
+      rVar,
+      spikinessAbs,
+      spikinessNorm,
+      avgRadiusNorm,
+      pairs: { sReg, sDir, sHinge },
+      cNorm,
+      n
+    };
+  }
+
+  function drawGeometryV03(ctx, params) {
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+
+    const geom = analyzeEVFGeometryV03(params, w, h);
+    lastGeom = geom;
+
+    const { points, centroid, rAvg, spikinessNorm, cNorm } = geom;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // background ring
+    ctx.save();
+    ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rAvg, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // polygon
+    ctx.save();
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.closePath();
+
+    const fillAlpha = lerp(0.14, 0.30, cNorm);
+    ctx.fillStyle = `rgba(56,189,248,${fillAlpha.toFixed(3)})`;
+    ctx.fill();
+
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = 'rgba(56,189,248,0.9)';
+    ctx.stroke();
+    ctx.restore();
+
+    // spokes + nodes + labels
+    ctx.save();
+    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = 'rgba(148,163,184,0.5)';
+    ctx.font = '10px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    points.forEach(p => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.fillStyle = '#020617';
+      ctx.strokeStyle = 'rgba(226,232,240,0.95)';
+      ctx.arc(p.x, p.y, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      const labelR = 10;
+      const lx = p.x + labelR * Math.cos(p.angle);
+      const ly = p.y + labelR * Math.sin(p.angle);
+      ctx.fillStyle = 'rgba(226,232,240,0.9)';
+      ctx.fillText(p.label, lx, ly);
+    });
+    ctx.restore();
+
+    // centroid
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = '#e5e7eb';
+    ctx.arc(centroid.x, centroid.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // metrics UI (from geom)
+    spikinessEl.textContent = spikinessNorm.toFixed(2);
+    avgRadiusEl.textContent = geom.avgRadiusNorm.toFixed(2);
+
+    const s = spikinessNorm;
+    if (s < 0.12) {
+      badgeEl.textContent = 'pattern: smooth / balanced';
+      badgeEl.classList.remove('alert');
+    } else if (s < 0.22) {
+      badgeEl.textContent = 'pattern: moderately uneven';
+      badgeEl.classList.remove('alert');
+    } else {
+      badgeEl.textContent = 'pattern: jagged / polarized';
+      badgeEl.classList.add('alert');
+    }
+
+    // dominant spikes: top radii
+    const rs = points.map(p => p.r);
+    const m  = mean(rs);
+    const sd = Math.sqrt(variance(rs,m))||1;
+    const thresh = m + 0.7*sd;
+    const dominant = points.filter(p => p.r > thresh).map(p => p.label);
+    domLabelEl.textContent = dominant.length ? 'dominant: ' + dominant.join(', ') : '';
+
+    // notes from param pattern (same logic as v0.2)
+    const notes = interpretPatternFromState(state);
+    notesListEl.innerHTML = '';
+    notes.forEach(t => {
+      const li = document.createElement('li');
+      li.textContent = t;
+      notesListEl.appendChild(li);
+    });
+  }
+
+  function interpretPatternFromState(s){
+    const norm = k => (s[k]??0)/(MAX_SCALE||10);
+    const d=norm('damping'), c=norm('coupling'), n=norm('noise'),
+          r=norm('rhythm'), g=norm('gradient'),
+          a=norm('attractor'), h=norm('coherence');
+    const notes=[];
+    if(c>0.7 && d<0.5) notes.push('strong pull from others / environment, low self-buffering');
+    if(a>0.7 && g>0.6 && d<0.4) notes.push('driven toward something with little braking power');
+    if(n>0.6 && h<0.4) notes.push('fragmented field: high noise with low coherence');
+    if(h>0.6 && r>0.4 && r<0.8) notes.push('organized pattern with workable rhythms');
+    if(g<0.3 && r<0.3) notes.push('low drive and weak rhythms – risk of stagnation');
+    if(!notes.length) notes.push('mixed pattern without a single dominant imbalance');
+    return notes;
+  }
+
+  // ---------- SVG export ----------
+  function buildSVGFromV03(params,{width=600,height=600}={}) {
+    const geom = analyzeEVFGeometryV03(params, width, height);
+    const { points, centroid } = geom;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    let rings = '';
+    const ringCount = 4;
+    const maxR = Math.min(width,height)*0.42;
+    for (let i=1;i<=ringCount;i++){
+      const r=(i/ringCount)*maxR;
+      rings += `<circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="#1f2937" stroke-width="1"/>\n`;
+    }
+
+    let axes = '';
+    points.forEach(p => {
+      const ax = cx + (p.x - cx) * 1.05;
+      const ay = cy + (p.y - cy) * 1.05;
+      const lx = cx + (p.x - cx) * 1.16;
+      const ly = cy + (p.y - cy) * 1.16;
+      axes += `<line x1="${cx}" y1="${cy}" x2="${ax.toFixed(2)}" y2="${ay.toFixed(2)}" stroke="#1f2937" stroke-width="1"/>\n`;
+      axes += `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" fill="#9ca3af" font-size="11" text-anchor="middle" dominant-baseline="middle">${p.label}</text>\n`;
+    });
+
+    const polyPoints = points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
+    const cX = centroid.x.toFixed(2);
+    const cY = centroid.y.toFixed(2);
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect x="0" y="0" width="${width}" height="${height}" fill="#020617"/>
+  <g>
+    ${rings}
+    ${axes}
+    <polygon points="${polyPoints}" fill="rgba(56,189,248,0.24)" stroke="#38bdf8" stroke-width="2"/>
+    <circle cx="${cX}" cy="${cY}" r="4" fill="#e5e7eb"/>
+  </g>
+</svg>`;
+  }
+
+  function downloadSVGFromV03(params){
+    const svg = buildSVGFromV03(params,{width:600,height:600});
+    const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='evf-geometry-v03.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- update ----------
+  function update(){
+    drawGeometryV03(ctx, state);
+  }
+
+  // ---------- interactions ----------
+  resetBtn.addEventListener('click',()=>{
+    PARAM_ORDER.forEach(name=>{
+      state[name]=5;
+      if(inputs[name]){
+        inputs[name].value='5';
+        inputs[name].nextSibling.textContent='5';
+      }
+    });
+    ASSESSMENT_ITEMS.forEach(item=>{
+      const inp = itemInputs[item.id];
+      if (inp) inp.value = '2';
+    });
+    update();
+  });
+
+  exportSvgBtn.addEventListener('click',()=>{
+    downloadSVGFromV03(state);
+  });
+
+  applyAssessmentBtn.addEventListener('click',()=>{
+    const sums = {};
+    const counts = {};
+    PARAM_ORDER.forEach(p => { sums[p]=0; counts[p]=0; });
+
+    ASSESSMENT_ITEMS.forEach(item=>{
+      const inp = itemInputs[item.id];
+      if (!inp) return;
+      const raw = Number(inp.value)||0;
+      const norm = item.reverse ? (4-raw)/4 : raw/4;
+      sums[item.param] += norm;
+      counts[item.param] += 1;
+    });
+
+    PARAM_ORDER.forEach(param=>{
+      if (counts[param] > 0) {
+        const avgNorm = sums[param] / counts[param];
+        const scaled  = Math.round(avgNorm * MAX_SCALE);
+        state[param] = scaled;
+        if (inputs[param]) {
+          inputs[param].value = String(scaled);
+          inputs[param].nextSibling.textContent = String(scaled);
+        }
+      }
+    });
+
+    update();
+  });
+
+  advancedToggle.addEventListener('click',()=>{
+    advancedVisible = !advancedVisible;
+    advancedPanel.style.display = advancedVisible ? 'block' : 'none';
+    advancedToggle.textContent = advancedVisible
+      ? 'hide advanced parameters (manual override)'
+      : 'show advanced parameters (manual override)';
+  });
+
+  infoBtn.addEventListener('click',()=>{
+    infoModalBackdrop.style.display='flex';
+  });
+  infoModalClose.addEventListener('click',()=>{
+    infoModalBackdrop.style.display='none';
+  });
+  infoModalBackdrop.addEventListener('click',(e)=>{
+    if(e.target === infoModalBackdrop){
+      infoModalBackdrop.style.display='none';
+    }
+  });
+
+  // ---------- init ----------
+  createAssessment();
+  createSliders();
+  resizeCanvas();
+  update();
+</script>
+</body>
+</html>
