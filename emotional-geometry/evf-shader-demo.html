@@ -724,16 +724,21 @@ function initParticles() {
 }
   // ------------------ MAIN LOOP ------------------
   const t0 = performance.now();
-  function render() {
+
+function render() {
+  // 1) keep GL size in sync
   resizeGL();
+
+  // 2) time
   const t = (performance.now() - t0) / 1000;
 
-  // shared attractor center in *normalized screen* coords (0–1)
+  // 3) shared attractor center in *normalized screen* coords (0–1)
   const axNorm = 0.72;
   const ayNorm = 0.65;
 
   const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
 
+  // map from 0–1 → clip → aspect → field (×1.7)
   const uvx_unscaled = 2.0 * axNorm - 1.0;
   const uvy          = 2.0 * ayNorm - 1.0;
   const uvx          = uvx_unscaled * aspect;
@@ -741,39 +746,41 @@ function initParticles() {
   const aPosX = uvx * 1.7;
   const aPosY = uvy * 1.7;
 
-// send to shader
-gl.uniform2f(uAttrPosLoc, aPosX, aPosY);
-    resizeGL();
-    const t = (performance.now() - t0) / 1000;
+  gl.useProgram(program);
 
-    const speed = 0.08;
-    evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   speed);
-    evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  speed);
-    evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     speed);
-    evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    speed);
-    evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  speed);
-    evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
-    evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
+  // send attractor position + resolution + time
+  gl.uniform2f(uAttrPosLoc, aPosX, aPosY);
+  gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  gl.uniform1f(uTimeLoc, t);
 
-    gl.useProgram(program);
-    gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    gl.uniform1f(uTimeLoc, t);
+  // smooth EVF lerp
+  const speed = 0.08;
+  evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   speed);
+  evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  speed);
+  evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     speed);
+  evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    speed);
+  evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  speed);
+  evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
+  evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
 
-    gl.uniform1f(uDampLoc, evf.damping);
-    gl.uniform1f(uCoupleLoc, evf.coupling);
-    gl.uniform1f(uNoiseLoc, evf.noise);
-    gl.uniform1f(uRhyLoc, evf.rhythm);
-    gl.uniform1f(uGradLoc, evf.gradient);
-    gl.uniform1f(uAttrLoc, evf.attractor);
-    gl.uniform1f(uCohLoc, evf.coherence);
+  // send EVF uniforms
+  gl.uniform1f(uDampLoc, evf.damping);
+  gl.uniform1f(uCoupleLoc, evf.coupling);
+  gl.uniform1f(uNoiseLoc, evf.noise);
+  gl.uniform1f(uRhyLoc, evf.rhythm);
+  gl.uniform1f(uGradLoc, evf.gradient);
+  gl.uniform1f(uAttrLoc, evf.attractor);
+  gl.uniform1f(uCohLoc, evf.coherence);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  // draw field
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    updateParticles();
-    drawParticles();
+  // particles
+  updateParticles();
+  drawParticles();
 
-    requestAnimationFrame(render);
-  }
+  requestAnimationFrame(render);
+}
 
   resizeGL();
   resizeParticles();
