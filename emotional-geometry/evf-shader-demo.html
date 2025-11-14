@@ -283,7 +283,7 @@ void main(){
     // vignette
     float vig = smoothstep(1.4,0.65,length(uv));
     col *= vig;
-
+col = 1.0 - col;
     gl_FragColor = vec4(col,1.0);
 }
 `;
