@@ -134,42 +134,52 @@
   <canvas id="particles"></canvas>
 </div>
 <div id="controls">
-  
-  <label class="label">
-    <span class="name">damping</span>
-    <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
-  </label>
+  <!-- left: presets -->
+  <div class="presets">
+    <div class="presets-title">presets</div>
+    <button class="preset-btn" data-preset="A">A</button>
+    <button class="preset-btn" data-preset="B">B</button>
+    <button class="preset-btn" data-preset="C">C</button>
+    <button class="preset-btn" data-preset="D">D</button>
+  </div>
 
-  <label class="label">
-    <span class="name">coupling</span>
-    <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.7">
-  </label>
+  <!-- right: sliders -->
+  <div class="controls-main">
+    <label class="label">
+      <span class="name">damping</span>
+      <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
+    </label>
 
-  <label class="label">
-    <span class="name">noise</span>
-    <input id="noise" type="range" min="0" max="1" step="0.01" value="0.5">
-  </label>
+    <label class="label">
+      <span class="name">coupling</span>
+      <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.7">
+    </label>
 
-  <label class="label">
-    <span class="name">rhythm</span>
-    <input id="rhythm" type="range" min="0" max="1" step="0.01" value="0.6">
-  </label>
+    <label class="label">
+      <span class="name">noise</span>
+      <input id="noise" type="range" min="0" max="1" step="0.01" value="0.5">
+    </label>
 
-  <label class="label">
-    <span class="name">gradient</span>
-    <input id="gradient" type="range" min="0" max="1" step="0.01" value="0.6">
-  </label>
+    <label class="label">
+      <span class="name">rhythm</span>
+      <input id="rhythm" type="range" min="0" max="1" step="0.01" value="0.6">
+    </label>
 
-  <label class="label">
-    <span class="name">attractor</span>
-    <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
-  </label>
+    <label class="label">
+      <span class="name">gradient</span>
+      <input id="gradient" type="range" min="0" max="1" step="0.01" value="0.6">
+    </label>
 
-  <label class="label">
-    <span class="name">coherence</span>
-    <input id="coherence" type="range" min="0" max="1" step="0.01" value="0.5">
-  </label>
+    <label class="label">
+      <span class="name">attractor</span>
+      <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
+    </label>
 
+    <label class="label">
+      <span class="name">coherence</span>
+      <input id="coherence" type="range" min="0" max="1" step="0.01" value="0.5">
+    </label>
+  </div>
 </div>
  <div class="artist-summary">
   This view models emotion as a multi-parameter system. 
@@ -181,7 +191,9 @@
   Attractor is the dominance of a single emotional theme. 
   Coherence is how well emotional signals align into a unified state.
 </div>
-  
+  <div id="presetDescription" class="preset-description">
+  Select a preset (A–D) to load a typical field pattern and see a short description.
+</div>
 <script>
   // ------------------ WEBGL SETUP ------------------
   const canvas = document.getElementById('glCanvas');
