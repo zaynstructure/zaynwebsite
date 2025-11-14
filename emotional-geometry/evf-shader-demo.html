@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>EVF Shader Demo · Morphing Field + Particles</title>
+  <title>EVF Shader Demo · Height Field + Ink Swarm</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     * { box-sizing: border-box; }
@@ -59,7 +59,14 @@
 </head>
 <body>
 <div id="controls">
-  <span style="font-weight:600;margin-right:8px;">EVF field demo</span>
+  <div class="explain">
+    Adjust the parameters below to change the emotional field.  
+    Each slider updates a specific part of the system:
+    damping (softening), coupling (clustering), noise (turbulence),
+    rhythm (regularity), gradient (direction), attractor (pull),
+    coherence (symmetry).
+  </div>
+
   <label class="label">
     <span class="name">damping</span>
     <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
@@ -126,167 +133,161 @@
     }
   `;
 
-  // --- polygonal landscape EVF shader ---
+  // --- height-map + topology-aware EVF shader ---
   const fsSource = `
-precision highp float;
+    precision highp float;
 
-uniform float uDamping;
-uniform float uCoupling;
-uniform float uNoise;
-uniform float uRhythm;
-uniform float uGradient;
-uniform float uAttractor;
-uniform float uCoherence;
+    uniform float uDamping;
+    uniform float uCoupling;
+    uniform float uNoise;
+    uniform float uRhythm;
+    uniform float uGradient;
+    uniform float uAttractor;
+    uniform float uCoherence;
 
-uniform vec2  uResolution;
-uniform float uTime;
+    uniform vec2  uResolution;
+    uniform float uTime;
 
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
-}
+    float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+    }
 
-float noise(vec2 p){
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    float a = hash(i);
-    float b = hash(i+vec2(1.0,0.0));
-    float c = hash(i+vec2(0.0,1.0));
-    float d = hash(i+vec2(1.0,1.0));
-    vec2 u = f*f*(3.0-2.0*f);
-    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
-}
+    float noise(vec2 p){
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        float a = hash(i);
+        float b = hash(i+vec2(1.0,0.0));
+        float c = hash(i+vec2(0.0,1.0));
+        float d = hash(i+vec2(1.0,1.0));
+        vec2 u = f*f*(3.0-2.0*f);
+        return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+    }
 
-// distance to nearest cell boundary (polygonal effect)
-float voronoiEdge(vec2 p, float scale){
-    vec2 g = floor(p*scale);
-    float d = 1.0;
-    for(int y=-1;y<=1;y++){
-        for(int x=-1;x<=1;x++){
-            vec2 o = vec2(x,y);
-            vec2 r = g + o + noise(g+o);
-            vec2 diff = r/scale - p;
-            d = min(d, length(diff));
+    // distance to nearest cell boundary (polygonal effect)
+    float voronoiEdge(vec2 p, float scale){
+        vec2 g = floor(p*scale);
+        float d = 1.0;
+        for(int y=-1;y<=1;y++){
+            for(int x=-1;x<=1;x++){
+                vec2 o = vec2(x,y);
+                vec2 r = g + o + noise(g+o);
+                vec2 diff = r/scale - p;
+                d = min(d, length(diff));
+            }
         }
-    }
-    return d;
-}
-
-// soft "tanh"
-float soft(float x){ return x / (1.0 + abs(x)); }
-
-// core EVF height field, returns:
-// h = height (0..1-ish), attr = attractor strength,
-// ng = noise-gradient magnitude
-void computeField(vec2 p, out float h, out float attr, out float ng){
-    // coherence: blend with mirrored variant
-    vec2 q = p;
-    vec2 q2 = vec2(-q.x, q.y);
-    q = mix(q, q2, uCoherence*0.5);
-
-    // GRADIENT (∇φ): slope
-    vec2 gdir = normalize(vec2(0.7,-0.4));
-    float grad = dot(q,gdir) * (1.0 + 2.0*uGradient);
-
-    // ATTRACTOR: crater-like structure
-    vec2 aPos = vec2(0.5,-0.5);
-    float dA = length(q - aPos);
-    float attractField = exp(-dA * (2.0 + 6.0*(1.0-uAttractor)));
-    attractField *= mix(0.7,1.8,uAttractor);
-
-    // POLYGONAL CLUSTERS (coupling)
-    float cellScale = mix(12.0, 4.0, uCoupling);
-    float edges = voronoiEdge(q, cellScale);
-    float facets = smoothstep(0.0, 0.55, edges);
-
-    // NOISE (ξ)
-    float noiseScale = mix(3.0,18.0,uNoise);
-    float n0 = noise(q*noiseScale + uTime*0.2);
-    float turbulence = pow(n0, mix(2.0,0.4,uNoise));
-
-    // noise *gradient* (how fast noise changes in x/y)
-    float eps = 0.03;
-    float nX = noise(q*noiseScale + vec2(eps,0.0));
-    float nY = noise(q*noiseScale + vec2(0.0,eps));
-    float noiseGrad = length(vec2(nX - n0, nY - n0)); // 0..~something
-
-    // RHYTHM (R): stratification layers
-    float stripesFreq = mix(0.0,18.0,uRhythm);
-    float stripes = 0.0;
-    if (stripesFreq > 0.0) {
-        stripes = sin(q.y * stripesFreq + uTime*0.6);
-        stripes = 0.5 + 0.5*stripes;
+        return d;
     }
 
-    // LANDSCAPE HEIGHT FIELD (scalar)
-    float field =
-          1.0 * grad +
-          2.0 * attractField +
-          1.2 * (1.0 - facets) * uCoupling +
-          1.4 * turbulence +
-          0.9 * stripes +
-          1.2 * noiseGrad * uNoise; // noise-gradient contribution
+    float soft(float x){ return x / (1.0 + abs(x)); }
 
-    // DAMPING: soften/harden contrast
-    float contrast = mix(2.0, 0.6, uDamping);
-    h = soft(field * contrast);
-    attr = attractField;
-    ng = noiseGrad;
-}
+    // core EVF height field
+    void computeField(vec2 p, out float h, out float attr, out float ng){
+        // coherence: blend with mirrored variant
+        vec2 q = p;
+        vec2 q2 = vec2(-q.x, q.y);
+        q = mix(q, q2, uCoherence*0.5);
 
-void main(){
-    vec2 uv = (gl_FragCoord.xy/uResolution.xy)*2.0-1.0;
-    uv.x *= uResolution.x/uResolution.y;
+        // GRADIENT (∇φ): slope
+        vec2 gdir = normalize(vec2(0.7,-0.4));
+        float grad = dot(q,gdir) * (1.0 + 2.0*uGradient);
 
-    // zoom slightly out
-    vec2 p = uv * 1.7;
+        // ATTRACTOR: crater-like structure
+        vec2 aPos = vec2(0.5,-0.5);
+        float dA = length(q - aPos);
+        float attractField = exp(-dA * (2.0 + 6.0*(1.0-uAttractor)));
+        attractField *= mix(0.7,1.8,uAttractor);
 
-    // base height / attractor / noise gradient
-    float h, attr, ng;
-    computeField(p, h, attr, ng);
+        // POLYGONAL CLUSTERS (coupling)
+        float cellScale = mix(12.0, 4.0, uCoupling);
+        float edges = voronoiEdge(q, cellScale);
+        float facets = smoothstep(0.0, 0.55, edges);
 
-    // estimate height gradient for fake normals (height-map shading)
-    float eps = 0.04;
-    float hX, dummy1, dummy2;
-    computeField(p + vec2(eps,0.0), hX, dummy1, dummy2);
-    float hY;
-    computeField(p + vec2(0.0,eps), hY, dummy1, dummy2);
+        // NOISE (ξ)
+        float noiseScale = mix(3.0,18.0,uNoise);
+        float n0 = noise(q*noiseScale + uTime*0.2);
+        float turbulence = pow(n0, mix(2.0,0.4,uNoise));
 
-    // tangent-space normal (x = dh/dx, y = dh/dy, z = "up")
-    vec3 n = normalize(vec3(hX - h, hY - h, 0.09));
+        // noise *gradient* (how fast noise changes)
+        float eps = 0.03;
+        float nX = noise(q*noiseScale + vec2(eps,0.0));
+        float nY = noise(q*noiseScale + vec2(0.0,eps));
+        float noiseGrad = length(vec2(nX - n0, nY - n0));
 
-    // light direction
-    vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
-    float diff = clamp(dot(n, lightDir), 0.0, 1.0);
+        // RHYTHM (R): stratification layers
+        float stripesFreq = mix(0.0,18.0,uRhythm);
+        float stripes = 0.0;
+        if (stripesFreq > 0.0) {
+            stripes = sin(q.y * stripesFreq + uTime*0.6);
+            stripes = 0.5 + 0.5*stripes;
+        }
 
-    // Friendly Geometry palette
-    vec3 deep  = vec3(0.08,0.12,0.19);
-    vec3 beige = vec3(0.90,0.83,0.75);
-    vec3 teal  = vec3(0.48,0.77,0.88);
+        // LANDSCAPE HEIGHT FIELD
+        float field =
+              1.0 * grad +
+              2.0 * attractField +
+              1.2 * (1.0 - facets) * uCoupling +
+              1.4 * turbulence +
+              0.9 * stripes +
+              1.2 * noiseGrad * uNoise;
 
-    // height → base color
-    vec3 col = mix(deep, beige, 0.5 + 0.5*h);
+        // DAMPING: soften/harden contrast
+        float contrast = mix(2.0, 0.6, uDamping);
+        h = soft(field * contrast);
+        attr = attractField;
+        ng = noiseGrad;
+    }
 
-    // attractor glow tint
-    col = mix(col, teal, attr * 0.8);
+    void main(){
+        vec2 uv = (gl_FragCoord.xy/uResolution.xy)*2.0-1.0;
+        uv.x *= uResolution.x/uResolution.y;
 
-    // noise gradient darkening (edges / crackle)
-    col -= ng * uNoise * 0.3;
+        // zoom slightly out
+        vec2 p = uv * 1.7;
 
-    // apply lighting from height-map normal
-    float lightFactor = 0.35 + 0.65 * diff;
-    col *= lightFactor;
+        // base height / attractor / noise gradient
+        float h, attr, ng;
+        computeField(p, h, attr, ng);
 
-    // grain
-    float g = noise(gl_FragCoord.xy*0.8);
-    col *= 0.96 + 0.04*(g-0.5);
+        // estimate height gradient for fake normals
+        float eps = 0.04;
+        float hX, tmp1, tmp2;
+        computeField(p + vec2(eps,0.0), hX, tmp1, tmp2);
+        float hY;
+        computeField(p + vec2(0.0,eps), hY, tmp1, tmp2);
 
-    // vignette
-    float vig = smoothstep(1.4,0.65,length(uv));
-    col *= vig;
-col = 1.0 - col;
-    gl_FragColor = vec4(col,1.0);
-}
-`;
+        vec3 n = normalize(vec3(hX - h, hY - h, 0.09));
+        vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
+        float diff = clamp(dot(n, lightDir), 0.0, 1.0);
+
+        // Friendly Geometry palette
+        vec3 deep  = vec3(0.08,0.12,0.19);
+        vec3 beige = vec3(0.90,0.83,0.75);
+        vec3 teal  = vec3(0.48,0.77,0.88);
+
+        // height → base color
+        vec3 col = mix(deep, beige, 0.5 + 0.5*h);
+
+        // attractor glow tint
+        col = mix(col, teal, attr * 0.8);
+
+        // noise gradient darkening (crackle)
+        col -= ng * uNoise * 0.3;
+
+        // lighting from height-map normal
+        float lightFactor = 0.35 + 0.65 * diff;
+        col *= lightFactor;
+
+        // grain
+        float g = noise(gl_FragCoord.xy*0.8);
+        col *= 0.96 + 0.04*(g-0.5);
+
+        // vignette
+        float vig = smoothstep(1.4,0.65,length(uv));
+        col *= vig;
+
+        gl_FragColor = vec4(col,1.0);
+    }
+  `;
 
   function compileShader(gl, type, source) {
     const s = gl.createShader(type);
@@ -368,124 +369,194 @@ col = 1.0 - col;
 
   function lerp(a,b,t){ return a + (b-a)*t; }
 
-  // ------------------ PARTICLES (swarm, small, grayscale) ------------------
-const pCanvas = document.getElementById('particles');
-const pCtx = pCanvas.getContext('2d');
-let particles = [];
+  // ------------------ PARTICLES (2 layers, grayscale, ink trails) ------------------
+  const pCanvas = document.getElementById('particles');
+  const pCtx = pCanvas.getContext('2d');
+  let particlesBack = [];
+  let particlesFront = [];
 
-function resizeParticles() {
-  const rect = pCanvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  pCanvas.width = rect.width * dpr;
-  pCanvas.height = rect.height * dpr;
-  pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
+  function resizeParticles() {
+    const rect = pCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    pCanvas.width = rect.width * dpr;
+    pCanvas.height = rect.height * dpr;
+    pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
 
-function initParticles() {
-  particles = [];
+  function initParticles() {
+    particlesBack = [];
+    particlesFront = [];
+    const w = window.innerWidth;
+    const h = window.innerHeight;
 
-  // many more, but very small (dust scale)
-  const count = Math.floor(window.innerWidth * 2.5); // ~1500–3000 on desktop
+    const countBack = Math.floor(w * 1.5); // slow dust
+    const countFront = Math.floor(w * 1.0); // faster ink points
 
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      vx: 0,
-      vy: 0,
-      size: 0.6 + Math.random() * 0.6,  // VERY SMALL
-      life: Math.random() * 3,
-      maxLife: 3 + Math.random() * 3
+    for (let i = 0; i < countBack; i++) {
+      particlesBack.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        px: null,
+        py: null,
+        vx: 0,
+        vy: 0,
+        size: 0.6 + Math.random() * 0.4,
+        life: Math.random() * 4,
+        maxLife: 4 + Math.random() * 4
+      });
+    }
+    for (let i = 0; i < countFront; i++) {
+      particlesFront.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        px: null,
+        py: null,
+        vx: 0,
+        vy: 0,
+        size: 0.8 + Math.random() * 0.8,
+        life: Math.random() * 3,
+        maxLife: 3 + Math.random() * 3
+      });
+    }
+  }
+
+  function updateParticleList(list, t, layerFactor) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    const GRAD = 0.001 * layerFactor + evf.gradient * 0.01 * layerFactor;
+    const ATTR = 0.002 * layerFactor + evf.attractor * 0.02 * layerFactor;
+    const NOISE = evf.noise * 0.003 * layerFactor;
+    const COUP  = evf.coupling * 0.003 * layerFactor;
+    const DAMP  = 0.9 + evf.damping * 0.05 * layerFactor;
+    const RHY   = evf.rhythm;
+
+    list.forEach(p => {
+      // store previous position for trails
+      p.px = p.x;
+      p.py = p.y;
+
+      // gradient drift
+      p.vx += GRAD * 0.5;
+      p.vy += GRAD * -0.7;
+
+      // attractor pull (toward bottom-right-ish)
+      const ax = w * 0.72;
+      const ay = h * 0.65;
+      const dx = ax - p.x;
+      const dy = ay - p.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
+      p.vx += (dx/dist) * ATTR;
+      p.vy += (dy/dist) * ATTR;
+
+      // local vector field (position + time)
+      const ang = Math.sin(p.x * 0.002 + t * 0.7) +
+                  Math.cos(p.y * 0.002 - t * 0.4);
+      const nvx = Math.cos(ang);
+      const nvy = Math.sin(ang);
+      p.vx += nvx * NOISE;
+      p.vy += nvy * NOISE;
+
+      // coupling → gentle attraction to a shared flow vector
+      const targetVx = 0.2 * layerFactor;
+      const targetVy = -0.05 * layerFactor;
+      p.vx += (targetVx - p.vx) * COUP;
+      p.vy += (targetVy - p.vy) * COUP;
+
+      // rhythm → oscillating modulation
+      if (RHY > 0.01) {
+        const osc = Math.sin(t * 2.0 + p.y * 0.01) * RHY;
+        p.vx += osc * 0.005 * layerFactor;
+        p.vy += osc * 0.005 * layerFactor;
+      }
+
+      // damping
+      p.vx *= DAMP;
+      p.vy *= DAMP;
+
+      // move
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // wrap
+      if (p.x < 0) p.x += w;
+      if (p.x > w) p.x -= w;
+      if (p.y < 0) p.y += h;
+      if (p.y > h) p.y -= h;
+
+      // lifespan
+      p.life += 0.02;
+      if (p.life > p.maxLife) {
+        p.x = Math.random() * w;
+        p.y = Math.random() * h;
+        p.px = null;
+        p.py = null;
+        p.vx = p.vy = 0;
+        p.life = 0;
+      }
     });
   }
-}
 
-function updateParticles(t) {
-  const GRAD = 0.001 + evf.gradient * 0.01;
-  const ATTR = 0.002 + evf.attractor * 0.018;
-  const NOISE = evf.noise * 0.0025;
-  const COUP  = evf.coupling * 0.003;
-  const DAMP  = 0.9 + evf.damping * 0.05;
+  function updateParticles(t) {
+    updateParticleList(particlesBack, t, 0.6);
+    updateParticleList(particlesFront, t, 1.0);
+  }
 
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  function drawParticles() {
+    const rect = pCanvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
 
-  particles.forEach(p => {
-    // gradient drift
-    p.vx += GRAD * 0.4;
-    p.vy += GRAD * -0.6;
+    // ink-bleed style fade, not full clear
+    pCtx.fillStyle = 'rgba(0,0,0,0.08)';
+    pCtx.fillRect(0, 0, w, h);
 
-    // attractor pull (soft)
-    const ax = w * 0.72;
-    const ay = h * 0.65;
-    const dx = ax - p.x;
-    const dy = ay - p.y;
-    const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
-    p.vx += (dx/dist) * ATTR;
-    p.vy += (dy/dist) * ATTR;
+    // helper to draw a set
+    const drawList = (list, isFront) => {
+      list.forEach(p => {
+        const lifeRatio = p.life / p.maxLife;
+        // brighter near attractor / coherence
+        const attractBoost = evf.attractor * 0.5;
+        const cohBoost = evf.coherence * 0.3;
+        const baseAlpha = isFront ? 0.35 : 0.20;
+        const alpha = baseAlpha * (1.0 - 0.6 * lifeRatio) + attractBoost * 0.2 + cohBoost * 0.1;
 
-    // local coupling (flocking-like compression)
-    p.vx += (Math.random() - 0.5) * COUP;
-    p.vy += (Math.random() - 0.5) * COUP;
+        // grayscale tone: darker for front, lighter for back
+        const grey = isFront ? 0.15 : 0.25;
 
-    // turbulence
-    p.vx += (Math.random() - 0.5) * NOISE;
-    p.vy += (Math.random() - 0.5) * NOISE;
+        // shadow (offset slightly, darker)
+        if (p.px !== null && p.py !== null) {
+          pCtx.strokeStyle = `rgba(0,0,0,${alpha * 0.9})`;
+          pCtx.lineWidth = isFront ? 1.1 : 0.8;
+          pCtx.beginPath();
+          pCtx.moveTo(p.px, p.py + 1.5);
+          pCtx.lineTo(p.x,  p.y + 1.5);
+          pCtx.stroke();
+        }
 
-    // damping
-    p.vx *= DAMP;
-    p.vy *= DAMP;
+        // main ink trail
+        if (p.px !== null && p.py !== null) {
+          const c = Math.round(grey * 255);
+          pCtx.strokeStyle = `rgba(${c},${c},${c},${alpha})`;
+          pCtx.lineWidth = isFront ? 1.0 : 0.7;
+          pCtx.beginPath();
+          pCtx.moveTo(p.px, p.py);
+          pCtx.lineTo(p.x,  p.y);
+          pCtx.stroke();
+        }
 
-    // move
-    p.x += p.vx;
-    p.y += p.vy;
+        // tiny node point at tip
+        const c2 = Math.round(grey * 255);
+        pCtx.fillStyle = `rgba(${c2},${c2},${c2},${alpha * 1.2})`;
+        pCtx.beginPath();
+        pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        pCtx.fill();
+      });
+    };
 
-    // wrap edges
-    if (p.x < 0) p.x += w;
-    if (p.y < 0) p.y += h;
-    if (p.x > w) p.x -= w;
-    if (p.y > h) p.y -= h;
-
-    // life fade
-    p.life += 0.02;
-    if (p.life > p.maxLife) {
-      p.x = Math.random() * w;
-      p.y = Math.random() * h;
-      p.vx = p.vy = 0;
-      p.life = 0;
-    }
-  });
-}
-
-function drawParticles() {
-  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
-
-  particles.forEach(p => {
-    const alpha = 0.25 + 0.45 * (1 - p.life / p.maxLife);
-
-    // grayscale  → black to mid-grey (very subtle, FG-like)
-    const grey = 0.1 + Math.random() * 0.2;
-    pCtx.fillStyle = `rgba(${grey*255}, ${grey*255}, ${grey*255}, ${alpha})`;
-
-    pCtx.beginPath();
-    pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    pCtx.fill();
-  });
-}
-
-function loopParticles() {
-  updateParticles();
-  drawParticles();
-  requestAnimationFrame(loopParticles);
-}
-
-resizeParticles();
-initParticles();
-loopParticles();
-window.addEventListener('resize', () => {
-  resizeParticles();
-  initParticles();
-});
+    drawList(particlesBack, false);
+    drawList(particlesFront, true);
+  }
 
   // ------------------ MAIN LOOP ------------------
   const start = performance.now();
