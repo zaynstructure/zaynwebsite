@@ -261,33 +261,27 @@ float soft(float x){ return x / (1.0 + abs(x)); }
 // attr   = attractor strength
 // nGrad  = noise-gradient magnitude
 void computeField(vec2 p, out float h, out float attr, out float nGrad){
-    // coherence: mirror blend
+    // coherence: mirror blend for **general** geometry
     vec2 q  = p;
     vec2 q2 = vec2(-q.x, q.y);
     q = mix(q, q2, uCoherence * 0.5);
 
-        // GRADIENT (∇φ): directional slope
+    // GRADIENT (∇φ): use q
     vec2 gdir = normalize(vec2(0.7,-0.4));
     float grad = dot(q,gdir) * (1.0 + 2.0 * uGradient);
 
-    // --- ENHANCED ATTRACTOR (clear radius + darker basin) ---
-// NEW – shared attractor position passed from JS
-vec2 aPos = uAttractorPos;
-float dA = length(q - aPos);
+    // ATTRACTOR: fixed in field/screen coordinates → use p here
+    vec2 aPos = uAttractorPos;
+    float dA = length(p - aPos);   // ← key change
 
-// radius tightening: low A = wide, high A = very tight
-float radius = mix(1.6, 0.25, uAttractor);
+    float radius  = mix(1.6, 0.25, uAttractor);
+    float falloff = mix(1.0, 6.0, uAttractor);
+    float depth   = mix(0.08, 1.4, uAttractor);
 
-// sharper falloff → clearer edges
-float falloff = mix(1.0, 6.0, uAttractor);
+    float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
 
-// deeper/darker crater (height depression)
-float depth = mix(0.08, 1.4, uAttractor);
 
-// smooth “ring” highlight (Friendly Geometry flavor)
-float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
-
-// final attractor field = dark inner basin + ring halo
+        
 float attractField =
       exp(-dA * falloff) * depth       // dark crater center
     + ring * 0.25 * uAttractor;        // subtle lighter outline
@@ -731,24 +725,21 @@ function initParticles() {
   // ------------------ MAIN LOOP ------------------
   const t0 = performance.now();
   function render() {
-    // shared attractor center in *normalized screen* coords (0–1)
-const axNorm = 0.72;
-const ayNorm = 0.65;
+  resizeGL();
+  const t = (performance.now() - t0) / 1000;
 
-// map to the same field coordinates the shader uses
-const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
+  // shared attractor center in *normalized screen* coords (0–1)
+  const axNorm = 0.72;
+  const ayNorm = 0.65;
 
-// same steps shader uses:
-// uv.x_unscaled = 2*x - 1
-// uv.y          = 2*y - 1
-// uv.x          = uv.x_unscaled * aspect
-// p             = uv * 1.7
-const uvx_unscaled = 2.0 * axNorm - 1.0;
-const uvy          = 2.0 * ayNorm - 1.0;
-const uvx          = uvx_unscaled * aspect;
+  const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
 
-const aPosX = uvx * 1.7;
-const aPosY = uvy * 1.7;
+  const uvx_unscaled = 2.0 * axNorm - 1.0;
+  const uvy          = 2.0 * ayNorm - 1.0;
+  const uvx          = uvx_unscaled * aspect;
+
+  const aPosX = uvx * 1.7;
+  const aPosY = uvy * 1.7;
 
 // send to shader
 gl.uniform2f(uAttrPosLoc, aPosX, aPosY);
