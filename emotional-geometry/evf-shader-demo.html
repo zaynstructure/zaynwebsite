@@ -586,22 +586,25 @@ function initParticles() {
   const aVal = evf.attractor;  // 0..1
   const cVal = evf.coupling;   // 0..1
 
-  const drive   = Math.max(gVal, aVal);   // how committed the field is
-  const aimless = 1.0 - drive;            // 1 → wandering, 0 → focused
+  // how committed the field is vs wandering
+  const drive   = Math.max(gVal, aVal);
+  const aimless = 1.0 - drive;
 
+  // base strengths
   const GRAD_STRENGTH  = 0.06 * gVal;
   const ATTR_STRENGTH  = 0.16 * aVal;
   const NOISE_STRENGTH = 0.05 + 0.10 * evf.noise;
   const DRIFT_STRENGTH = 0.10 + 0.15 * aimless;
 
-  // attractor position in screen space
-  const ax = w * 0.72, ay = h * 0.65;
+  // attractor position
+  const ax = w * 0.72;
+  const ay = h * 0.65;
 
   // damping → friction
   const DAMP_MIN = 0.55, DAMP_MAX = 0.97;
   const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
 
-  // ----- CLUSTER CENTERS (dynamic, coupling-based, now biased toward attractor) -----
+  // -------- CLUSTER CENTERS (biased toward attractor when A is high) --------
   const t = performance.now() * 0.0002;
   const clusterCount = 1 + Math.floor(cVal * 4); // 1–5 clusters
   const clusters = [];
@@ -612,22 +615,22 @@ function initParticles() {
     let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.4));
     let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.35));
 
-    // NEW: when attractor is high, pull cluster centers toward it
-    const bias = 0.0 + 0.6 * aVal; // 0 → no bias, 0.6 → strong pull
-    cx = cx * (1.0 - bias) + ax * bias;
-    cy = cy * (1.0 - bias) + ay * bias;
+    // when attractor is high, move cluster centers toward it
+    const clusterBias = 0.0 + 0.6 * aVal; // 0 → no bias, 0.6 → strong bias
+    cx = cx * (1.0 - clusterBias) + ax * clusterBias;
+    cy = cy * (1.0 - clusterBias) + ay * clusterBias;
 
     clusters.push({ x: cx, y: cy });
   }
 
-  // ----- PARTICLE LOOP -----
+  // -------- PARTICLES --------
   for (let p of particles) {
-
-    // 0) AIMLESS DRIFT: dominant when drive is low
+    // 0) aimless drift (dominant when drive is low)
     p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
     p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
 
     if (drive < 0.15) {
+      // “wandering dust” mode
       p.vx *= 0.96;
       p.vy *= 0.96;
 
@@ -647,17 +650,17 @@ function initParticles() {
       continue;
     }
 
-    // 1) GRADIENT drift (directional slope)
+    // 1) gradient drift (directional slope)
     p.vx += GRAD_STRENGTH * 0.4;
     p.vy += -GRAD_STRENGTH * 0.3;
 
-    // 2) ATTRACTOR pull
+    // 2) attractor pull (force level)
     const dxA = ax - p.x, dyA = ay - p.y;
     const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
     p.vx += (dxA / distA) * ATTR_STRENGTH * (0.4 + 0.6 * drive);
     p.vy += (dyA / distA) * ATTR_STRENGTH * (0.4 + 0.6 * drive);
 
-    // 3) CLUSTER pull (local flocking; clusters already biased toward attractor above)
+    // 3) cluster pull (local flocking)
     if (clusters.length > 0 && cVal > 0.05) {
       let closest = clusters[0];
       let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
@@ -673,19 +676,27 @@ function initParticles() {
       p.vy += (dyC / distC) * CLUSTER_PULL;
     }
 
-    // 4) NOISE
+    // 4) stochastic noise
     p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
     p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
 
-    // 5) DAMPING
+    // 5) damping
     p.vx *= DAMP;
     p.vy *= DAMP;
 
-    // integrate position
+    // integrate velocity
     p.x += p.vx;
     p.y += p.vy;
 
-    // wrap
+    // 6) **destination bias: tie particles to attractor center when A is high**
+    // quadratic so it’s subtle at mid A and strong near 1.0
+    const destBias = 0.0 + 0.06 * (aVal * aVal); // max ~0.06 per frame
+    if (destBias > 0.0) {
+      p.x += (ax - p.x) * destBias;
+      p.y += (ay - p.y) * destBias;
+    }
+
+    // wrap around edges
     if (p.x < 0) p.x += w;
     if (p.x > w) p.x -= w;
     if (p.y < 0) p.y += h;
@@ -694,7 +705,7 @@ function initParticles() {
     // life / respawn
     p.life += 0.02;
     if (p.life > p.maxLife) {
-      p.x = Math.random()*w; p.y = Math.random()*h;
+      p.x = Math.random() * w; p.y = Math.random() * h;
       p.vx = 0; p.vy = 0; p.life = 0;
     }
   }
