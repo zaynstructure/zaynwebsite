@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>EVF Shader Demo · Height Field + Ink Swarm</title>
+  <title>EVF Shader Demo · Inverted + Particles</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     * { box-sizing: border-box; }
@@ -59,40 +59,27 @@
 </head>
 <body>
 <div id="controls">
-  <div class="explain">
-    Adjust the parameters below to change the emotional field.  
-    Each slider updates a specific part of the system:
-    damping (softening), coupling (clustering), noise (turbulence),
-    rhythm (regularity), gradient (direction), attractor (pull),
-    coherence (symmetry).
-  </div>
+  <span style="font-weight:600;margin-right:8px;">EVF field demo</span>
 
-  <label class="label">
-    <span class="name">damping</span>
+  <label class="label"><span class="name">damping</span>
     <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
   </label>
-  <label class="label">
-    <span class="name">coupling</span>
+  <label class="label"><span class="name">coupling</span>
     <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.7">
   </label>
-  <label class="label">
-    <span class="name">noise</span>
+  <label class="label"><span class="name">noise</span>
     <input id="noise" type="range" min="0" max="1" step="0.01" value="0.5">
   </label>
-  <label class="label">
-    <span class="name">rhythm</span>
+  <label class="label"><span class="name">rhythm</span>
     <input id="rhythm" type="range" min="0" max="1" step="0.01" value="0.6">
   </label>
-  <label class="label">
-    <span class="name">gradient</span>
+  <label class="label"><span class="name">gradient</span>
     <input id="gradient" type="range" min="0" max="1" step="0.01" value="0.6">
   </label>
-  <label class="label">
-    <span class="name">attractor</span>
+  <label class="label"><span class="name">attractor</span>
     <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
   </label>
-  <label class="label">
-    <span class="name">coherence</span>
+  <label class="label"><span class="name">coherence</span>
     <input id="coherence" type="range" min="0" max="1" step="0.01" value="0.5">
   </label>
 </div>
@@ -106,491 +93,295 @@
   // ------------------ WEBGL SETUP ------------------
   const canvas = document.getElementById('glCanvas');
   const gl = canvas.getContext('webgl');
-  if (!gl) {
-    alert('WebGL not supported');
-  }
+  if (!gl) { alert('WebGL not supported'); }
 
   function resizeGL() {
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    const w = rect.width * dpr;
-    const h = rect.height * dpr;
+    const w = rect.width * dpr, h = rect.height * dpr;
     if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = w; canvas.height = h;
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     }
   }
-  window.addEventListener('resize', () => {
-    resizeGL();
-    resizeParticles();
-  });
+  window.addEventListener('resize', () => resizeGL());
 
-  const vsSource = `
-    attribute vec2 aPosition;
-    void main() {
-      gl_Position = vec4(aPosition, 0.0, 1.0);
-    }
-  `;
+  const vsSource = `attribute vec2 aPosition;
+    void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }`;
 
-  // --- height-map + topology-aware EVF shader ---
+  // ------------------ EVF SHADER (inverted colors) ------------------
   const fsSource = `
     precision highp float;
 
-    uniform float uDamping;
-    uniform float uCoupling;
-    uniform float uNoise;
-    uniform float uRhythm;
-    uniform float uGradient;
-    uniform float uAttractor;
-    uniform float uCoherence;
-
+    uniform float uDamping, uCoupling, uNoise, uRhythm;
+    uniform float uGradient, uAttractor, uCoherence;
     uniform vec2  uResolution;
     uniform float uTime;
 
-    float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
-    }
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
 
     float noise(vec2 p){
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        float a = hash(i);
-        float b = hash(i+vec2(1.0,0.0));
-        float c = hash(i+vec2(0.0,1.0));
-        float d = hash(i+vec2(1.0,1.0));
-        vec2 u = f*f*(3.0-2.0*f);
+        vec2 i=floor(p), f=fract(p);
+        float a=hash(i);
+        float b=hash(i+vec2(1,0));
+        float c=hash(i+vec2(0,1));
+        float d=hash(i+vec2(1,1));
+        vec2 u=f*f*(3.0-2.0*f);
         return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
     }
 
-    // distance to nearest cell boundary (polygonal effect)
-    float voronoiEdge(vec2 p, float scale){
-        vec2 g = floor(p*scale);
-        float d = 1.0;
-        for(int y=-1;y<=1;y++){
-            for(int x=-1;x<=1;x++){
-                vec2 o = vec2(x,y);
-                vec2 r = g + o + noise(g+o);
-                vec2 diff = r/scale - p;
-                d = min(d, length(diff));
-            }
-        }
-        return d;
-    }
-
-    float soft(float x){ return x / (1.0 + abs(x)); }
-
-    // core EVF height field
-    void computeField(vec2 p, out float h, out float attr, out float ng){
-        // coherence: blend with mirrored variant
-        vec2 q = p;
-        vec2 q2 = vec2(-q.x, q.y);
-        q = mix(q, q2, uCoherence*0.5);
-
-        // GRADIENT (∇φ): slope
-        vec2 gdir = normalize(vec2(0.7,-0.4));
-        float grad = dot(q,gdir) * (1.0 + 2.0*uGradient);
-
-        // ATTRACTOR: crater-like structure
-        vec2 aPos = vec2(0.5,-0.5);
-        float dA = length(q - aPos);
-        float attractField = exp(-dA * (2.0 + 6.0*(1.0-uAttractor)));
-        attractField *= mix(0.7,1.8,uAttractor);
-
-        // POLYGONAL CLUSTERS (coupling)
-        float cellScale = mix(12.0, 4.0, uCoupling);
-        float edges = voronoiEdge(q, cellScale);
-        float facets = smoothstep(0.0, 0.55, edges);
-
-        // NOISE (ξ)
-        float noiseScale = mix(3.0,18.0,uNoise);
-        float n0 = noise(q*noiseScale + uTime*0.2);
-        float turbulence = pow(n0, mix(2.0,0.4,uNoise));
-
-        // noise *gradient* (how fast noise changes)
-        float eps = 0.03;
-        float nX = noise(q*noiseScale + vec2(eps,0.0));
-        float nY = noise(q*noiseScale + vec2(0.0,eps));
-        float noiseGrad = length(vec2(nX - n0, nY - n0));
-
-        // RHYTHM (R): stratification layers
-        float stripesFreq = mix(0.0,18.0,uRhythm);
-        float stripes = 0.0;
-        if (stripesFreq > 0.0) {
-            stripes = sin(q.y * stripesFreq + uTime*0.6);
-            stripes = 0.5 + 0.5*stripes;
-        }
-
-        // LANDSCAPE HEIGHT FIELD
-        float field =
-              1.0 * grad +
-              2.0 * attractField +
-              1.2 * (1.0 - facets) * uCoupling +
-              1.4 * turbulence +
-              0.9 * stripes +
-              1.2 * noiseGrad * uNoise;
-
-        // DAMPING: soften/harden contrast
-        float contrast = mix(2.0, 0.6, uDamping);
-        h = soft(field * contrast);
-        attr = attractField;
-        ng = noiseGrad;
-    }
+    float soft(float x){ return x/(1.0+abs(x)); }
 
     void main(){
-        vec2 uv = (gl_FragCoord.xy/uResolution.xy)*2.0-1.0;
-        uv.x *= uResolution.x/uResolution.y;
+        vec2 uv = (gl_FragCoord.xy/uResolution.xy)*2.0 - 1.0;
+        uv.x *= uResolution.x / uResolution.y;
 
-        // zoom slightly out
         vec2 p = uv * 1.7;
 
-        // base height / attractor / noise gradient
-        float h, attr, ng;
-        computeField(p, h, attr, ng);
+        // coherence: mirroring
+        vec2 p2 = vec2(-p.x, p.y);
+        p = mix(p, p2, uCoherence * 0.5);
 
-        // estimate height gradient for fake normals
-        float eps = 0.04;
-        float hX, tmp1, tmp2;
-        computeField(p + vec2(eps,0.0), hX, tmp1, tmp2);
-        float hY;
-        computeField(p + vec2(0.0,eps), hY, tmp1, tmp2);
+        // gradient
+        vec2 gdir = normalize(vec2(0.7,-0.4));
+        float grad = dot(p,gdir) * (1.0 + 2.0*uGradient);
 
-        vec3 n = normalize(vec3(hX - h, hY - h, 0.09));
-        vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
-        float diff = clamp(dot(n, lightDir), 0.0, 1.0);
+        // attractor
+        vec2 aPos = vec2(0.5,-0.5);
+        float dA = length(p - aPos);
+        float attract = exp(-dA * (1.5 + 4.0*(1.0-uAttractor)));
 
-        // Friendly Geometry palette
-        vec3 deep  = vec3(0.08,0.12,0.19);
+        // facets (polygon clusters via Voronoi)
+        float cellScale = mix(10.0, 5.0, uCoupling);
+        float edges = 0.0;
+        {
+          vec2 g = floor(p*cellScale);
+          float d = 1.0;
+          for(int y=-1;y<=1;y++){
+            for(int x=-1;x<=1;x++){
+              vec2 o = vec2(x,y);
+              vec2 r = g + o + noise(g+o);
+              d = min(d, length(r/cellScale - p));
+            }
+          }
+          edges = smoothstep(0.0,0.55,d);
+        }
+
+        // turbulence
+        float turb = noise(p * mix(3.0,18.0,uNoise) + uTime*0.2);
+
+        float field =
+            grad * 1.0 +
+            attract * 1.5 +
+            (1.0 - edges) * uCoupling * 1.0 +
+            turb * 1.0;
+
+        float contrast = mix(2.0, 0.7, uDamping);
+        float h = soft(field * contrast);
+
+        vec3 deep = vec3(0.08,0.12,0.19);
         vec3 beige = vec3(0.90,0.83,0.75);
-        vec3 teal  = vec3(0.48,0.77,0.88);
 
-        // height → base color
         vec3 col = mix(deep, beige, 0.5 + 0.5*h);
 
-        // attractor glow tint
-        col = mix(col, teal, attr * 0.8);
-
-        // noise gradient darkening (crackle)
-        col -= ng * uNoise * 0.3;
-
-        // lighting from height-map normal
-        float lightFactor = 0.35 + 0.65 * diff;
-        col *= lightFactor;
-
-        // grain
-        float g = noise(gl_FragCoord.xy*0.8);
-        col *= 0.96 + 0.04*(g-0.5);
-
-        // vignette
-        float vig = smoothstep(1.4,0.65,length(uv));
-        col *= vig;
+        // invert colors
+        col = 1.0 - col;
 
         gl_FragColor = vec4(col,1.0);
     }
   `;
 
-  function compileShader(gl, type, source) {
+  function compileShader(gl, type, src) {
     const s = gl.createShader(type);
-    gl.shaderSource(s, source);
-    gl.compileShader(s);
+    gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      console.error(gl.getShaderInfoLog(s));
-      gl.deleteShader(s);
-      return null;
+      console.error(gl.getShaderInfoLog(s)); return null;
     }
     return s;
   }
 
-  function createProgram(gl, vsSource, fsSource) {
-    const vs = compileShader(gl, gl.VERTEX_SHADER, vsSource);
-    const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSource);
-    const prog = gl.createProgram();
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      console.error(gl.getProgramInfoLog(prog));
-      gl.deleteProgram(prog);
-      return null;
+  function createProgram(gl, vs, fs) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compileShader(gl, gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compileShader(gl, gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(p)); return null;
     }
-    return prog;
+    return p;
   }
 
   const program = createProgram(gl, vsSource, fsSource);
   gl.useProgram(program);
 
-  const positionLoc   = gl.getAttribLocation(program, 'aPosition');
-  const uDampingLoc   = gl.getUniformLocation(program, 'uDamping');
-  const uCouplingLoc  = gl.getUniformLocation(program, 'uCoupling');
-  const uNoiseLoc     = gl.getUniformLocation(program, 'uNoise');
-  const uRhythmLoc    = gl.getUniformLocation(program, 'uRhythm');
-  const uGradientLoc  = gl.getUniformLocation(program, 'uGradient');
-  const uAttractorLoc = gl.getUniformLocation(program, 'uAttractor');
-  const uCoherenceLoc = gl.getUniformLocation(program, 'uCoherence');
-  const uResolutionLoc= gl.getUniformLocation(program, 'uResolution');
-  const uTimeLoc      = gl.getUniformLocation(program, 'uTime');
+  const positionLoc   = gl.getAttribLocation(program, "aPosition");
+  const uResLoc       = gl.getUniformLocation(program, "uResolution");
+  const uTimeLoc      = gl.getUniformLocation(program, "uTime");
+  const uDampLoc      = gl.getUniformLocation(program, "uDamping");
+  const uCoupleLoc    = gl.getUniformLocation(program, "uCoupling");
+  const uNoiseLoc     = gl.getUniformLocation(program, "uNoise");
+  const uRhyLoc       = gl.getUniformLocation(program, "uRhythm");
+  const uGradLoc      = gl.getUniformLocation(program, "uGradient");
+  const uAttrLoc      = gl.getUniformLocation(program, "uAttractor");
+  const uCohLoc       = gl.getUniformLocation(program, "uCoherence");
 
-  // fullscreen quad
-  const quadBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
-  const quadVerts = new Float32Array([
-    -1, -1,
-     1, -1,
-    -1,  1,
-    -1,  1,
-     1, -1,
-     1,  1
-  ]);
-  gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1, 1,-1, -1,1,
+    -1,1, 1,-1, 1,1
+  ]), gl.STATIC_DRAW);
 
   gl.enableVertexAttribArray(positionLoc);
-  gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+  gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
 
   const sliders = {
-    damping:   document.getElementById('damping'),
-    coupling:  document.getElementById('coupling'),
-    noise:     document.getElementById('noise'),
-    rhythm:    document.getElementById('rhythm'),
-    gradient:  document.getElementById('gradient'),
-    attractor: document.getElementById('attractor'),
-    coherence: document.getElementById('coherence')
+    damping: document.getElementById("damping"),
+    coupling: document.getElementById("coupling"),
+    noise: document.getElementById("noise"),
+    rhythm: document.getElementById("rhythm"),
+    gradient: document.getElementById("gradient"),
+    attractor: document.getElementById("attractor"),
+    coherence: document.getElementById("coherence")
   };
 
-  // ------------------ EVF STATE (MORPHING) ------------------
   const evf = {
-    damping:   parseFloat(sliders.damping.value),
-    coupling:  parseFloat(sliders.coupling.value),
-    noise:     parseFloat(sliders.noise.value),
-    rhythm:    parseFloat(sliders.rhythm.value),
-    gradient:  parseFloat(sliders.gradient.value),
-    attractor: parseFloat(sliders.attractor.value),
-    coherence: parseFloat(sliders.coherence.value)
+    damping: 0.4,
+    coupling: 0.7,
+    noise:    0.5,
+    rhythm:   0.6,
+    gradient: 0.6,
+    attractor:0.7,
+    coherence:0.5
   };
 
   function lerp(a,b,t){ return a + (b-a)*t; }
 
-  // ------------------ PARTICLES (2 layers, grayscale, ink trails) ------------------
-  const pCanvas = document.getElementById('particles');
-  const pCtx = pCanvas.getContext('2d');
-  let particlesBack = [];
-  let particlesFront = [];
+  // ------------------ PARTICLES (small, grayscale, many) ------------------
+  const pCanvas = document.getElementById("particles");
+  const pCtx = pCanvas.getContext("2d");
+  let particles = [];
 
   function resizeParticles() {
     const rect = pCanvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     pCanvas.width = rect.width * dpr;
     pCanvas.height = rect.height * dpr;
-    pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pCtx.setTransform(dpr,0,0,dpr,0,0);
   }
 
   function initParticles() {
-    particlesBack = [];
-    particlesFront = [];
     const w = window.innerWidth;
     const h = window.innerHeight;
+    particles = [];
 
-    const countBack = Math.floor(w * 1.5); // slow dust
-    const countFront = Math.floor(w * 1.0); // faster ink points
+    const count = Math.floor(w * 2.4); // ~1500–3000
 
-    for (let i = 0; i < countBack; i++) {
-      particlesBack.push({
-        x: Math.random() * w,
-        y: Math.random() * h,
-        px: null,
-        py: null,
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random()*w,
+        y: Math.random()*h,
         vx: 0,
         vy: 0,
-        size: 0.6 + Math.random() * 0.4,
-        life: Math.random() * 4,
-        maxLife: 4 + Math.random() * 4
-      });
-    }
-    for (let i = 0; i < countFront; i++) {
-      particlesFront.push({
-        x: Math.random() * w,
-        y: Math.random() * h,
-        px: null,
-        py: null,
-        vx: 0,
-        vy: 0,
-        size: 0.8 + Math.random() * 0.8,
-        life: Math.random() * 3,
-        maxLife: 3 + Math.random() * 3
+        size: 0.6 + Math.random()*0.6,
+        life: Math.random()*5,
+        maxLife: 5 + Math.random()*5
       });
     }
   }
 
-  function updateParticleList(list, t, layerFactor) {
+  function updateParticles() {
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    const GRAD = 0.001 * layerFactor + evf.gradient * 0.01 * layerFactor;
-    const ATTR = 0.002 * layerFactor + evf.attractor * 0.02 * layerFactor;
-    const NOISE = evf.noise * 0.003 * layerFactor;
-    const COUP  = evf.coupling * 0.003 * layerFactor;
-    const DAMP  = 0.9 + evf.damping * 0.05 * layerFactor;
-    const RHY   = evf.rhythm;
+    const GRAD = 0.001 + evf.gradient * 0.01;
+    const ATTR = 0.002 + evf.attractor * 0.018;
+    const NOISE = evf.noise * 0.002;
+    const COUP = evf.coupling * 0.003;
+    const DAMP = 0.9 + evf.damping * 0.05;
 
-    list.forEach(p => {
-      // store previous position for trails
-      p.px = p.x;
-      p.py = p.y;
-
-      // gradient drift
+    particles.forEach(p => {
       p.vx += GRAD * 0.5;
       p.vy += GRAD * -0.7;
 
-      // attractor pull (toward bottom-right-ish)
-      const ax = w * 0.72;
-      const ay = h * 0.65;
-      const dx = ax - p.x;
-      const dy = ay - p.y;
+      const ax = w * 0.72, ay = h * 0.65;
+      const dx = ax - p.x, dy = ay - p.y;
       const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
+
       p.vx += (dx/dist) * ATTR;
       p.vy += (dy/dist) * ATTR;
 
-      // local vector field (position + time)
-      const ang = Math.sin(p.x * 0.002 + t * 0.7) +
-                  Math.cos(p.y * 0.002 - t * 0.4);
-      const nvx = Math.cos(ang);
-      const nvy = Math.sin(ang);
-      p.vx += nvx * NOISE;
-      p.vy += nvy * NOISE;
+      p.vx += (Math.random() - 0.5) * NOISE;
+      p.vy += (Math.random() - 0.5) * NOISE;
 
-      // coupling → gentle attraction to a shared flow vector
-      const targetVx = 0.2 * layerFactor;
-      const targetVy = -0.05 * layerFactor;
-      p.vx += (targetVx - p.vx) * COUP;
-      p.vy += (targetVy - p.vy) * COUP;
+      p.vx += (0.2 - p.vx) * COUP;
+      p.vy += (-0.05 - p.vy) * COUP;
 
-      // rhythm → oscillating modulation
-      if (RHY > 0.01) {
-        const osc = Math.sin(t * 2.0 + p.y * 0.01) * RHY;
-        p.vx += osc * 0.005 * layerFactor;
-        p.vy += osc * 0.005 * layerFactor;
-      }
-
-      // damping
       p.vx *= DAMP;
       p.vy *= DAMP;
 
-      // move
       p.x += p.vx;
       p.y += p.vy;
 
-      // wrap
       if (p.x < 0) p.x += w;
       if (p.x > w) p.x -= w;
       if (p.y < 0) p.y += h;
       if (p.y > h) p.y -= h;
 
-      // lifespan
       p.life += 0.02;
       if (p.life > p.maxLife) {
-        p.x = Math.random() * w;
-        p.y = Math.random() * h;
-        p.px = null;
-        p.py = null;
-        p.vx = p.vy = 0;
-        p.life = 0;
+        p.x = Math.random()*w; p.y = Math.random()*h;
+        p.vx=0; p.vy=0; p.life=0;
       }
     });
   }
 
-  function updateParticles(t) {
-    updateParticleList(particlesBack, t, 0.6);
-    updateParticleList(particlesFront, t, 1.0);
-  }
-
   function drawParticles() {
     const rect = pCanvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+    pCtx.clearRect(0,0,rect.width,rect.height);
 
-    // ink-bleed style fade, not full clear
-    pCtx.fillStyle = 'rgba(0,0,0,0.08)';
-    pCtx.fillRect(0, 0, w, h);
+    particles.forEach(p => {
+      const alpha = 0.15 + 0.4*(1 - p.life/p.maxLife);
+      const grey = 0.1 + Math.random()*0.2;
+      const c = Math.round(grey*255);
+      pCtx.fillStyle = `rgba(${c},${c},${c},${alpha})`;
 
-    // helper to draw a set
-    const drawList = (list, isFront) => {
-      list.forEach(p => {
-        const lifeRatio = p.life / p.maxLife;
-        // brighter near attractor / coherence
-        const attractBoost = evf.attractor * 0.5;
-        const cohBoost = evf.coherence * 0.3;
-        const baseAlpha = isFront ? 0.35 : 0.20;
-        const alpha = baseAlpha * (1.0 - 0.6 * lifeRatio) + attractBoost * 0.2 + cohBoost * 0.1;
-
-        // grayscale tone: darker for front, lighter for back
-        const grey = isFront ? 0.15 : 0.25;
-
-        // shadow (offset slightly, darker)
-        if (p.px !== null && p.py !== null) {
-          pCtx.strokeStyle = `rgba(0,0,0,${alpha * 0.9})`;
-          pCtx.lineWidth = isFront ? 1.1 : 0.8;
-          pCtx.beginPath();
-          pCtx.moveTo(p.px, p.py + 1.5);
-          pCtx.lineTo(p.x,  p.y + 1.5);
-          pCtx.stroke();
-        }
-
-        // main ink trail
-        if (p.px !== null && p.py !== null) {
-          const c = Math.round(grey * 255);
-          pCtx.strokeStyle = `rgba(${c},${c},${c},${alpha})`;
-          pCtx.lineWidth = isFront ? 1.0 : 0.7;
-          pCtx.beginPath();
-          pCtx.moveTo(p.px, p.py);
-          pCtx.lineTo(p.x,  p.y);
-          pCtx.stroke();
-        }
-
-        // tiny node point at tip
-        const c2 = Math.round(grey * 255);
-        pCtx.fillStyle = `rgba(${c2},${c2},${c2},${alpha * 1.2})`;
-        pCtx.beginPath();
-        pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        pCtx.fill();
-      });
-    };
-
-    drawList(particlesBack, false);
-    drawList(particlesFront, true);
+      pCtx.beginPath();
+      pCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      pCtx.fill();
+    });
   }
 
   // ------------------ MAIN LOOP ------------------
-  const start = performance.now();
-
+  const t0 = performance.now();
   function render() {
     resizeGL();
+    const t = (performance.now() - t0) / 1000;
 
-    const t = (performance.now() - start) / 1000;
-
-    // morph EVF toward slider values
-    const morphSpeed = 0.08;
-    evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   morphSpeed);
-    evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  morphSpeed);
-    evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     morphSpeed);
-    evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    morphSpeed);
-    evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  morphSpeed);
-    evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), morphSpeed);
-    evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), morphSpeed);
+    const speed = 0.08;
+    evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   speed);
+    evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  speed);
+    evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     speed);
+    evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    speed);
+    evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  speed);
+    evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
+    evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
 
     gl.useProgram(program);
-    gl.uniform2f(uResolutionLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.uniform1f(uTimeLoc, t);
 
-    gl.uniform1f(uDampingLoc,   evf.damping);
-    gl.uniform1f(uCouplingLoc,  evf.coupling);
-    gl.uniform1f(uNoiseLoc,     evf.noise);
-    gl.uniform1f(uRhythmLoc,    evf.rhythm);
-    gl.uniform1f(uGradientLoc,  evf.gradient);
-    gl.uniform1f(uAttractorLoc, evf.attractor);
-    gl.uniform1f(uCoherenceLoc, evf.coherence);
+    gl.uniform1f(uDampLoc, evf.damping);
+    gl.uniform1f(uCoupleLoc, evf.coupling);
+    gl.uniform1f(uNoiseLoc, evf.noise);
+    gl.uniform1f(uRhyLoc, evf.rhythm);
+    gl.uniform1f(uGradLoc, evf.gradient);
+    gl.uniform1f(uAttrLoc, evf.attractor);
+    gl.uniform1f(uCohLoc, evf.coherence);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    updateParticles(t);
+    updateParticles();
     drawParticles();
 
     requestAnimationFrame(render);
