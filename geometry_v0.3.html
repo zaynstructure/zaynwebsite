@@ -863,35 +863,40 @@
 
   // ---------- update ----------
   function update(){
-    const result = analyzeEVFState(state,{maxScale:MAX_SCALE,baseRadius:BASE_RADIUS});
-    lastResult = result;
-    drawGeometry(result);
-    spikinessEl.textContent = result.spikiness.toFixed(2);
-    avgRadiusEl.textContent = result.avgRadius.toFixed(1);
+  // still use the v0.2 analyzer for metrics (temporary)
+  const result = analyzeEVFState(state,{maxScale:MAX_SCALE,baseRadius:BASE_RADIUS});
+  lastResult = result;
 
-    const s = result.spikiness;
-    if (s < 0.12) {
-      badgeEl.textContent = 'pattern: smooth / balanced';
-      badgeEl.classList.remove('alert');
-    } else if (s < 0.22) {
-      badgeEl.textContent = 'pattern: moderately uneven';
-      badgeEl.classList.remove('alert');
-    } else {
-      badgeEl.textContent = 'pattern: jagged / polarized';
-      badgeEl.classList.add('alert');
-    }
+  // NEW: use v0.3 topology engine for visual geometry
+  drawGeometry(ctx, state);
 
-    domLabelEl.textContent = result.dominantSpikes.length
-      ? 'dominant: ' + result.dominantSpikes.join(', ')
-      : '';
+  // --- metrics & UI updates ---
+  spikinessEl.textContent = result.spikiness.toFixed(2);
+  avgRadiusEl.textContent = result.avgRadius.toFixed(1);
 
-    notesListEl.innerHTML='';
-    result.notes.forEach(t=>{
-      const li=document.createElement('li');
-      li.textContent=t;
-      notesListEl.appendChild(li);
-    });
+  const s = result.spikiness;
+  if (s < 0.12) {
+    badgeEl.textContent = 'pattern: smooth / balanced';
+    badgeEl.classList.remove('alert');
+  } else if (s < 0.22) {
+    badgeEl.textContent = 'pattern: moderately uneven';
+    badgeEl.classList.remove('alert');
+  } else {
+    badgeEl.textContent = 'pattern: jagged / polarized';
+    badgeEl.classList.add('alert');
   }
+
+  domLabelEl.textContent = result.dominantSpikes.length
+    ? 'dominant: ' + result.dominantSpikes.join(', ')
+    : '';
+
+  notesListEl.innerHTML='';
+  result.notes.forEach(t=>{
+    const li=document.createElement('li');
+    li.textContent=t;
+    notesListEl.appendChild(li);
+  });
+}
 
   // ---------- interactions ----------
   resetBtn.addEventListener('click',()=>{
