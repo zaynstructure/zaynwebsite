@@ -586,41 +586,47 @@ function initParticles() {
   const aVal = evf.attractor;  // 0..1
   const cVal = evf.coupling;   // 0..1
 
-  const drive   = Math.max(gVal, aVal);   // 0 → no drive, 1 → strong drive
-  const aimless = 1.0 - drive;            // 1 → wandering, 0 → committed
+  const drive   = Math.max(gVal, aVal);   // how committed the field is
+  const aimless = 1.0 - drive;            // 1 → wandering, 0 → focused
 
-  // base strengths
-  const GRAD_STRENGTH   = 0.06 * gVal;
-  const ATTR_STRENGTH   = 0.16 * aVal;
-  const NOISE_STRENGTH  = 0.05 + 0.10 * evf.noise;
-  const DRIFT_STRENGTH  = 0.10 + 0.15 * aimless;
+  const GRAD_STRENGTH  = 0.06 * gVal;
+  const ATTR_STRENGTH  = 0.16 * aVal;
+  const NOISE_STRENGTH = 0.05 + 0.10 * evf.noise;
+  const DRIFT_STRENGTH = 0.10 + 0.15 * aimless;
 
-  const ax = w * 0.72;
-  const ay = h * 0.65;
+  // attractor position in screen space
+  const ax = w * 0.72, ay = h * 0.65;
 
-  const DAMP_MIN = 0.55;
-  const DAMP_MAX = 0.97;
+  // damping → friction
+  const DAMP_MIN = 0.55, DAMP_MAX = 0.97;
   const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
 
-  // ----- CLUSTER CENTERS (more + stronger when coupling is high) -----
-  const t = performance.now() * 0.0002;        // slow cluster motion
-  const clusterCount = 1 + Math.floor(cVal * 4); // 1 → 5 clusters
+  // ----- CLUSTER CENTERS (dynamic, coupling-based, now biased toward attractor) -----
+  const t = performance.now() * 0.0002;
+  const clusterCount = 1 + Math.floor(cVal * 4); // 1–5 clusters
   const clusters = [];
 
-  const baseRadius = 0.18 + 0.20 * cVal;       // how far from center
+  const baseRadius = 0.18 + 0.20 * cVal;
   for (let i = 0; i < clusterCount; i++) {
     const angle = (Math.PI * 2 * i) / clusterCount;
-    const cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.4));
-    const cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.35));
+    let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.4));
+    let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.35));
+
+    // NEW: when attractor is high, pull cluster centers toward it
+    const bias = 0.0 + 0.6 * aVal; // 0 → no bias, 0.6 → strong pull
+    cx = cx * (1.0 - bias) + ax * bias;
+    cy = cy * (1.0 - bias) + ay * bias;
+
     clusters.push({ x: cx, y: cy });
   }
 
+  // ----- PARTICLE LOOP -----
   for (let p of particles) {
-    // --- 0) AIMLESS DRIFT ---
+
+    // 0) AIMLESS DRIFT: dominant when drive is low
     p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
     p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
 
-    // if almost no drive, just wander like dust
     if (drive < 0.15) {
       p.vx *= 0.96;
       p.vy *= 0.96;
@@ -641,52 +647,37 @@ function initParticles() {
       continue;
     }
 
-    // --- 1) GRADIENT DRIFT ---
+    // 1) GRADIENT drift (directional slope)
     p.vx += GRAD_STRENGTH * 0.4;
     p.vy += -GRAD_STRENGTH * 0.3;
 
-    // --- 2) ATTRACTOR PULL (large-scale theme) ---
-    const dxA = ax - p.x;
-    const dyA = ay - p.y;
+    // 2) ATTRACTOR pull
+    const dxA = ax - p.x, dyA = ay - p.y;
     const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
-    const uxA = dxA / distA;
-    const uyA = dyA / distA;
+    p.vx += (dxA / distA) * ATTR_STRENGTH * (0.4 + 0.6 * drive);
+    p.vy += (dyA / distA) * ATTR_STRENGTH * (0.4 + 0.6 * drive);
 
-    p.vx += uxA * ATTR_STRENGTH * (0.4 + 0.6 * drive);
-    p.vy += uyA * ATTR_STRENGTH * (0.4 + 0.6 * drive);
-
-    // --- 3) CLUSTER PULL (local stickiness – stronger with coupling) ---
+    // 3) CLUSTER pull (local flocking; clusters already biased toward attractor above)
     if (clusters.length > 0 && cVal > 0.05) {
-      // find nearest cluster center
       let closest = clusters[0];
-      let minD2 = (p.x - closest.x) ** 2 + (p.y - closest.y) ** 2;
+      let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
       for (let k = 1; k < clusters.length; k++) {
-        const cx = clusters[k].x;
-        const cy = clusters[k].y;
-        const d2 = (p.x - cx) ** 2 + (p.y - cy) ** 2;
-        if (d2 < minD2) {
-          minD2 = d2;
-          closest = clusters[k];
-        }
+        const cx = clusters[k].x, cy = clusters[k].y;
+        const d2 = (p.x - cx)**2 + (p.y - cy)**2;
+        if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
       }
-
-      const dxC = closest.x - p.x;
-      const dyC = closest.y - p.y;
+      const dxC = closest.x - p.x, dyC = closest.y - p.y;
       const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
-      const uxC = dxC / distC;
-      const uyC = dyC / distC;
-
-      // local attraction (higher with coupling)
-      const CLUSTER_PULL = 0.08 + 0.3 * cVal; // cluster strength
-      p.vx += uxC * CLUSTER_PULL;
-      p.vy += uyC * CLUSTER_PULL;
+      const CLUSTER_PULL = 0.08 + 0.3 * cVal;
+      p.vx += (dxC / distC) * CLUSTER_PULL;
+      p.vy += (dyC / distC) * CLUSTER_PULL;
     }
 
-    // --- 4) SMALL NOISE ---
+    // 4) NOISE
     p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
     p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
 
-    // --- 5) DAMPING / FRICTION ---
+    // 5) DAMPING
     p.vx *= DAMP;
     p.vy *= DAMP;
 
@@ -694,7 +685,7 @@ function initParticles() {
     p.x += p.vx;
     p.y += p.vy;
 
-    // wrap edges
+    // wrap
     if (p.x < 0) p.x += w;
     if (p.x > w) p.x -= w;
     if (p.y < 0) p.y += h;
@@ -703,7 +694,7 @@ function initParticles() {
     // life / respawn
     p.life += 0.02;
     if (p.life > p.maxLife) {
-      p.x = Math.random() * w; p.y = Math.random() * h;
+      p.x = Math.random()*w; p.y = Math.random()*h;
       p.vx = 0; p.vy = 0; p.life = 0;
     }
   }
