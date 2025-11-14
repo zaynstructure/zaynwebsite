@@ -544,70 +544,121 @@ void main(){
   }
 
   function initParticles() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    particles = [];
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  particles = [];
 
-    const count = Math.floor(w * 2.4); // ~1500–3000
+  // more, smaller particles
+  const count = Math.floor(w * 4.0); // increase density
 
-    for (let i = 0; i < count; i++) {
-      particles.push({
-        x: Math.random()*w,
-        y: Math.random()*h,
-        vx: 0,
-        vy: 0,
-        size: 0.6 + Math.random()*0.6,
-        life: Math.random()*5,
-        maxLife: 5 + Math.random()*5
-      });
-    }
-  }
-
-  function updateParticles() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-
-    const GRAD = 0.001 + evf.gradient * 0.01;
-    const ATTR = 0.002 + evf.attractor * 0.018;
-    const NOISE = evf.noise * 0.002;
-    const COUP = evf.coupling * 0.003;
-    const DAMP = 0.9 + evf.damping * 0.05;
-
-    particles.forEach(p => {
-      p.vx += GRAD * 0.5;
-      p.vy += GRAD * -0.7;
-
-      const ax = w * 0.72, ay = h * 0.65;
-      const dx = ax - p.x, dy = ay - p.y;
-      const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
-
-      p.vx += (dx/dist) * ATTR;
-      p.vy += (dy/dist) * ATTR;
-
-      p.vx += (Math.random() - 0.5) * NOISE;
-      p.vy += (Math.random() - 0.5) * NOISE;
-
-      p.vx += (0.2 - p.vx) * COUP;
-      p.vy += (-0.05 - p.vy) * COUP;
-
-      p.vx *= DAMP;
-      p.vy *= DAMP;
-
-      p.x += p.vx;
-      p.y += p.vy;
-
-      if (p.x < 0) p.x += w;
-      if (p.x > w) p.x -= w;
-      if (p.y < 0) p.y += h;
-      if (p.y > h) p.y -= h;
-
-      p.life += 0.02;
-      if (p.life > p.maxLife) {
-        p.x = Math.random()*w; p.y = Math.random()*h;
-        p.vx=0; p.vy=0; p.life=0;
-      }
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: 0,
+      vy: 0,
+      size: 0.2 + Math.random() * 0.25,  // tiny specks
+      life: Math.random() * 5,
+      maxLife: 5 + Math.random() * 5
     });
   }
+}
+
+  function updateParticles() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  // base EVF-driven forces
+  const GRAD = 0.001 + evf.gradient * 0.01;
+  const ATTR = 0.002 + evf.attractor * 0.018;
+
+  // noise amplitude (we’ll scale it down a bit with coupling)
+  const NOISE_BASE = evf.noise * 0.002;
+
+  // coupling now used as flocking / stickiness strength (0–1)
+  const COUP = evf.coupling;
+
+  // damping → velocity decay (friction)
+  // damping = 0.0 → ~0.98 (almost no braking, fast motion)
+  // damping = 1.0 → ~0.40 (strong braking, slow motion)
+  const DAMP_MIN = 0.40;
+  const DAMP_MAX = 0.98;
+  const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
+
+  // --- global flock stats (for alignment + cohesion) ---
+  let sumX = 0, sumY = 0, sumVx = 0, sumVy = 0;
+  const n = particles.length || 1;
+
+  for (let i = 0; i < n; i++) {
+    const p = particles[i];
+    sumX  += p.x;
+    sumY  += p.y;
+    sumVx += p.vx;
+    sumVy += p.vy;
+  }
+
+  const centerX = sumX / n;
+  const centerY = sumY / n;
+  const avgVx   = sumVx / n;
+  const avgVy   = sumVy / n;
+
+  // tuning constants for flock behaviour
+  const ALIGN_STRENGTH  = 0.02;    // how strongly velocity aligns
+  const COHERE_STRENGTH = 0.0008;  // how strongly particles move toward center
+
+  for (let i = 0; i < n; i++) {
+    const p = particles[i];
+
+    // 1) gradient-driven drift (overall “slope” of the field)
+    p.vx += GRAD * 0.5;
+    p.vy += GRAD * -0.7;
+
+    // 2) attractor pull (toward a region in the field)
+    const ax = w * 0.72, ay = h * 0.65;
+    const dx = ax - p.x, dy = ay - p.y;
+    const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
+    p.vx += (dx / dist) * ATTR;
+    p.vy += (dy / dist) * ATTR;
+
+    // 3) stochastic noise (jitter) – slightly suppressed by strong coupling
+    const noiseScale = NOISE_BASE * (1.0 - 0.4 * COUP);
+    p.vx += (Math.random() - 0.5) * noiseScale;
+    p.vy += (Math.random() - 0.5) * noiseScale;
+
+    // 4) alignment: match average velocity when coupling is high
+    p.vx += (avgVx - p.vx) * ALIGN_STRENGTH  * COUP;
+    p.vy += (avgVy - p.vy) * ALIGN_STRENGTH  * COUP;
+
+    // 5) cohesion: move toward center-of-mass when coupling is high
+    p.vx += (centerX - p.x) * COHERE_STRENGTH * COUP;
+    p.vy += (centerY - p.y) * COHERE_STRENGTH * COUP;
+
+    // 6) damping / friction
+    p.vx *= DAMP;
+    p.vy *= DAMP;
+
+    // tiny dust jitter so nothing fully freezes
+p.x += (Math.random() - 0.5) * 0.1;
+p.y += (Math.random() - 0.5) * 0.1;
+
+    // integrate position
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // wrap around edges
+    if (p.x < 0) p.x += w;
+    if (p.x > w) p.x -= w;
+    if (p.y < 0) p.y += h;
+    if (p.y > h) p.y -= h;
+
+    // life / respawn
+    p.life += 0.02;
+    if (p.life > p.maxLife) {
+      p.x = Math.random()*w; p.y = Math.random()*h;
+      p.vx = 0; p.vy = 0; p.life = 0;
+    }
+  }
+}
 
   function drawParticles() {
     const rect = pCanvas.getBoundingClientRect();
