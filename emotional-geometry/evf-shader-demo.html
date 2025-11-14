@@ -269,15 +269,26 @@ void computeField(vec2 p, out float h, out float attr, out float nGrad){
     vec2 gdir = normalize(vec2(0.7,-0.4));
     float grad = dot(q,gdir) * (1.0 + 2.0 * uGradient);
 
-    // ATTRACTOR: crater-like pull
-    // uAttractor = 0.0 → very soft, wide, low amplitude (barely visible)
-    // uAttractor = 1.0 → tight, localized, stronger
-    vec2 aPos = vec2(0.5, -0.5);
-    float dA = length(q - aPos);
+    // --- ENHANCED ATTRACTOR (clear radius + darker basin) ---
+vec2 aPos = vec2(0.5, -0.5);
+float dA = length(q - aPos);
 
-    float falloff  = mix(0.8, 4.0, uAttractor);
-    float amplitude = mix(0.12, 1.0, uAttractor);
-    float attractField = exp(-dA * falloff) * amplitude;
+// radius tightening: low A = wide, high A = very tight
+float radius = mix(1.6, 0.25, uAttractor);
+
+// sharper falloff → clearer edges
+float falloff = mix(1.0, 6.0, uAttractor);
+
+// deeper/darker crater (height depression)
+float depth = mix(0.08, 1.4, uAttractor);
+
+// smooth “ring” highlight (Friendly Geometry flavor)
+float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
+
+// final attractor field = dark inner basin + ring halo
+float attractField =
+      exp(-dA * falloff) * depth       // dark crater center
+    + ring * 0.25 * uAttractor;        // subtle lighter outline
 
     // polygonal clusters (coupling)
     float cellScale = mix(10.0, 5.0, uCoupling);
