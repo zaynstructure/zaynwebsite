@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EVF v0.3 · Field States Mockup Sheet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-elevated: #020617;
+      --panel: #020617;
+      --ink: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,.18);
+      --border: #111827;
+      --border-soft: #1f2937;
+      --font: system-ui,-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
+      --radius-lg: 16px;
+      --radius-md: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top, #111827, #020617 58%);
+      color: var(--ink);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .page {
+      width: min(1120px, 100%);
+      background: #020617;
+      border-radius: var(--radius-lg);
+      border: 1px solid #0b1120;
+      box-shadow:
+        0 18px 45px rgba(0,0,0,.80),
+        0 0 0 1px rgba(148,163,184,.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-header {
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid #111827;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .page-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .kicker {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      color: var(--muted);
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 580;
+      letter-spacing: .03em;
+    }
+
+    .subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      max-width: 420px;
+    }
+
+    .page-header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .badge {
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      padding: 2px 10px;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .page-body {
+      padding: 12px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .intro-note {
+      font-size: 11px;
+      color: var(--muted);
+      border-radius: var(--radius-md);
+      border: 1px dashed #1f2937;
+      background: radial-gradient(circle at top left, rgba(30,64,175,0.35), transparent 55%);
+      padding: 8px 10px;
+    }
+
+    .intro-note strong {
+      color: #e5e7eb;
+      font-weight: 500;
+    }
+
+    /* state selector */
+    .state-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+
+    .state-btn {
+      font-size: 11px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: var(--muted);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: .10em;
+    }
+
+    .state-btn.active {
+      background: linear-gradient(120deg, #0ea5e9, #38bdf8);
+      border-color: #38bdf8;
+      color: #020617;
+    }
+
+    /* layout for mockup card */
+    .state-card {
+      border-radius: var(--radius-md);
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top, #020617, #020617 55%, #000);
+      padding: 10px 12px 12px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .state-card.active {
+      display: flex;
+    }
+
+    .state-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .state-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .state-tagline {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .state-meta {
+      font-size: 10px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .state-meta span {
+      display: block;
+    }
+
+    .state-description {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .state-description strong {
+      color: #e5e7eb;
+      font-weight: 500;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 720px) {
+      .compare-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pane {
+      border-radius: 10px;
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top, #020617, #000 70%);
+      padding: 6px 8px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pane-header {
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .pane-header strong {
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+
+    .pane-hint {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .svg-wrap {
+      margin-top: 4px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #0b1120;
+      background: radial-gradient(circle at center, #020617, #000 70%);
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .exaggerated-label {
+      font-size: 9px;
+      color: #f97316;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+    }
+
+    .legend {
+      margin-top: 6px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .legend ul {
+      margin: 2px 0 0;
+      padding-left: 14px;
+    }
+
+    .legend li {
+      margin: 2px 0;
+    }
+
+    .footer {
+      border-top: 1px solid #111827;
+      padding: 6px 14px 8px;
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="page-header">
+    <div class="page-title-block">
+      <div class="kicker">evf visual lab</div>
+      <div class="title">Field States · Raw vs Exaggerated</div>
+      <div class="subtitle">
+        Concept mockups showing how EVF v0.3 topology reads visually,
+        and how a future v0.4 layer could exaggerate the same logic without changing the math.
+      </div>
+    </div>
+    <div class="page-header-right">
+      <span class="badge">mockup sheet · a</span>
+      <span>emotional vector field · v0.3 topology</span>
+      <span>raw geometry vs. clarity exaggeration</span>
+    </div>
+  </header>
+
+  <main class="page-body">
+    <section class="intro-note">
+      <strong>Note.</strong> These diagrams are <strong>conceptual mockups</strong>. Polygons are
+      hand-tuned to illustrate recognizable field patterns. They do not run the full EVF calculator,
+      but they respect the same topology: γ–R regulation cluster, ∇φ–A directionality cluster, and ξ–C hinge.
+    </section>
+
+    <section>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">
+        Choose a field pattern:
+      </div>
+      <div class="state-selector">
+        <button class="state-btn active" data-state="reg-shell">regulatory shell</button>
+        <button class="state-btn" data-state="dir-well">directional well</button>
+        <button class="state-btn" data-state="chaotic-hinge">chaotic hinge</button>
+        <button class="state-btn" data-state="low-energy">low-energy field</button>
+      </div>
+    </section>
+
+    <!-- STATE 1: REGULATORY SHELL -->
+    <section class="state-card active" data-state-card="reg-shell">
+      <div class="state-header">
+        <div>
+          <div class="state-name">Regulatory Shell</div>
+          <div class="state-tagline">γ–R cluster tight • high coupling • compressed field</div>
+        </div>
+        <div class="state-meta">
+          <span>γ, R high · c high</span>
+          <span>∇φ, A moderate · ξ, C moderate</span>
+        </div>
+      </div>
+      <div class="state-description">
+        Field organized around a strong <strong>regulation cluster</strong> on the left (damping + rhythm),
+        with <strong>high coupling</strong> pulling the whole shape toward a compact shell. The exaggerated version
+        simply makes this shell more visibly clamp-like.
+      </div>
+
+      <div class="compare-grid">
+        <!-- RAW -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Raw v0.3 topology</strong></span>
+            <span>no exaggeration</span>
+          </div>
+          <div class="pane-hint">
+            Shell-like left cluster, smooth compression from high coupling.
+          </div>
+          <div class="svg-wrap">
+            <!-- simple schematic polygon: tight left cluster, mild spikes -->
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgRegRaw" cx="50%" cy="45%" r="70%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgRegRaw)"/>
+              <!-- ghost ring -->
+              <circle cx="110" cy="110" r="65" fill="none" stroke="#1f2937" stroke-width="1"/>
+              <!-- polygon -->
+              <polygon
+                points="
+                  110,28   150,60   148,115
+                  135,165  90,175   70,150
+                  65,80
+                "
+                fill="rgba(56,189,248,0.18)"
+                stroke="rgba(56,189,248,0.85)"
+                stroke-width="2"
+              />
+              <!-- centroid -->
+              <circle cx="110" cy="108" r="3" fill="#e5e7eb"/>
+              <!-- axis labels (schematic positions) -->
+              <g font-size="9" fill="#9ca3af" text-anchor="middle">
+                <!-- top: coupling -->
+                <text x="110" y="18">c</text>
+                <!-- upper-right: noise -->
+                <text x="170" y="60">ξ</text>
+                <!-- lower-right: coherence -->
+                <text x="175" y="135">C</text>
+                <!-- bottom-right: attractor -->
+                <text x="140" y="190">A</text>
+                <!-- bottom-left: gradient -->
+                <text x="80" y="195">∇φ</text>
+                <!-- lower-left: rhythm -->
+                <text x="45" y="150">R</text>
+                <!-- upper-left: damping -->
+                <text x="40" y="60">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>Tight γ–R region on left, but still subtle.</li>
+              <li>High coupling smooths spikes into a shell-like ring.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- EXAGGERATED -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Exaggerated v0.4 mock</strong></span>
+            <span class="exaggerated-label">clarity exaggeration</span>
+          </div>
+          <div class="pane-hint">
+            Same topology, but regulation shell and cohesion are visually amplified.
+          </div>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgRegEx" cx="50%" cy="45%" r="70%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+                <radialGradient id="glowRegEx" cx="40%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="rgba(56,189,248,0.35)"/>
+                  <stop offset="100%" stop-color="rgba(56,189,248,0)"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgRegEx)"/>
+              <!-- soft regulation glow -->
+              <circle cx="70" cy="110" r="70" fill="url(#glowRegEx)"/>
+              <!-- ghost ring -->
+              <circle cx="110" cy="110" r="65" fill="none" stroke="#1f2937" stroke-width="1"/>
+              <!-- exaggerated shell polygon -->
+              <polygon
+                points="
+                  110,32  152,65  150,118
+                  132,168  88,178  60,150
+                  58,80
+                "
+                fill="rgba(56,189,248,0.24)"
+                stroke="#38bdf8"
+                stroke-width="2.4"
+              />
+              <!-- extra clamp edge around γ–R -->
+              <path d="M62,80 Q45,110 64,146" fill="none"
+                    stroke="rgba(56,189,248,0.9)" stroke-width="1.6"
+                    stroke-linecap="round" stroke-dasharray="2 4"/>
+              <!-- centroid -->
+              <circle cx="110" cy="108" r="3.2" fill="#e5e7eb"/>
+              <!-- labels -->
+              <g font-size="9" fill="#e5e7eb" text-anchor="middle">
+                <text x="110" y="16">c</text>
+                <text x="174" y="58">ξ</text>
+                <text x="180" y="135">C</text>
+                <text x="142" y="192">A</text>
+                <text x="78"  y="197">∇φ</text>
+                <text x="42"  y="152">R</text>
+                <text x="38"  y="58">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>Left-side γ–R “shell” is more visibly clamp-like.</li>
+              <li>Fill is denser: high coupling → tighter, cohesive field.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATE 2: DIRECTIONAL WELL -->
+    <section class="state-card" data-state-card="dir-well">
+      <div class="state-header">
+        <div>
+          <div class="state-name">Directional Well</div>
+          <div class="state-tagline">∇φ–A high & aligned • bottom-heavy field</div>
+        </div>
+        <div class="state-meta">
+          <span>∇φ, A high · c moderate</span>
+          <span>γ, R moderate · ξ, C moderate</span>
+        </div>
+      </div>
+      <div class="state-description">
+        Strong <strong>directionality cluster</strong> pulls the field downward into a basin,
+        with gradient and attractor tightly paired. The exaggerated version intensifies that basin
+        and shows a clearer “gravity” toward the bottom.
+      </div>
+
+      <div class="compare-grid">
+        <!-- RAW -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Raw v0.3 topology</strong></span>
+            <span>subtle directional pull</span>
+          </div>
+          <div class="pane-hint">
+            Bottom cluster tightens and centroid drops modestly.
+          </div>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgDirRaw" cx="50%" cy="45%" r="70%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgDirRaw)"/>
+              <!-- ghost ring -->
+              <circle cx="110" cy="115" r="68" fill="none" stroke="#1f2937" stroke-width="1"/>
+              <!-- polygon: bottom-heavy -->
+              <polygon
+                points="
+                  110,40  150,70  165,130
+                  140,185  80,190  55,150
+                  60,80
+                "
+                fill="rgba(56,189,248,0.18)"
+                stroke="rgba(56,189,248,0.85)"
+                stroke-width="2"
+              />
+              <!-- centroid -->
+              <circle cx="110" cy="125" r="3" fill="#e5e7eb"/>
+              <!-- labels -->
+              <g font-size="9" fill="#9ca3af" text-anchor="middle">
+                <text x="110" y="24">c</text>
+                <text x="172" y="65">ξ</text>
+                <text x="184" y="132">C</text>
+                <text x="142" y="205">A</text>
+                <text x="78"  y="207">∇φ</text>
+                <text x="40"  y="158">R</text>
+                <text x="42"  y="58">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>Clear bottom cluster (∇φ + A) with downward centroid shift.</li>
+              <li>Field leans into a directional “well,” but remains smooth.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- EXAGGERATED -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Exaggerated v0.4 mock</strong></span>
+            <span class="exaggerated-label">directional gravity</span>
+          </div>
+          <div class="pane-hint">
+            Same directional logic, with basin and pull arrow intensified.
+          </div>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgDirEx" cx="50%" cy="55%" r="75%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+                <radialGradient id="wellGlow" cx="50%" cy="80%" r="60%">
+                  <stop offset="0%" stop-color="rgba(56,189,248,0.32)"/>
+                  <stop offset="100%" stop-color="rgba(56,189,248,0)"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgDirEx)"/>
+              <!-- gravitational glow at bottom -->
+              <ellipse cx="110" cy="188" rx="80" ry="40" fill="url(#wellGlow)"/>
+              <!-- polygon: more bottom-heavy, sharper -->
+              <polygon
+                points="
+                  110,38  152,72  172,132
+                  144,195  80,200  50,155
+                  55,75
+                "
+                fill="rgba(56,189,248,0.24)"
+                stroke="#38bdf8"
+                stroke-width="2.4"
+              />
+              <!-- downward arrow suggesting pull -->
+              <g stroke="rgba(56,189,248,0.9)" stroke-width="1.4" stroke-linecap="round">
+                <line x1="110" y1="60" x2="110" y2="140"/>
+                <polyline points="102,132 110,142 118,132" fill="none"/>
+              </g>
+              <!-- centroid -->
+              <circle cx="110" cy="134" r="3.2" fill="#e5e7eb"/>
+              <!-- labels -->
+              <g font-size="9" fill="#e5e7eb" text-anchor="middle">
+                <text x="110" y="20">c</text>
+                <text x="175" y="63">ξ</text>
+                <text x="190" y="134">C</text>
+                <text x="145" y="210">A</text>
+                <text x="75"  y="212">∇φ</text>
+                <text x="38"  y="160">R</text>
+                <text x="40"  y="56">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>Bottom basin is visually deeper, emphasizing attractor gravity.</li>
+              <li>Downward arrow makes the directional pull explicit.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATE 3: CHAOTIC HINGE -->
+    <section class="state-card" data-state-card="chaotic-hinge">
+      <div class="state-header">
+        <div>
+          <div class="state-name">Chaotic Hinge</div>
+          <div class="state-tagline">ξ high • C low • strong right-side hinge</div>
+        </div>
+        <div class="state-meta">
+          <span>ξ high · C low</span>
+          <span>γ, R moderate · ∇φ, A low–moderate</span>
+        </div>
+      </div>
+      <div class="state-description">
+        Noise overwhelms coherence. The ξ–C axis becomes a visible
+        <strong>hinge</strong> in the field, with one side pulled outward and the other
+        clipped inward. The exaggerated version makes the hinge visually kinked.
+      </div>
+
+      <div class="compare-grid">
+        <!-- RAW -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Raw v0.3 topology</strong></span>
+            <span>subtle ξ–C hinge</span>
+          </div>
+          <div class="pane-hint">
+            Right side shows outward ξ spike and inward C radius.
+          </div>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgHingeRaw" cx="48%" cy="45%" r="70%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgHingeRaw)"/>
+              <!-- ghost ring -->
+              <circle cx="110" cy="110" r="68" fill="none" stroke="#1f2937" stroke-width="1"/>
+              <!-- polygon: ξ out, C in -->
+              <polygon
+                points="
+                  110,32  176,62  150,115
+                  134,168  90,178  62,148
+                  60,75
+                "
+                fill="rgba(56,189,248,0.18)"
+                stroke="rgba(56,189,248,0.85)"
+                stroke-width="2"
+              />
+              <!-- centroid -->
+              <circle cx="112" cy="118" r="3" fill="#e5e7eb"/>
+              <!-- labels -->
+              <g font-size="9" fill="#9ca3af" text-anchor="middle">
+                <text x="110" y="20">c</text>
+                <text x="180" y="58">ξ</text>
+                <text x="168" y="132">C</text>
+                <text x="135" y="195">A</text>
+                <text x="82"  y="196">∇φ</text>
+                <text x="45"  y="150">R</text>
+                <text x="42"  y="58">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>ξ (top-right) spikes outward, C (lower-right) pulled inward.</li>
+              <li>Right side appears slightly kinked, hinting at instability.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- EXAGGERATED -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Exaggerated v0.4 mock</strong></span>
+            <span class="exaggerated-label">hinge tension</span>
+          </div>
+          <div class="pane-hint">
+            Same hinge logic, with a visible “fold” and noisy ξ node.
+          </div>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgHingeEx" cx="48%" cy="45%" r="70%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgHingeEx)"/>
+              <!-- polygon exaggerated hinge shape -->
+              <polygon
+                points="
+                  110,30  184,58  140,118
+                  132,175  88,184  58,148
+                  60,70
+                "
+                fill="rgba(56,189,248,0.24)"
+                stroke="#38bdf8"
+                stroke-width="2.4"
+              />
+              <!-- hinge fold line -->
+              <path d="M174,60 Q160,110 148,138"
+                    fill="none"
+                    stroke="rgba(248,113,113,0.9)"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-dasharray="3 4"/>
+              <!-- centroid -->
+              <circle cx="114" cy="120" r="3.2" fill="#e5e7eb"/>
+              <!-- jitter ring around ξ -->
+              <circle cx="184" cy="58" r="6"
+                      fill="none"
+                      stroke="rgba(248,250,252,0.8)"
+                      stroke-width="1"
+                      stroke-dasharray="1 3"/>
+              <!-- labels -->
+              <g font-size="9" fill="#e5e7eb" text-anchor="middle">
+                <text x="110" y="18">c</text>
+                <text x="184" y="54">ξ</text>
+                <text x="164" y="138">C</text>
+                <text x="135" y="199">A</text>
+                <text x="80"  y="202">∇φ</text>
+                <text x="44"  y="152">R</text>
+                <text x="42"  y="56">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>Right edge visibly folded: ξ–C tension is now legible as a hinge.</li>
+              <li>ξ node has a “jitter halo” to suggest noisy signal.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATE 4: LOW-ENERGY FIELD -->
+    <section class="state-card" data-state-card="low-energy">
+      <div class="state-header">
+        <div>
+          <div class="state-name">Low-Energy Field</div>
+          <div class="state-tagline">all parameters low • collapsed amplitude</div>
+        </div>
+        <div class="state-meta">
+          <span>all axes low</span>
+          <span>minimal radius · low activation</span>
+        </div>
+      </div>
+      <div class="state-description">
+        Here the entire field collapses toward the center. All parameters are low,
+        producing a small, low-amplitude polygon. The exaggerated version preserves
+        the same topology but visually emphasizes depletion.
+      </div>
+
+      <div class="compare-grid">
+        <!-- RAW -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Raw v0.3 topology</strong></span>
+            <span>small polygon</span>
+          </div>
+          <div class="pane-hint">
+            Everything pulled toward the origin; no dominant spikes.
+          </div>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgLowRaw" cx="50%" cy="50%" r="70%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgLowRaw)"/>
+              <!-- ghost ring -->
+              <circle cx="110" cy="110" r="60" fill="none" stroke="#111827" stroke-width="1"/>
+              <!-- small polygon -->
+              <polygon
+                points="
+                  110,80  128,92  124,110
+                  116,126  100,126  92,112
+                  94,94
+                "
+                fill="rgba(56,189,248,0.16)"
+                stroke="rgba(56,189,248,0.7)"
+                stroke-width="1.8"
+              />
+              <!-- centroid -->
+              <circle cx="110" cy="110" r="3" fill="#e5e7eb"/>
+              <!-- labels -->
+              <g font-size="9" fill="#9ca3af" text-anchor="middle">
+                <text x="110" y="70">c</text>
+                <text x="145" y="90">ξ</text>
+                <text x="144" y="120">C</text>
+                <text x="118" y="138">A</text>
+                <text x="100" y="138">∇φ</text>
+                <text x="88"  y="120">R</text>
+                <text x="90"  y="88">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>Polygon is small and near center: globally low amplitude.</li>
+              <li>No clear dominant edges or clusters.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- EXAGGERATED -->
+        <div class="pane">
+          <div class="pane-header">
+            <span><strong>Exaggerated v0.4 mock</strong></span>
+            <span class="exaggerated-label">depletion cue</span>
+          </div>
+          <div class="pane-hint">
+            Same small field, with desaturated, faded styling for low energy.
+          </div>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 220 220">
+              <defs>
+                <radialGradient id="bgLowEx" cx="50%" cy="50%" r="75%">
+                  <stop offset="0%" stop-color="#020617"/>
+                  <stop offset="100%" stop-color="#000000"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="220" height="220" fill="url(#bgLowEx)"/>
+              <!-- faint outer ring -->
+              <circle cx="110" cy="110" r="60" fill="none" stroke="#020617" stroke-width="1.2"/>
+              <!-- polygon slightly more transparent -->
+              <polygon
+                points="
+                  110,82  128,94  124,112
+                  116,128  100,128  92,114
+                  94,96
+                "
+                fill="rgba(148,163,184,0.18)"
+                stroke="rgba(148,163,184,0.85)"
+                stroke-width="1.4"
+              />
+              <!-- centroid faded -->
+              <circle cx="110" cy="110" r="2.6" fill="#9ca3af"/>
+              <!-- labels, desaturated -->
+              <g font-size="9" fill="#6b7280" text-anchor="middle">
+                <text x="110" y="72">c</text>
+                <text x="147" y="92">ξ</text>
+                <text x="146" y="122">C</text>
+                <text x="118" y="140">A</text>
+                <text x="100" y="140">∇φ</text>
+                <text x="86"  y="122">R</text>
+                <text x="88"  y="90">γ</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend">
+            <ul>
+              <li>Topology unchanged: still a small, centered field.</li>
+              <li>Color and contrast fade to visually communicate depletion.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>© 2025 Zayn Wiwchar · EVF Emotional Geometry</span>
+    <span>Mockup Sheet A · raw vs exaggerated field states</span>
+  </footer>
+</div>
+
+<script>
+  // simple state switching
+  const stateButtons = document.querySelectorAll('.state-btn');
+  const stateCards   = document.querySelectorAll('.state-card');
+
+  stateButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-state');
+
+      stateButtons.forEach(b => b.classList.toggle('active',
+        b.getAttribute('data-state') === target
+      ));
+      stateCards.forEach(card => {
+        card.classList.toggle('active',
+          card.getAttribute('data-state-card') === target
+        );
+      });
+    });
+  });
+</script>
+</body>
+</html>
