@@ -270,14 +270,19 @@ void computeField(vec2 p, out float h, out float attr, out float nGrad){
     float grad = dot(q,gdir) * (1.0 + 2.0 * uGradient);
 
     // ATTRACTOR: crater-like pull
-    vec2 aPos = vec2(0.5,-0.5);
-    float dA = length(q - aPos);
-    float attractField = exp(-dA * (1.5 + 4.0 * (1.0 - uAttractor)));
+// uAttractor = 0.0 → very soft, wide, low amplitude (barely visible)
+// uAttractor = 1.0 → tight, localized, stronger
+vec2 aPos = vec2(0.5, -0.5);
+float dA = length(q - aPos);
 
-    // polygonal clusters (coupling)
-    float cellScale = mix(10.0, 5.0, uCoupling);
-    float edges = voronoiEdge(q, cellScale);
-    float facets = smoothstep(0.0, 0.55, edges);
+// falloff: low attractor → slow falloff (wide), high attractor → fast falloff (localized)
+float falloff  = mix(0.8, 4.0, uAttractor);
+
+// amplitude: low attractor → faint, high attractor → strong
+float amplitude = mix(0.12, 1.0, uAttractor);
+
+// final attractor field
+float attractField = exp(-dA * falloff) * amplitude;
 
     // NOISE (ξ) with gradient
     float noiseScale = mix(3.0, 18.0, uNoise);
