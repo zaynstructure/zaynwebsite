@@ -168,6 +168,27 @@
       display: block;
     }
 
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      padding: 4px 14px 0;
+      flex-wrap: wrap;
+    }
+
+    .mini-btn {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+
+    .mini-btn.secondary {
+      background: #1e293b;
+    }
+
     .readout {
       border-top: 1px solid #111827;
       padding: 8px 14px 12px;
@@ -233,7 +254,6 @@
     <section class="panel">
       <div class="panel-title">parameters (0–10)</div>
       <div class="hint">drag to change the field; all updates are live.</div>
-
       <div id="sliders"></div>
     </section>
 
@@ -243,7 +263,14 @@
         <span>emotional geometry</span>
         <span id="dominantLabel"></span>
       </div>
+
+      <div class="controls-row">
+        <button id="exportSvgBtn" class="mini-btn">download svg</button>
+        <button id="resetBtn" class="mini-btn secondary">reset to neutral</button>
+      </div>
+
       <canvas id="evfCanvas"></canvas>
+
       <div class="readout">
         <div class="metric-row">
           <div class="metric">
@@ -287,8 +314,9 @@
   };
 
   const MAX_SCALE = 10;
+  const BASE_RADIUS = 120;
 
-  // initial state (tweak as you like)
+  // initial state
   const state = {
     damping:   4,
     coupling:  6,
@@ -299,11 +327,11 @@
     coherence: 4
   };
 
-  // --------- geometry engine (simplified from previous message) ---------
+  // --------- geometry engine ----------
   function analyzeEVFState(state, options = {}) {
     const order      = options.order      || PARAM_ORDER;
     const maxScale   = options.maxScale   ?? MAX_SCALE;
-    const baseRadius = options.baseRadius ?? 120;
+    const baseRadius = options.baseRadius ?? BASE_RADIUS;
 
     const n = order.length;
     const vertices = [];
@@ -397,7 +425,6 @@
     if (g < 0.3 && r < 0.3) {
       notes.push('low drive and weak rhythms – risk of stagnation');
     }
-
     if (!notes.length) {
       notes.push('mixed pattern without a single dominant imbalance');
     }
@@ -414,6 +441,9 @@
   const notesListEl = document.getElementById('notesList');
   const badgeEl     = document.getElementById('balanceBadge');
   const domLabelEl  = document.getElementById('dominantLabel');
+
+  const exportSvgBtn = document.getElementById('exportSvgBtn');
+  const resetBtn     = document.getElementById('resetBtn');
 
   const inputs = {};
 
@@ -473,10 +503,10 @@
 
     ctx.clearRect(0, 0, w, h);
 
-    // background faint grid
     ctx.save();
     ctx.translate(cx, cy);
 
+    // background rings
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
     ctx.lineWidth = 1;
 
@@ -511,10 +541,11 @@
       ctx.fillText(v.name, lx, ly);
     });
 
-    // polygon fill
+    // polygon
+    const scale = maxR / BASE_RADIUS;
+
     ctx.beginPath();
     vertices.forEach((v, idx) => {
-      const scale = maxR / (optionsBaseRadius || 120);
       const x = v.x * scale;
       const y = v.y * scale;
       if (idx === 0) ctx.moveTo(x, y);
@@ -526,14 +557,13 @@
     const baseAlpha = 0.18 + intensity * 0.15;
 
     ctx.fillStyle = `rgba(56, 189, 248, ${baseAlpha})`;
-    ctx.strokeStyle = `rgba(56, 189, 248, ${0.8})`;
+    ctx.strokeStyle = `rgba(56, 189, 248, 0.8)`;
     ctx.lineWidth = 2;
     ctx.fill();
     ctx.stroke();
 
     // centroid
     ctx.beginPath();
-    const scale = maxR / (optionsBaseRadius || 120);
     ctx.arc(centroid.x * scale, centroid.y * scale, 3.5, 0, Math.PI * 2);
     ctx.fillStyle = '#e5e7eb';
     ctx.fill();
@@ -541,21 +571,91 @@
     ctx.restore();
   }
 
-  let optionsBaseRadius = 120;
+  // --------- SVG export ---------
+  function buildSVG(result, options = {}) {
+    const width  = options.width  ?? 600;
+    const height = options.height ?? 600;
+    const cx = width / 2;
+    const cy = height / 2;
 
+    const maxR = Math.min(width, height) * 0.36;
+    const scale = maxR / BASE_RADIUS;
+
+    const { vertices, centroid } = result;
+
+    const ringCount = 4;
+
+    // Build rings
+    let rings = '';
+    for (let i = 1; i <= ringCount; i++) {
+      const r = (i / ringCount) * maxR;
+      rings += `<circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="#1f2937" stroke-width="1" />\n`;
+    }
+
+    // Axes + labels
+    let axes = '';
+    vertices.forEach(v => {
+      const axisR = maxR + 12;
+      const ax = cx + axisR * Math.cos(v.angleRad);
+      const ay = cy + axisR * Math.sin(v.angleRad);
+      const lx = cx + (axisR + 14) * Math.cos(v.angleRad);
+      const ly = cy + (axisR + 14) * Math.sin(v.angleRad);
+
+      axes += `<line x1="${cx}" y1="${cy}" x2="${ax.toFixed(2)}" y2="${ay.toFixed(2)}" stroke="#1f2937" stroke-width="1"/>\n`;
+      axes += `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" fill="#9ca3af" font-size="11" text-anchor="middle" dominant-baseline="middle">${v.name}</text>\n`;
+    });
+
+    // Polygon points
+    const points = vertices.map(v => {
+      const px = cx + v.x * scale;
+      const py = cy + v.y * scale;
+      return `${px.toFixed(2)},${py.toFixed(2)}`;
+    }).join(' ');
+
+    const centroidX = cx + centroid.x * scale;
+    const centroidY = cy + centroid.y * scale;
+
+    const svg =
+`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect x="0" y="0" width="${width}" height="${height}" fill="#020617"/>
+  <g>
+    ${rings}
+    ${axes}
+    <polygon points="${points}" fill="rgba(56,189,248,0.24)" stroke="#38bdf8" stroke-width="2"/>
+    <circle cx="${centroidX.toFixed(2)}" cy="${centroidY.toFixed(2)}" r="4" fill="#e5e7eb"/>
+  </g>
+</svg>`;
+
+    // Because Illustrator/Figma don’t understand CSS rgba(), make the polygon fill solid-ish:
+    // we can post-process that quickly:
+    return svg.replace('rgba(56,189,248,0.24)', 'rgba(56, 189, 248, 0.24)');
+  }
+
+  function downloadSVG(result) {
+    const svg = buildSVG(result, { width: 600, height: 600 });
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'evf-geometry.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // --------- update + reset ---------
   function update() {
     const result = analyzeEVFState(state, {
       maxScale: MAX_SCALE,
-      baseRadius: optionsBaseRadius
+      baseRadius: BASE_RADIUS
     });
 
     drawGeometry(result);
 
-    // readouts
     spikinessEl.textContent = result.spikiness.toFixed(2);
     avgRadiusEl.textContent = result.avgRadius.toFixed(1);
 
-    // badge
     const s = result.spikiness;
     if (s < 0.12) {
       badgeEl.textContent = 'pattern: smooth / balanced';
@@ -568,21 +668,43 @@
       badgeEl.classList.add('alert');
     }
 
-    // dominant spikes label
     if (result.dominantSpikes.length) {
       domLabelEl.textContent = 'dominant: ' + result.dominantSpikes.join(', ');
     } else {
       domLabelEl.textContent = '';
     }
 
-    // notes
     notesListEl.innerHTML = '';
     result.notes.forEach(text => {
       const li = document.createElement('li');
       li.textContent = text;
       notesListEl.appendChild(li);
     });
+
+    // store last result for SVG export
+    lastResult = result;
   }
+
+  let lastResult = null;
+
+  resetBtn.addEventListener('click', () => {
+    PARAM_ORDER.forEach(name => {
+      state[name] = 5;
+      inputs[name].value = '5';
+      inputs[name].nextSibling.textContent = '5';
+    });
+    update();
+  });
+
+  exportSvgBtn.addEventListener('click', () => {
+    if (!lastResult) {
+      lastResult = analyzeEVFState(state, {
+        maxScale: MAX_SCALE,
+        baseRadius: BASE_RADIUS
+      });
+    }
+    downloadSVG(lastResult);
+  });
 
   // --------- init ---------
   createSliders();
@@ -591,3 +713,4 @@
 </script>
 </body>
 </html>
+
