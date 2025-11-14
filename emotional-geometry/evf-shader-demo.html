@@ -15,29 +15,48 @@
       flex-direction: column;
       height: 100vh;
     }
+    
     #controls {
-      padding: 8px 10px;
-      font-size: 11px;
-      background: #020617;
-      border-bottom: 1px solid #111827;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 12px;
-      align-items: center;
-    }
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
+  background: #000;             /* true black */
+  padding: 18px 16px;           /* more breathing room */
+  border-top: 1px solid #222;   /* subtle separation line */
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+
+  font-size: 12px;
+  color: #d4d4d4;
+}
+    .artist-summary {
+  flex-basis: 100%;
+  margin-bottom: 6px;
+  color: #9ca3af;
+  font-size: 12px;
+  line-height: 1.35;
+}
+    
     .label {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: #9ca3af;
-    }
-    .label span.name {
-      width: 70px;
-      text-transform: lowercase;
-    }
-    .label input[type="range"] {
-      width: 120px;
-    }
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.label .name {
+  width: 74px;
+  text-transform: lowercase;
+  color: #9ca3af;
+}
+
+.label input[type="range"] {
+  width: 130px;
+}
     #glWrap {
       flex: 1;
       position: relative;
@@ -59,29 +78,53 @@
 </head>
 <body>
 <div id="controls">
-  <span style="font-weight:600;margin-right:8px;">EVF field demo</span>
+  
+  <div class="artist-summary">
+  This view models emotion as a multi-parameter system. 
+  Damping is the rate at which an emotional signal returns to baseline. 
+  Coupling is the degree to which external emotional inputs alter your state. 
+  Noise is background mental interference during emotion. 
+  Rhythm is the stability of your emotional cycles across the day. 
+  Gradient is the directional drive produced by motivation or intent. 
+  Attractor is the dominance of a single emotional theme. 
+  Coherence is how well emotional signals align into a unified state.
+</div>
 
-  <label class="label"><span class="name">damping</span>
+  <label class="label">
+    <span class="name">damping</span>
     <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
   </label>
-  <label class="label"><span class="name">coupling</span>
+
+  <label class="label">
+    <span class="name">coupling</span>
     <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.7">
   </label>
-  <label class="label"><span class="name">noise</span>
+
+  <label class="label">
+    <span class="name">noise</span>
     <input id="noise" type="range" min="0" max="1" step="0.01" value="0.5">
   </label>
-  <label class="label"><span class="name">rhythm</span>
+
+  <label class="label">
+    <span class="name">rhythm</span>
     <input id="rhythm" type="range" min="0" max="1" step="0.01" value="0.6">
   </label>
-  <label class="label"><span class="name">gradient</span>
+
+  <label class="label">
+    <span class="name">gradient</span>
     <input id="gradient" type="range" min="0" max="1" step="0.01" value="0.6">
   </label>
-  <label class="label"><span class="name">attractor</span>
+
+  <label class="label">
+    <span class="name">attractor</span>
     <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
   </label>
-  <label class="label"><span class="name">coherence</span>
+
+  <label class="label">
+    <span class="name">coherence</span>
     <input id="coherence" type="range" min="0" max="1" step="0.01" value="0.5">
   </label>
+
 </div>
 
 <div id="glWrap">
