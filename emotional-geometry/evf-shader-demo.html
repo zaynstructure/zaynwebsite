@@ -222,6 +222,7 @@ uniform float uDamping, uCoupling, uNoise, uRhythm;
 uniform float uGradient, uAttractor, uCoherence;
 uniform vec2  uResolution;
 uniform float uTime;
+uniform vec2  uAttractorPos;
 
 float hash(vec2 p){
     return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
@@ -270,7 +271,8 @@ void computeField(vec2 p, out float h, out float attr, out float nGrad){
     float grad = dot(q,gdir) * (1.0 + 2.0 * uGradient);
 
     // --- ENHANCED ATTRACTOR (clear radius + darker basin) ---
-vec2 aPos = vec2(0.5, -0.5);
+// NEW – shared attractor position passed from JS
+vec2 aPos = uAttractorPos;
 float dA = length(q - aPos);
 
 // radius tightening: low A = wide, high A = very tight
@@ -513,7 +515,8 @@ void main(){
   const uGradLoc      = gl.getUniformLocation(program, "uGradient");
   const uAttrLoc      = gl.getUniformLocation(program, "uAttractor");
   const uCohLoc       = gl.getUniformLocation(program, "uCoherence");
-
+const uAttrPosLoc   = gl.getUniformLocation(program, "uAttractorPos");
+  
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -728,6 +731,27 @@ function initParticles() {
   // ------------------ MAIN LOOP ------------------
   const t0 = performance.now();
   function render() {
+    // shared attractor center in *normalized screen* coords (0–1)
+const axNorm = 0.72;
+const ayNorm = 0.65;
+
+// map to the same field coordinates the shader uses
+const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
+
+// same steps shader uses:
+// uv.x_unscaled = 2*x - 1
+// uv.y          = 2*y - 1
+// uv.x          = uv.x_unscaled * aspect
+// p             = uv * 1.7
+const uvx_unscaled = 2.0 * axNorm - 1.0;
+const uvy          = 2.0 * ayNorm - 1.0;
+const uvx          = uvx_unscaled * aspect;
+
+const aPosX = uvx * 1.7;
+const aPosY = uvy * 1.7;
+
+// send to shader
+gl.uniform2f(uAttrPosLoc, aPosX, aPosY);
     resizeGL();
     const t = (performance.now() - t0) / 1000;
 
