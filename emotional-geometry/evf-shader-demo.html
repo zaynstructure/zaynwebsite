@@ -143,6 +143,11 @@
         return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
     }
 
+    // WebGL1-safe "tanh" approximation
+    float softsign(float x) {
+        return x / (1.0 + abs(x));
+    }
+
     void main() {
         vec2 uv = (gl_FragCoord.xy / uResolution.xy) * 2.0 - 1.0;
         uv.x *= uResolution.x / uResolution.y;
@@ -189,7 +194,7 @@
 
         // damping = contrast softener
         float contrast = mix(1.8, 0.7, uDamping);
-        field = tanh(field * contrast);
+        field = softsign(field * contrast);
 
         // palette (friendly-geometry-ish)
         vec3 baseA = vec3(0.12, 0.16, 0.24);
@@ -212,7 +217,8 @@
     const s = gl.createShader(type);
     gl.shaderSource(s, source);
     gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    if (!gl.getShaderParameter(s, gl.COMPLETE_STATUS) &&
+        !gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
       console.error(gl.getShaderInfoLog(s));
       gl.deleteShader(s);
       return null;
