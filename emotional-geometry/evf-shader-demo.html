@@ -558,14 +558,13 @@ void main(){
     pCanvas.height = rect.height * dpr;
     pCtx.setTransform(dpr,0,0,dpr,0,0);
   }
-
-  function initParticles() {
+function initParticles() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   particles = [];
 
-  // dense dust field
-  const count = Math.floor(w * 5.0); // ~lots of particles
+  // density: fairly high but not overwhelming
+  const count = Math.floor(w * 5.0);
 
   for (let i = 0; i < count; i++) {
     particles.push({
@@ -573,64 +572,121 @@ void main(){
       y: Math.random() * h,
       vx: 0,
       vy: 0,
-      // clear, readable specks
-      size: 0.8 + Math.random() * 0.8,
+      size: 0.35 + Math.random() * 0.55,
       life: Math.random() * 5,
       maxLife: 5 + Math.random() * 5
     });
   }
 }
-
-function updateParticles() {
+  function updateParticles() {
   const w = window.innerWidth;
   const h = window.innerHeight;
 
   const gVal = evf.gradient;   // 0..1
   const aVal = evf.attractor;  // 0..1
+  const cVal = evf.coupling;   // 0..1
 
-  // how "driven" the system is
-  const drive = Math.max(gVal, aVal);   // 0 → no drive, 1 → strong drive
-  const aimless = 1.0 - drive;
+  const drive   = Math.max(gVal, aVal);   // 0 → no drive, 1 → strong drive
+  const aimless = 1.0 - drive;            // 1 → wandering, 0 → committed
 
-  // simple global forces
-  const GRAD_STRENGTH = 0.15 * gVal;    // directional drift
-  const ATTR_STRENGTH = 0.35 * aVal;    // pull toward attractor
-  const NOISE_STRENGTH = 0.15 + 0.25 * evf.noise; // random jitter
+  // base strengths
+  const GRAD_STRENGTH   = 0.06 * gVal;
+  const ATTR_STRENGTH   = 0.16 * aVal;
+  const NOISE_STRENGTH  = 0.05 + 0.10 * evf.noise;
+  const DRIFT_STRENGTH  = 0.10 + 0.15 * aimless;
 
-  // attractor position in screen space
   const ax = w * 0.72;
   const ay = h * 0.65;
 
-  // damping (friction)
-  const DAMP_MIN = 0.40;
-  const DAMP_MAX = 0.96;
+  const DAMP_MIN = 0.55;
+  const DAMP_MAX = 0.97;
   const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
 
-  for (let p of particles) {
-    // 1) base aimless drift – strongest when drive is low
-    const baseDrift = 0.3 + 0.4 * aimless;
-    p.vx += (Math.random() - 0.5) * baseDrift;
-    p.vy += (Math.random() - 0.5) * baseDrift;
+  // ----- CLUSTER CENTERS (more + stronger when coupling is high) -----
+  const t = performance.now() * 0.0002;        // slow cluster motion
+  const clusterCount = 1 + Math.floor(cVal * 4); // 1 → 5 clusters
+  const clusters = [];
 
-    // 2) gradient: simple directional push (right/up-ish)
+  const baseRadius = 0.18 + 0.20 * cVal;       // how far from center
+  for (let i = 0; i < clusterCount; i++) {
+    const angle = (Math.PI * 2 * i) / clusterCount;
+    const cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.4));
+    const cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.35));
+    clusters.push({ x: cx, y: cy });
+  }
+
+  for (let p of particles) {
+    // --- 0) AIMLESS DRIFT ---
+    p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
+    p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+
+    // if almost no drive, just wander like dust
+    if (drive < 0.15) {
+      p.vx *= 0.96;
+      p.vy *= 0.96;
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0) p.x += w;
+      if (p.x > w) p.x -= w;
+      if (p.y < 0) p.y += h;
+      if (p.y > h) p.y -= h;
+
+      p.life += 0.02;
+      if (p.life > p.maxLife) {
+        p.x = Math.random() * w; p.y = Math.random() * h;
+        p.vx = 0; p.vy = 0; p.life = 0;
+      }
+      continue;
+    }
+
+    // --- 1) GRADIENT DRIFT ---
     p.vx += GRAD_STRENGTH * 0.4;
     p.vy += -GRAD_STRENGTH * 0.3;
 
-    // 3) attractor: pull toward basin center
-    const dx = ax - p.x;
-    const dy = ay - p.y;
-    const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
-    const ux = dx / dist;
-    const uy = dy / dist;
+    // --- 2) ATTRACTOR PULL (large-scale theme) ---
+    const dxA = ax - p.x;
+    const dyA = ay - p.y;
+    const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
+    const uxA = dxA / distA;
+    const uyA = dyA / distA;
 
-    p.vx += ux * ATTR_STRENGTH * (0.4 + 0.6 * drive);
-    p.vy += uy * ATTR_STRENGTH * (0.4 + 0.6 * drive);
+    p.vx += uxA * ATTR_STRENGTH * (0.4 + 0.6 * drive);
+    p.vy += uyA * ATTR_STRENGTH * (0.4 + 0.6 * drive);
 
-    // 4) extra random noise (mental static)
+    // --- 3) CLUSTER PULL (local stickiness – stronger with coupling) ---
+    if (clusters.length > 0 && cVal > 0.05) {
+      // find nearest cluster center
+      let closest = clusters[0];
+      let minD2 = (p.x - closest.x) ** 2 + (p.y - closest.y) ** 2;
+      for (let k = 1; k < clusters.length; k++) {
+        const cx = clusters[k].x;
+        const cy = clusters[k].y;
+        const d2 = (p.x - cx) ** 2 + (p.y - cy) ** 2;
+        if (d2 < minD2) {
+          minD2 = d2;
+          closest = clusters[k];
+        }
+      }
+
+      const dxC = closest.x - p.x;
+      const dyC = closest.y - p.y;
+      const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
+      const uxC = dxC / distC;
+      const uyC = dyC / distC;
+
+      // local attraction (higher with coupling)
+      const CLUSTER_PULL = 0.08 + 0.3 * cVal; // cluster strength
+      p.vx += uxC * CLUSTER_PULL;
+      p.vy += uyC * CLUSTER_PULL;
+    }
+
+    // --- 4) SMALL NOISE ---
     p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
     p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
 
-    // 5) damping / friction
+    // --- 5) DAMPING / FRICTION ---
     p.vx *= DAMP;
     p.vy *= DAMP;
 
@@ -644,29 +700,26 @@ function updateParticles() {
     if (p.y < 0) p.y += h;
     if (p.y > h) p.y -= h;
 
-    // simple lifetime / respawn to keep texture fresh
+    // life / respawn
     p.life += 0.02;
     if (p.life > p.maxLife) {
-      p.x = Math.random() * w;
-      p.y = Math.random() * h;
-      p.vx = 0;
-      p.vy = 0;
-      p.life = 0;
+      p.x = Math.random() * w; p.y = Math.random() * h;
+      p.vx = 0; p.vy = 0; p.life = 0;
     }
   }
 }
-
-function drawParticles() {
+  function drawParticles() {
   const rect = pCanvas.getBoundingClientRect();
   pCtx.clearRect(0, 0, rect.width, rect.height);
 
   for (let p of particles) {
-    // stronger alpha so they actually pop
-    const alpha = 0.35 + 0.4 * (1 - p.life / p.maxLife);
-    const grey = 0.05 + Math.random() * 0.15;
-    const c = Math.round(grey * 255);
+    const fade = 1 - p.life / p.maxLife;
+    const alpha = 0.10 + 0.25 * fade;
 
-    pCtx.fillStyle = `rgba(${c},${c},${c},${alpha})`;
+    // deeper greys → more visible, less distracting
+    const g = Math.floor(40 + Math.random() * 45); // 40–85
+
+    pCtx.fillStyle = `rgba(${g},${g},${g},${alpha})`;
     pCtx.beginPath();
     pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     pCtx.fill();
