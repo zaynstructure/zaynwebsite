@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EVF Emotional Geometry Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #020617;
+      --ink: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --border: #1f2937;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      background: radial-gradient(circle at top, #111827, #020617 60%);
+      color: var(--ink);
+      font-family: var(--font);
+    }
+    .app {
+      width: min(1100px, 100vw);
+      height: min(720px, 100vh);
+      margin: 16px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      background: #020617;
+      border: 1px solid #111827;
+      overflow: hidden;
+      box-shadow: 0 18px 45px rgba(0,0,0,.75), 0 0 0 1px rgba(148,163,184,.07);
+    }
+    .app-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid #111827;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-title {
+      font-size: 14px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .app-sub {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: .75;
+    }
+    .badge {
+      border-radius: 999px;
+      border: 1px solid #1e293b;
+      padding: 2px 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--muted);
+    }
+    .badge.alert {
+      border-color: rgba(248,113,113,.7);
+      color: #fecaca;
+    }
+    .app-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) 1fr;
+      min-height: 0;
+    }
+    @media (max-width: 800px) {
+      .app { height: auto; }
+      .app-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+    }
+    .panel {
+      padding: 14px 16px;
+      background: radial-gradient(circle at top left, #020617, #020617 55%, #000);
+      border-right: 1px solid #020617;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    @media (max-width: 800px) {
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid #020617;
+      }
+    }
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1.3fr 3fr auto;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+    }
+    .slider-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .slider-value {
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      min-width: 24px;
+      text-align: right;
+      color: var(--ink);
+    }
+    .canvas-wrap {
+      background: radial-gradient(circle at top, #020617, #020617 55%, #000);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .canvas-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 10px 14px 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      padding: 4px 14px 0;
+      flex-wrap: wrap;
+    }
+    .mini-btn {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+    .mini-btn.secondary { background: #1e293b; }
+    #evfCanvas {
+      flex: 1;
+      width: 100%;
+      background: radial-gradient(circle at center, #020617, #020617 60%, #000);
+      display: block;
+    }
+    .readout {
+      border-top: 1px solid #111827;
+      padding: 8px 14px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .metric { font-variant-numeric: tabular-nums; }
+    .metric strong { font-weight: 500; color: var(--ink); }
+    .notes-list {
+      margin: 0;
+      padding-left: 14px;
+    }
+    .notes-list li { margin: 2px 0; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div>
+      <div class="app-title">emotional vector field · geometry</div>
+      <div class="app-sub">7-axis polygon · sliders + self-assessment</div>
+    </div>
+    <div class="badge" id="balanceBadge">pattern: mixed</div>
+  </header>
+
+  <div class="app-body">
+    <section class="panel">
+      <div class="panel-title">parameters (0–10)</div>
+      <div class="hint">drag to change the field; all updates are live.</div>
+      <div id="sliders"></div>
+
+      <hr style="border:0;border-top:1px solid #111827;margin:10px 0 8px;" />
+      <div class="panel-title" style="font-size:12px;">quick self-assessment</div>
+      <div class="hint">answer intuitively from 0–10.</div>
+      <div id="assessment"></div>
+      <button id="applyAssessmentBtn" class="mini-btn" style="margin-top:8px;width:100%;">
+        apply self-assessment
+      </button>
+    </section>
+
+    <section class="canvas-wrap">
+      <div class="canvas-header">
+        <span>emotional geometry</span>
+        <span id="dominantLabel"></span>
+      </div>
+      <div class="controls-row">
+        <button id="exportSvgBtn" class="mini-btn">download svg</button>
+        <button id="resetBtn" class="mini-btn secondary">reset to neutral</button>
+      </div>
+      <canvas id="evfCanvas"></canvas>
+      <div class="readout">
+        <div class="metric-row">
+          <div class="metric"><strong>spikiness:</strong> <span id="spikinessValue">—</span></div>
+          <div class="metric"><strong>avg radius:</strong> <span id="avgRadiusValue">—</span></div>
+        </div>
+        <div>
+          <strong>notes:</strong>
+          <ul class="notes-list" id="notesList"></ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const PARAM_ORDER = [
+    'damping','coupling','noise','rhythm','gradient','attractor','coherence'
+  ];
+  const PARAM_LABELS = {
+    damping:'damping',
+    coupling:'coupling',
+    noise:'noise',
+    rhythm:'rhythm',
+    gradient:'gradient',
+    attractor:'attractor',
+    coherence:'coherence'
+  };
+  const ASSESSMENT_QUESTIONS = [
+    {
+      param: 'damping',
+      id: 'q_damping',
+      text: 'How easy is it to settle or calm yourself after strong emotion?'
+    },
+    {
+      param: 'coupling',
+      id: 'q_coupling',
+      text: 'How strongly do you feel pulled or shaped by others / environment right now?'
+    },
+    {
+      param: 'noise',
+      id: 'q_noise',
+      text: 'How noisy is your inner world (intrusions, clutter, emotional static)?'
+    },
+    {
+      param: 'rhythm',
+      id: 'q_rhythm',
+      text: 'How steady are your daily rhythms (sleep, meals, work/rest cycles)?'
+    },
+    {
+      param: 'gradient',
+      id: 'q_gradient',
+      text: 'How much drive or directional pull do you feel toward what matters?'
+    },
+    {
+      param: 'attractor',
+      id: 'q_attractor',
+      text: 'How strong is a single dominant focus (worry, goal, obsession, storyline)?'
+    },
+    {
+      param: 'coherence',
+      id: 'q_coherence',
+      text: 'How coherent does your overall life/emotional picture feel?'
+    }
+  ];
+
+  const MAX_SCALE = 10;
+  const BASE_RADIUS = 120;
+
+  const state = {
+    damping:4, coupling:6, noise:5, rhythm:3,
+    gradient:5, attractor:7, coherence:4
+  };
+
+  const slidersContainer    = document.getElementById('sliders');
+  const assessmentContainer = document.getElementById('assessment');
+  const applyAssessmentBtn  = document.getElementById('applyAssessmentBtn');
+  const canvas       = document.getElementById('evfCanvas');
+  const ctx          = canvas.getContext('2d');
+  const spikinessEl  = document.getElementById('spikinessValue');
+  const avgRadiusEl  = document.getElementById('avgRadiusValue');
+  const notesListEl  = document.getElementById('notesList');
+  const badgeEl      = document.getElementById('balanceBadge');
+  const domLabelEl   = document.getElementById('dominantLabel');
+  const exportSvgBtn = document.getElementById('exportSvgBtn');
+  const resetBtn     = document.getElementById('resetBtn');
+
+  const inputs = {};
+  const assessmentInputs = {};
+  let lastResult = null;
+
+  function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+  function mean(a){ return a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0; }
+  function variance(a,m){ if(!a.length) return 0; const mm=m??mean(a); return mean(a.map(v=>(v-mm)**2)); }
+
+  function analyzeEVFState(s, {order=PARAM_ORDER,maxScale=MAX_SCALE,baseRadius=BASE_RADIUS}={}) {
+    const n = order.length;
+    const vertices = [];
+    for (let i=0;i<n;i++){
+      const name = order[i];
+      const raw  = clamp(s[name]??0,0,maxScale);
+      const norm = raw/maxScale;
+      const angle = (i/n)*Math.PI*2;
+      const r = norm*baseRadius;
+      const x = r*Math.cos(angle);
+      const y = r*Math.sin(angle);
+      vertices.push({name,raw,normalized:norm,angleRad:angle,r,x,y});
+    }
+    const sx = vertices.reduce((sum,v)=>sum+v.x,0);
+    const sy = vertices.reduce((sum,v)=>sum+v.y,0);
+    const centroid = { x: sx/vertices.length, y: sy/vertices.length };
+    const radii = vertices.map(v=>v.r);
+    const avgR = mean(radii);
+    const varR = variance(radii,avgR);
+    const spikiness = Math.sqrt(varR)/(baseRadius||1);
+    const notes = interpretPattern(s,{maxScale});
+    const dominantSpikes = getDominantSpikes(vertices);
+    return { vertices, centroid, avgRadius:avgR, varianceRadius:varR, spikiness, dominantSpikes, notes };
+  }
+
+  function getDominantSpikes(vertices){
+    if(!vertices.length) return [];
+    const radii = vertices.map(v=>v.r);
+    const m  = mean(radii);
+    const sd = Math.sqrt(variance(radii,m))||1;
+    const thresh = m + 0.7*sd;
+    return vertices.filter(v=>v.r>thresh).map(v=>v.name);
+  }
+
+  function interpretPattern(s,{maxScale}){
+    const norm = k => (s[k]??0)/(maxScale||10);
+    const d=norm('damping'), c=norm('coupling'), n=norm('noise'),
+          r=norm('rhythm'), g=norm('gradient'),
+          a=norm('attractor'), h=norm('coherence');
+    const notes=[];
+    if(c>0.7 && d<0.5) notes.push('strong pull from others / environment, low self-buffering');
+    if(a>0.7 && g>0.6 && d<0.4) notes.push('driven toward something with little braking power');
+    if(n>0.6 && h<0.4) notes.push('fragmented field: high noise with low coherence');
+    if(h>0.6 && r>0.4 && r<0.8) notes.push('organized pattern with workable rhythms');
+    if(g<0.3 && r<0.3) notes.push('low drive and weak rhythms – risk of stagnation');
+    if(!notes.length) notes.push('mixed pattern without a single dominant imbalance');
+    return notes;
+  }
+
+  function createSliders(){
+    PARAM_ORDER.forEach(name=>{
+      const row = document.createElement('div');
+      row.className='slider-row';
+      const label=document.createElement('label');
+      label.textContent=PARAM_LABELS[name];
+      const input=document.createElement('input');
+      input.type='range'; input.min='0'; input.max=String(MAX_SCALE);
+      input.step='1'; input.value=String(state[name]??0);
+      inputs[name]=input;
+      const valueSpan=document.createElement('span');
+      valueSpan.className='slider-value';
+      valueSpan.textContent=input.value;
+      input.addEventListener('input',()=>{
+        state[name]=Number(input.value);
+        valueSpan.textContent=input.value;
+        update();
+      });
+      row.appendChild(label);
+      row.appendChild(input);
+      row.appendChild(valueSpan);
+      slidersContainer.appendChild(row);
+    });
+  }
+
+  function createAssessment(){
+    ASSESSMENT_QUESTIONS.forEach(q=>{
+      const wrap=document.createElement('div');
+      wrap.style.margin='6px 0 4px';
+      const label=document.createElement('div');
+      label.style.fontSize='11px';
+      label.style.color='var(--muted)';
+      label.style.marginBottom='2px';
+      label.textContent=q.text;
+
+      const row=document.createElement('div');
+      row.className='slider-row';
+      row.style.gridTemplateColumns='0.7fr 3fr auto';
+
+      const low=document.createElement('span');
+      low.style.fontSize='10px';
+      low.style.color='var(--muted)';
+      low.textContent='0';
+
+      const input=document.createElement('input');
+      input.type='range'; input.min='0'; input.max=String(MAX_SCALE);
+      input.step='1'; input.value=String(state[q.param]??5);
+
+      const high=document.createElement('span');
+      high.style.fontSize='10px';
+      high.style.color='var(--muted)';
+      high.textContent='10';
+
+      assessmentInputs[q.id]=input;
+      row.appendChild(low);
+      row.appendChild(input);
+      row.appendChild(high);
+
+      wrap.appendChild(label);
+      wrap.appendChild(row);
+      assessmentContainer.appendChild(wrap);
+    });
+  }
+
+  function resizeCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    canvas.width  = rect.width*window.devicePixelRatio;
+    canvas.height = rect.height*window.devicePixelRatio;
+    ctx.setTransform(window.devicePixelRatio,0,0,window.devicePixelRatio,0,0);
+  }
+
+  window.addEventListener('resize', ()=>{ resizeCanvas(); update(); });
+
+  function drawGeometry(result){
+    const {vertices,centroid,spikiness} = result;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const cx = w/2, cy = h/2;
+    ctx.clearRect(0,0,w,h);
+    ctx.save();
+    ctx.translate(cx,cy);
+
+    const rings=4;
+    const maxR = Math.min(w,h)*0.36;
+    ctx.strokeStyle='rgba(148,163,184,0.15)';
+    ctx.lineWidth=1;
+    for(let i=1;i<=rings;i++){
+      const r=(i/rings)*maxR;
+      ctx.beginPath();
+      ctx.arc(0,0,r,0,Math.PI*2);
+      ctx.stroke();
+    }
+
+    ctx.font='10px system-ui';
+    ctx.fillStyle='rgba(148,163,184,0.85)';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    vertices.forEach(v=>{
+      const axisR=maxR+12;
+      const ax=axisR*Math.cos(v.angleRad);
+      const ay=axisR*Math.sin(v.angleRad);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(ax,ay);
+      ctx.strokeStyle='rgba(51,65,85,0.7)';
+      ctx.stroke();
+      const lx=(axisR+14)*Math.cos(v.angleRad);
+      const ly=(axisR+14)*Math.sin(v.angleRad);
+      ctx.fillText(v.name,lx,ly);
+    });
+
+    const scale=maxR/BASE_RADIUS;
+    ctx.beginPath();
+    vertices.forEach((v,i)=>{
+      const x=v.x*scale, y=v.y*scale;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.closePath();
+    const intensity=Math.min(1,spikiness*2.2);
+    const baseAlpha=0.18+intensity*0.15;
+    ctx.fillStyle=`rgba(56,189,248,${baseAlpha})`;
+    ctx.strokeStyle='rgba(56,189,248,0.8)';
+    ctx.lineWidth=2;
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(centroid.x*scale,centroid.y*scale,3.5,0,Math.PI*2);
+    ctx.fillStyle='#e5e7eb';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function buildSVG(result,{width=600,height=600}={}){
+    const cx=width/2, cy=height/2;
+    const maxR=Math.min(width,height)*0.36;
+    const scale=maxR/BASE_RADIUS;
+    const {vertices,centroid} = result;
+    let rings='';
+    const ringCount=4;
+    for(let i=1;i<=ringCount;i++){
+      const r=(i/ringCount)*maxR;
+      rings+=`<circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="#1f2937" stroke-width="1"/>\n`;
+    }
+    let axes='';
+    vertices.forEach(v=>{
+      const axisR=maxR+12;
+      const ax=cx+axisR*Math.cos(v.angleRad);
+      const ay=cy+axisR*Math.sin(v.angleRad);
+      const lx=cx+(axisR+14)*Math.cos(v.angleRad);
+      const ly=cy+(axisR+14)*Math.sin(v.angleRad);
+      axes+=`<line x1="${cx}" y1="${cy}" x2="${ax.toFixed(2)}" y2="${ay.toFixed(2)}" stroke="#1f2937" stroke-width="1"/>\n`;
+      axes+=`<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" fill="#9ca3af" font-size="11" text-anchor="middle" dominant-baseline="middle">${v.name}</text>\n`;
+    });
+    const points = vertices.map(v=>{
+      const px=cx+v.x*scale, py=cy+v.y*scale;
+      return `${px.toFixed(2)},${py.toFixed(2)}`;
+    }).join(' ');
+    const centroidX=cx+centroid.x*scale;
+    const centroidY=cy+centroid.y*scale;
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect x="0" y="0" width="${width}" height="${height}" fill="#020617"/>
+  <g>
+    ${rings}
+    ${axes}
+    <polygon points="${points}" fill="rgba(56,189,248,0.24)" stroke="#38bdf8" stroke-width="2"/>
+    <circle cx="${centroidX.toFixed(2)}" cy="${centroidY.toFixed(2)}" r="4" fill="#e5e7eb"/>
+  </g>
+</svg>`;
+  }
+
+  function downloadSVG(result){
+    const svg=buildSVG(result,{width:600,height:600});
+    const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='evf-geometry.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function update(){
+    const result = analyzeEVFState(state,{maxScale:MAX_SCALE,baseRadius:BASE_RADIUS});
+    lastResult = result;
+    drawGeometry(result);
+    spikinessEl.textContent = result.spikiness.toFixed(2);
+    avgRadiusEl.textContent = result.avgRadius.toFixed(1);
+
+    const s = result.spikiness;
+    if (s < 0.12) {
+      badgeEl.textContent = 'pattern: smooth / balanced';
+      badgeEl.classList.remove('alert');
+    } else if (s < 0.22) {
+      badgeEl.textContent = 'pattern: moderately uneven';
+      badgeEl.classList.remove('alert');
+    } else {
+      badgeEl.textContent = 'pattern: jagged / polarized';
+      badgeEl.classList.add('alert');
+    }
+
+    domLabelEl.textContent = result.dominantSpikes.length
+      ? 'dominant: ' + result.dominantSpikes.join(', ')
+      : '';
+
+    notesListEl.innerHTML='';
+    result.notes.forEach(t=>{
+      const li=document.createElement('li');
+      li.textContent=t;
+      notesListEl.appendChild(li);
+    });
+  }
+
+  resetBtn.addEventListener('click',()=>{
+    PARAM_ORDER.forEach(name=>{
+      state[name]=5;
+      inputs[name].value='5';
+      inputs[name].nextSibling.textContent='5';
+    });
+    update();
+  });
+
+  exportSvgBtn.addEventListener('click',()=>{
+    if(!lastResult){
+      lastResult=analyzeEVFState(state,{maxScale:MAX_SCALE,baseRadius:BASE_RADIUS});
+    }
+    downloadSVG(lastResult);
+  });
+
+  applyAssessmentBtn.addEventListener('click',()=>{
+    ASSESSMENT_QUESTIONS.forEach(q=>{
+      const val=Number(assessmentInputs[q.id].value)||0;
+      state[q.param]=val;
+      if(inputs[q.param]){
+        inputs[q.param].value=String(val);
+        inputs[q.param].nextSibling.textContent=String(val);
+      }
+    });
+    update();
+  });
+
+  createSliders();
+  createAssessment();
+  resizeCanvas();
+  update();
+</script>
+</body>
+</html>
