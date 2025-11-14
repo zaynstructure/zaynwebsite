@@ -222,7 +222,7 @@ uniform float uDamping, uCoupling, uNoise, uRhythm;
 uniform float uGradient, uAttractor, uCoherence;
 uniform vec2  uResolution;
 uniform float uTime;
-uniform vec2  uAttractorPos;
+uniform vec2  uAttractorPos;   // 0–1 screen-space (same as particles)
 
 float hash(vec2 p){
     return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
@@ -260,19 +260,19 @@ float soft(float x){ return x / (1.0 + abs(x)); }
 // h      = height
 // attr   = attractor strength
 // nGrad  = noise-gradient magnitude
-void computeField(vec2 p, out float h, out float attr, out float nGrad){
-    // coherence: mirror blend for **general** geometry
+void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float nGrad){
+    // coherence: mirror blend for general geometry
     vec2 q  = p;
     vec2 q2 = vec2(-q.x, q.y);
     q = mix(q, q2, uCoherence * 0.5);
 
-    // GRADIENT (∇φ): use q
-    vec2 gdir = normalize(vec2(0.7,-0.4));
-    float grad = dot(q,gdir) * (1.0 + 2.0 * uGradient);
+    // GRADIENT (∇φ): directional slope (on q)
+    vec2 gdir = normalize(vec2(0.7, -0.4));
+    float grad = dot(q, gdir) * (1.0 + 2.0 * uGradient);
 
-    // ATTRACTOR: fixed in field/screen coordinates → use p here
-    vec2 aPos = uAttractorPos;
-    float dA = length(p - aPos);   // ← key change
+    // --- ATTRACTOR: use *screen-space* distance, same as particles ---
+    // uAttractorPos is in 0–1 screen coordinates.
+    float dA = length(uvScreen - uAttractorPos);
 
     float radius  = mix(1.6, 0.25, uAttractor);
     float falloff = mix(1.0, 6.0, uAttractor);
@@ -280,11 +280,9 @@ void computeField(vec2 p, out float h, out float attr, out float nGrad){
 
     float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
 
-
-        
-float attractField =
-      exp(-dA * falloff) * depth       // dark crater center
-    + ring * 0.25 * uAttractor;        // subtle lighter outline
+    float attractField =
+          exp(-dA * falloff) * depth       // dark crater center
+        + ring * 0.25 * uAttractor;        // subtle lighter outline
 
     // polygonal clusters (coupling)
     float cellScale = mix(10.0, 5.0, uCoupling);
@@ -316,7 +314,7 @@ float attractField =
         + 1.2 * (1.0 - facets) * uCoupling
         + 1.2 * turb
         + 0.9 * stripes
-        + 1.2 * noiseGrad * uNoise; // noise-gradient shading input
+        + 1.2 * noiseGrad * uNoise;
 
     float contrast = mix(2.0, 0.7, uDamping);
     h     = soft(field * contrast);
@@ -325,7 +323,11 @@ float attractField =
 }
 
 void main(){
-    vec2 uv = (gl_FragCoord.xy / uResolution.xy) * 2.0 - 1.0;
+    // screen-space 0–1 (for attractor tie-in)
+    vec2 uvScreen = gl_FragCoord.xy / uResolution.xy;
+
+    // symmetric view / field coord
+    vec2 uv = uvScreen * 2.0 - 1.0;
     uv.x *= uResolution.x / uResolution.y;
 
     // zoom out a bit
@@ -333,46 +335,46 @@ void main(){
 
     // base height, attractor, noise-gradient
     float h, attr, nGrad;
-    computeField(p, h, attr, nGrad);
+    computeField(p, uvScreen, h, attr, nGrad);
 
-    // height-map lighting: estimate normals from height differences
+    // height-map lighting
     float eps = 0.04;
     float hX, tmpA, tmpN;
-    computeField(p + vec2(eps, 0.0), hX, tmpA, tmpN);
+    computeField(p + vec2(eps, 0.0), uvScreen, hX, tmpA, tmpN);
     float hY;
-    computeField(p + vec2(0.0, eps), hY, tmpA, tmpN);
+    computeField(p + vec2(0.0, eps), uvScreen, hY, tmpA, tmpN);
 
     vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
     vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
     float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
 
-    // Friendly Geometry style palette
+    // Friendly Geometry palette
     vec3 deep  = vec3(0.08, 0.12, 0.19);
     vec3 beige = vec3(0.90, 0.83, 0.75);
     vec3 teal  = vec3(0.48, 0.77, 0.88);
 
-    // height → base color
     vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
 
-    // attractor glow: tint toward teal near attractor
+    // attractor tint
     col = mix(col, teal, attr * 0.9);
 
-    // noise-gradient shading: darken where noise changes quickly (crackle)
+    // crackle
     col -= nGrad * uNoise * 0.3;
 
-    // apply height-map lighting
+    // lighting
     float lightFactor = 0.35 + 0.65 * diff;
     col *= lightFactor;
 
-    // small grain
+    // grain
     float g = noise(gl_FragCoord.xy * 0.8);
     col *= 0.96 + 0.04 * (g - 0.5);
 
-    // gentle vignette
-    float vig = smoothstep(1.4, 0.65, length(uv));
+    // vignette in symmetric uv
+    float radius = length(uv);
+    float vig = smoothstep(1.4, 0.65, radius);
     col *= vig;
 
-    // keep the inverted look you liked
+    // inverted look
     col = 1.0 - col;
 
     gl_FragColor = vec4(col, 1.0);
@@ -724,34 +726,16 @@ function initParticles() {
 }
   // ------------------ MAIN LOOP ------------------
   const t0 = performance.now();
-
 function render() {
-  // 1) keep GL size in sync
   resizeGL();
-
-  // 2) time
   const t = (performance.now() - t0) / 1000;
-
-  // 3) shared attractor center in *normalized screen* coords (0–1)
-  const axNorm = 0.72;
-  const ayNorm = 0.65;
-
-  const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
-
-  // map from 0–1 → clip → aspect → field (×1.7)
-  const uvx_unscaled = 2.0 * axNorm - 1.0;
-  const uvy          = 2.0 * ayNorm - 1.0;
-  const uvx          = uvx_unscaled * aspect;
-
-  const aPosX = uvx * 1.7;
-  const aPosY = uvy * 1.7;
 
   gl.useProgram(program);
 
-  // send attractor position + resolution + time
-  gl.uniform2f(uAttrPosLoc, aPosX, aPosY);
-  gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
-  gl.uniform1f(uTimeLoc, t);
+  // shared attractor center in 0–1 screen space
+  const axNorm = 0.72;
+  const ayNorm = 0.65;
+  gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
 
   // smooth EVF lerp
   const speed = 0.08;
@@ -763,7 +747,9 @@ function render() {
   evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
   evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
 
-  // send EVF uniforms
+  gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  gl.uniform1f(uTimeLoc, t);
+
   gl.uniform1f(uDampLoc, evf.damping);
   gl.uniform1f(uCoupleLoc, evf.coupling);
   gl.uniform1f(uNoiseLoc, evf.noise);
@@ -772,15 +758,14 @@ function render() {
   gl.uniform1f(uAttrLoc, evf.attractor);
   gl.uniform1f(uCohLoc, evf.coherence);
 
-  // draw field
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-  // particles
   updateParticles();
   drawParticles();
 
   requestAnimationFrame(render);
 }
+ 
 
   resizeGL();
   resizeParticles();
