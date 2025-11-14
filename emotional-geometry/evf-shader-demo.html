@@ -368,113 +368,124 @@ col = 1.0 - col;
 
   function lerp(a,b,t){ return a + (b-a)*t; }
 
-  // ------------------ PARTICLES ------------------
-  const pCanvas = document.getElementById('particles');
-  const pCtx = pCanvas.getContext('2d');
-  let particles = [];
+  // ------------------ PARTICLES (swarm, small, grayscale) ------------------
+const pCanvas = document.getElementById('particles');
+const pCtx = pCanvas.getContext('2d');
+let particles = [];
 
-  function resizeParticles() {
-    const rect = pCanvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    pCanvas.width = rect.width * dpr;
-    pCanvas.height = rect.height * dpr;
-    pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+function resizeParticles() {
+  const rect = pCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  pCanvas.width = rect.width * dpr;
+  pCanvas.height = rect.height * dpr;
+  pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function initParticles() {
+  particles = [];
+
+  // many more, but very small (dust scale)
+  const count = Math.floor(window.innerWidth * 2.5); // ~1500–3000 on desktop
+
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vx: 0,
+      vy: 0,
+      size: 0.6 + Math.random() * 0.6,  // VERY SMALL
+      life: Math.random() * 3,
+      maxLife: 3 + Math.random() * 3
+    });
   }
+}
 
-  function initParticles() {
-    particles = [];
-    const count = Math.floor(window.innerWidth * 0.4); // scale with width
-    for (let i = 0; i < count; i++) {
-      particles.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        vx: 0,
-        vy: 0,
-        life: Math.random() * 5,
-        maxLife: 5 + Math.random() * 5
-      });
+function updateParticles(t) {
+  const GRAD = 0.001 + evf.gradient * 0.01;
+  const ATTR = 0.002 + evf.attractor * 0.018;
+  const NOISE = evf.noise * 0.0025;
+  const COUP  = evf.coupling * 0.003;
+  const DAMP  = 0.9 + evf.damping * 0.05;
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  particles.forEach(p => {
+    // gradient drift
+    p.vx += GRAD * 0.4;
+    p.vy += GRAD * -0.6;
+
+    // attractor pull (soft)
+    const ax = w * 0.72;
+    const ay = h * 0.65;
+    const dx = ax - p.x;
+    const dy = ay - p.y;
+    const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
+    p.vx += (dx/dist) * ATTR;
+    p.vy += (dy/dist) * ATTR;
+
+    // local coupling (flocking-like compression)
+    p.vx += (Math.random() - 0.5) * COUP;
+    p.vy += (Math.random() - 0.5) * COUP;
+
+    // turbulence
+    p.vx += (Math.random() - 0.5) * NOISE;
+    p.vy += (Math.random() - 0.5) * NOISE;
+
+    // damping
+    p.vx *= DAMP;
+    p.vy *= DAMP;
+
+    // move
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // wrap edges
+    if (p.x < 0) p.x += w;
+    if (p.y < 0) p.y += h;
+    if (p.x > w) p.x -= w;
+    if (p.y > h) p.y -= h;
+
+    // life fade
+    p.life += 0.02;
+    if (p.life > p.maxLife) {
+      p.x = Math.random() * w;
+      p.y = Math.random() * h;
+      p.vx = p.vy = 0;
+      p.life = 0;
     }
-  }
+  });
+}
 
-  function updateParticles(t) {
-    const GRAD = 0.002 + evf.gradient * 0.015;
-    const ATTR = 0.003 + evf.attractor * 0.025;
-    const NOISE = evf.noise * 0.004;
-    const COUP = evf.coupling * 0.005;
-    const DAMP = 0.9 + evf.damping * 0.08;
-    const RHY  = evf.rhythm;
+function drawParticles() {
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
 
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+  particles.forEach(p => {
+    const alpha = 0.25 + 0.45 * (1 - p.life / p.maxLife);
 
-    particles.forEach(p => {
-      // gradient flow
-      p.vx += GRAD * 0.7;
-      p.vy += GRAD * -0.9;
+    // grayscale  → black to mid-grey (very subtle, FG-like)
+    const grey = 0.1 + Math.random() * 0.2;
+    pCtx.fillStyle = `rgba(${grey*255}, ${grey*255}, ${grey*255}, ${alpha})`;
 
-      // attractor pull
-      const ax = w * 0.72;
-      const ay = h * 0.65;
-      const dx = ax - p.x;
-      const dy = ay - p.y;
-      const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
-      p.vx += (dx/dist) * ATTR;
-      p.vy += (dy/dist) * ATTR;
+    pCtx.beginPath();
+    pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    pCtx.fill();
+  });
+}
 
-      // noise turbulence
-      p.vx += (Math.random() - 0.5) * NOISE;
-      p.vy += (Math.random() - 0.5) * NOISE;
+function loopParticles() {
+  updateParticles();
+  drawParticles();
+  requestAnimationFrame(loopParticles);
+}
 
-      // coupling = converge toward a shared flow
-      p.vx += (0.3 - p.vx) * COUP;
-      p.vy += (0.2 - p.vy) * COUP;
-
-      // rhythm oscillation
-      if (RHY > 0.01) {
-        const osc = Math.sin(t * 2.0 + p.y * 0.01) * RHY * 0.5;
-        p.vx += osc * 0.01;
-        p.vy += osc * 0.01;
-      }
-
-      // damping = smoother motion
-      p.vx *= DAMP;
-      p.vy *= DAMP;
-
-      p.x += p.vx;
-      p.y += p.vy;
-
-      // wrap around screen
-      if (p.x < 0) p.x += w;
-      if (p.x > w) p.x -= w;
-      if (p.y < 0) p.y += h;
-      if (p.y > h) p.y -= h;
-
-      // lifespan reset
-      p.life += 0.016;
-      if (p.life > p.maxLife) {
-        p.x = Math.random() * w;
-        p.y = Math.random() * h;
-        p.vx = p.vy = 0;
-        p.life = 0;
-        p.maxLife = 5 + Math.random() * 5;
-      }
-    });
-  }
-
-  function drawParticles() {
-    const rect = pCanvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
-    pCtx.clearRect(0, 0, w, h);
-
-    particles.forEach(p => {
-      const bright = 0.25 + evf.coherence * 0.2 + evf.attractor * 0.2;
-      pCtx.beginPath();
-      pCtx.fillStyle = `rgba(255,255,255,${0.25 + bright * 0.5})`;
-      pCtx.arc(p.x, p.y, bright * 2.2, 0, Math.PI * 2);
-      pCtx.fill();
-    });
-  }
+resizeParticles();
+initParticles();
+loopParticles();
+window.addEventListener('resize', () => {
+  resizeParticles();
+  initParticles();
+});
 
   // ------------------ MAIN LOOP ------------------
   const start = performance.now();
