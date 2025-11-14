@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Overregulated Field · tight γ–R cluster, stiff arc -->
+
+  <rect x="0" y="0" width="64" height="64" fill="none"/>
+
+  <!-- shell-like arc on left -->
+  <path d="M 20 18
+           A 20 22 0 0 0 20 46"
+        fill="none" stroke="#6b7280" stroke-width="1.4"/>
+
+  <!-- γ–R strong connection -->
+  <line x1="20" y1="24" x2="20" y2="40"
+        stroke="#e5e7eb" stroke-width="2"/>
+
+  <!-- rest of ring (subtle) -->
+  <g stroke="#4b5563" stroke-width="0.8">
+    <line x1="20" y1="24" x2="44" y2="20"/>   <!-- to noise -->
+    <line x1="20" y1="40" x2="44" y2="44"/>   <!-- to coherence -->
+    <line x1="20" y1="40" x2="28" y2="54"/>   <!-- to bottom -->
+    <line x1="44" y1="44" x2="36" y2="54"/>
+  </g>
+
+  <!-- coupling (top) -->
+  <circle cx="32" cy="8" r="2.2" fill="#e5e7eb"/>
+  <line x1="32" y1="8" x2="20" y2="24" stroke="#4b5563" stroke-width="0.8"/>
+
+  <!-- damping / rhythm (tight left pair) -->
+  <circle cx="20" cy="24" r="2.6" fill="#e5e7eb"/>
+  <circle cx="20" cy="40" r="2.6" fill="#e5e7eb"/>
+
+  <!-- noise / coherence (right, more relaxed) -->
+  <circle cx="44" cy="20" r="2.2" fill="#e5e7eb"/>
+  <circle cx="44" cy="44" r="2.2" fill="#e5e7eb"/>
+
+  <!-- gradient / attractor (bottom, normal) -->
+  <circle cx="28" cy="54" r="2.2" fill="#e5e7eb"/>
+  <circle cx="36" cy="54" r="2.2" fill="#e5e7eb"/>
+</svg>
