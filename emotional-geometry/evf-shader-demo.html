@@ -584,11 +584,14 @@ void main(){
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  // --- EVF-driven scalars ---
-  const gVal = evf.gradient;          // 0..1
-  const aVal = evf.attractor;         // 0..1
+  const gVal = evf.gradient;   // 0..1
+  const aVal = evf.attractor;  // 0..1
 
-  // base slope strength (overall “downhill” drift)
+  // "drive" = how much the field is committing to a direction or theme
+  const drive = Math.max(gVal, aVal);   // 0 → no drive, 1 → strong drive
+  const aimless = 1.0 - drive;          // 1 → fully aimless, 0 → fully driven
+
+  // base slope strength
   const GRAD_BASE = 0.001 + gVal * 0.008;
 
   // base attractor pull
@@ -598,15 +601,14 @@ void main(){
   const NOISE_BASE = evf.noise * 0.002;
 
   // coupling → flock strength
-  const COUP = evf.coupling;          // 0..1
+  const COUP = evf.coupling;
 
-  // damping → velocity decay (friction):
-  // damping = 0 → fast, loose; damping = 1 → slow, sticky
+  // damping → velocity decay
   const DAMP_MIN = 0.40;
   const DAMP_MAX = 0.98;
   const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
 
-  // --- global flock stats (for alignment + cohesion) ---
+  // --- global flock stats ---
   let sumX = 0, sumY = 0, sumVx = 0, sumVy = 0;
   const n = particles.length || 1;
 
@@ -627,55 +629,85 @@ void main(){
   const COHERE_STRENGTH = 0.0008;
 
   // how much gradient *supports* attractor vs *fights* it
-  const alignWithA = gVal;        // 0..1 → more drive, more committed pull into A
-  const spreadFromA = 1.0 - gVal; // 1..0 → low drive → more spreading / circling
+  const alignWithA   = gVal;        // commit into attractor
+  const spreadFromA  = 1.0 - gVal;  // swirl/spread around attractor
 
   for (let i = 0; i < n; i++) {
     const p = particles[i];
 
-    // 1) global slope (gradient) — baseline flow direction
-    p.vx += GRAD_BASE * 0.5;
-    p.vy += GRAD_BASE * -0.7;
+    // --- 0) AIMLESS DRIFT BASELINE ---
+    // stronger when drive is low
+    const DRIFT = 0.05 + 0.35 * aimless;  // 0.05→0.4
+    p.vx += (Math.random() - 0.5) * DRIFT;
+    p.vy += (Math.random() - 0.5) * DRIFT;
 
-    // 2) attractor math
+    // If drive is very low, we bail out early and skip most structure.
+    // This gives that "wandering dust" behaviour.
+    if (drive < 0.15) {
+      // light damping so they don't explode
+      p.vx *= 0.96;
+      p.vy *= 0.96;
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0) p.x += w;
+      if (p.x > w) p.x -= w;
+      if (p.y < 0) p.y += h;
+      if (p.y > h) p.y -= h;
+
+      p.life += 0.02;
+      if (p.life > p.maxLife) {
+        p.x = Math.random()*w; p.y = Math.random()*h;
+        p.vx = 0; p.vy = 0; p.life = 0;
+      }
+      continue; // skip the rest of the forces for this particle
+    }
+
+    // --- 1) global slope (gradient) ---
+    const gradStrength = GRAD_BASE * (0.3 + 0.7 * drive);
+    p.vx += gradStrength * 0.5;
+    p.vy += gradStrength * -0.7;
+
+    // --- 2) attractor forces ---
     const ax = w * 0.72, ay = h * 0.65;
     const dx = ax - p.x, dy = ay - p.y;
     const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
     const ux = dx / dist;
     const uy = dy / dist;
 
-    // inward pull: stronger when gradient is high (complements attractor)
-    p.vx += ux * ATTR_BASE * alignWithA;
-    p.vy += uy * ATTR_BASE * alignWithA;
+    // inward pull (stronger with drive & gradient)
+    p.vx += ux * ATTR_BASE * alignWithA * drive;
+    p.vy += uy * ATTR_BASE * alignWithA * drive;
 
-    // outward push: stronger when gradient is low (fights attractor)
-    p.vx -= ux * ATTR_BASE * 0.7 * spreadFromA;
-    p.vy -= uy * ATTR_BASE * 0.7 * spreadFromA;
+    // outward push when gradient is low (fights attractor)
+    p.vx -= ux * ATTR_BASE * 0.6 * spreadFromA;
+    p.vy -= uy * ATTR_BASE * 0.6 * spreadFromA;
 
     // tangential swirl around attractor when gradient is low
     const tx = -uy;
     const ty = ux;
-    p.vx += tx * GRAD_BASE * 12.0 * spreadFromA;
-    p.vy += ty * GRAD_BASE * 12.0 * spreadFromA;
+    const swirlStrength = GRAD_BASE * 10.0 * spreadFromA;
+    p.vx += tx * swirlStrength;
+    p.vy += ty * swirlStrength;
 
-    // 3) stochastic noise (jitter) – slightly damped when coupling is high
+    // --- 3) stochastic noise (smaller when highly coupled) ---
     const noiseScale = NOISE_BASE * (1.0 - 0.4 * COUP);
     p.vx += (Math.random() - 0.5) * noiseScale;
     p.vy += (Math.random() - 0.5) * noiseScale;
 
-    // 4) alignment: match average velocity when coupling is high
+    // --- 4) flocking: alignment & cohesion controlled by coupling ---
     p.vx += (avgVx - p.vx) * ALIGN_STRENGTH  * COUP;
     p.vy += (avgVy - p.vy) * ALIGN_STRENGTH  * COUP;
 
-    // 5) cohesion: move toward center-of-mass when coupling is high
     p.vx += (centerX - p.x) * COHERE_STRENGTH * COUP;
     p.vy += (centerY - p.y) * COHERE_STRENGTH * COUP;
 
-    // 6) damping / friction
+    // --- 5) damping / friction ---
     p.vx *= DAMP;
     p.vy *= DAMP;
 
-    // tiny dust jitter so nothing ever fully freezes
+    // tiny extra jitter so nothing freezes
     p.x += (Math.random() - 0.5) * 0.1;
     p.y += (Math.random() - 0.5) * 0.1;
 
@@ -683,7 +715,7 @@ void main(){
     p.x += p.vx;
     p.y += p.vy;
 
-    // wrap around edges
+    // wrap edges
     if (p.x < 0) p.x += w;
     if (p.x > w) p.x -= w;
     if (p.y < 0) p.y += h;
@@ -692,32 +724,10 @@ void main(){
     // life / respawn
     p.life += 0.02;
     if (p.life > p.maxLife) {
-      p.x = Math.random() * w;
-      p.y = Math.random() * h;
-      p.vx = 0;
-      p.vy = 0;
-      p.life = 0;
+      p.x = Math.random() * w; p.y = Math.random() * h;
+      p.vx = 0; p.vy = 0; p.life = 0;
     }
   }
-}
-  function drawParticles() {
-  const rect = pCanvas.getBoundingClientRect();
-  pCtx.clearRect(0, 0, rect.width, rect.height);
-
-  particles.forEach(p => {
-    // stronger presence
-    const alpha = 0.4 + 0.5 * (1 - p.life / p.maxLife); // was 0.15–0.55
-
-    // darker greys, closer to black
-    const grey = 0.02 + Math.random() * 0.10; // was ~0.1–0.3
-    const c = Math.round(grey * 255);
-
-    pCtx.fillStyle = `rgba(${c},${c},${c},${alpha})`;
-
-    pCtx.beginPath();
-    pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    pCtx.fill();
-  });
 }
   // ------------------ MAIN LOOP ------------------
   const t0 = performance.now();
