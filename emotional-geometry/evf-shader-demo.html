@@ -111,86 +111,156 @@
 
   // ------------------ EVF SHADER (inverted colors) ------------------
   const fsSource = `
-    precision highp float;
+precision highp float;
 
-    uniform float uDamping, uCoupling, uNoise, uRhythm;
-    uniform float uGradient, uAttractor, uCoherence;
-    uniform vec2  uResolution;
-    uniform float uTime;
+uniform float uDamping, uCoupling, uNoise, uRhythm;
+uniform float uGradient, uAttractor, uCoherence;
+uniform vec2  uResolution;
+uniform float uTime;
 
-    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float hash(vec2 p){
+    return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+}
 
-    float noise(vec2 p){
-        vec2 i=floor(p), f=fract(p);
-        float a=hash(i);
-        float b=hash(i+vec2(1,0));
-        float c=hash(i+vec2(0,1));
-        float d=hash(i+vec2(1,1));
-        vec2 u=f*f*(3.0-2.0*f);
-        return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
-    }
+float noise(vec2 p){
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0,0.0));
+    float c = hash(i + vec2(0.0,1.0));
+    float d = hash(i + vec2(1.0,1.0));
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+}
 
-    float soft(float x){ return x/(1.0+abs(x)); }
-
-    void main(){
-        vec2 uv = (gl_FragCoord.xy/uResolution.xy)*2.0 - 1.0;
-        uv.x *= uResolution.x / uResolution.y;
-
-        vec2 p = uv * 1.7;
-
-        // coherence: mirroring
-        vec2 p2 = vec2(-p.x, p.y);
-        p = mix(p, p2, uCoherence * 0.5);
-
-        // gradient
-        vec2 gdir = normalize(vec2(0.7,-0.4));
-        float grad = dot(p,gdir) * (1.0 + 2.0*uGradient);
-
-        // attractor
-        vec2 aPos = vec2(0.5,-0.5);
-        float dA = length(p - aPos);
-        float attract = exp(-dA * (1.5 + 4.0*(1.0-uAttractor)));
-
-        // facets (polygon clusters via Voronoi)
-        float cellScale = mix(10.0, 5.0, uCoupling);
-        float edges = 0.0;
-        {
-          vec2 g = floor(p*cellScale);
-          float d = 1.0;
-          for(int y=-1;y<=1;y++){
-            for(int x=-1;x<=1;x++){
-              vec2 o = vec2(x,y);
-              vec2 r = g + o + noise(g+o);
-              d = min(d, length(r/cellScale - p));
-            }
-          }
-          edges = smoothstep(0.0,0.55,d);
+// Voronoi-ish edge distance for polygonal clustering
+float voronoiEdge(vec2 p, float scale){
+    vec2 g = floor(p * scale);
+    float d = 1.0;
+    for (int y=-1; y<=1; y++) {
+        for (int x=-1; x<=1; x++) {
+            vec2 o = vec2(x,y);
+            vec2 r = g + o + noise(g + o);
+            vec2 diff = r/scale - p;
+            d = min(d, length(diff));
         }
-
-        // turbulence
-        float turb = noise(p * mix(3.0,18.0,uNoise) + uTime*0.2);
-
-        float field =
-            grad * 1.0 +
-            attract * 1.5 +
-            (1.0 - edges) * uCoupling * 1.0 +
-            turb * 1.0;
-
-        float contrast = mix(2.0, 0.7, uDamping);
-        float h = soft(field * contrast);
-
-        vec3 deep = vec3(0.08,0.12,0.19);
-        vec3 beige = vec3(0.90,0.83,0.75);
-
-        vec3 col = mix(deep, beige, 0.5 + 0.5*h);
-
-        // invert colors
-        col = 1.0 - col;
-
-        gl_FragColor = vec4(col,1.0);
     }
-  `;
+    return d;
+}
 
+float soft(float x){ return x / (1.0 + abs(x)); }
+
+// core EVF height field:
+// h      = height
+// attr   = attractor strength
+// nGrad  = noise-gradient magnitude
+void computeField(vec2 p, out float h, out float attr, out float nGrad){
+    // coherence: mirror blend
+    vec2 q  = p;
+    vec2 q2 = vec2(-q.x, q.y);
+    q = mix(q, q2, uCoherence * 0.5);
+
+    // GRADIENT (∇φ): directional slope
+    vec2 gdir = normalize(vec2(0.7,-0.4));
+    float grad = dot(q,gdir) * (1.0 + 2.0 * uGradient);
+
+    // ATTRACTOR: crater-like pull
+    vec2 aPos = vec2(0.5,-0.5);
+    float dA = length(q - aPos);
+    float attractField = exp(-dA * (1.5 + 4.0 * (1.0 - uAttractor)));
+
+    // polygonal clusters (coupling)
+    float cellScale = mix(10.0, 5.0, uCoupling);
+    float edges = voronoiEdge(q, cellScale);
+    float facets = smoothstep(0.0, 0.55, edges);
+
+    // NOISE (ξ) with gradient
+    float noiseScale = mix(3.0, 18.0, uNoise);
+    float n0 = noise(q * noiseScale + uTime * 0.2);
+    float turb = pow(n0, mix(2.0, 0.4, uNoise));
+
+    float eps = 0.03;
+    float nX = noise(q * noiseScale + vec2(eps,0.0));
+    float nY = noise(q * noiseScale + vec2(0.0,eps));
+    float noiseGrad = length(vec2(nX - n0, nY - n0));
+
+    // RHYTHM (R): time-based stratified bands
+    float stripesFreq = mix(0.0, 18.0, uRhythm);
+    float stripes = 0.0;
+    if (stripesFreq > 0.0) {
+        stripes = sin(q.y * stripesFreq + uTime * 0.6);
+        stripes = 0.5 + 0.5 * stripes;
+    }
+
+    // scalar field
+    float field =
+          1.0 * grad
+        + 1.7 * attractField
+        + 1.2 * (1.0 - facets) * uCoupling
+        + 1.2 * turb
+        + 0.9 * stripes
+        + 1.2 * noiseGrad * uNoise; // noise-gradient shading input
+
+    float contrast = mix(2.0, 0.7, uDamping);
+    h     = soft(field * contrast);
+    attr  = attractField;
+    nGrad = noiseGrad;
+}
+
+void main(){
+    vec2 uv = (gl_FragCoord.xy / uResolution.xy) * 2.0 - 1.0;
+    uv.x *= uResolution.x / uResolution.y;
+
+    // zoom out a bit
+    vec2 p = uv * 1.7;
+
+    // base height, attractor, noise-gradient
+    float h, attr, nGrad;
+    computeField(p, h, attr, nGrad);
+
+    // height-map lighting: estimate normals from height differences
+    float eps = 0.04;
+    float hX, tmpA, tmpN;
+    computeField(p + vec2(eps, 0.0), hX, tmpA, tmpN);
+    float hY;
+    computeField(p + vec2(0.0, eps), hY, tmpA, tmpN);
+
+    vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
+    vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
+    float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
+
+    // Friendly Geometry style palette
+    vec3 deep  = vec3(0.08, 0.12, 0.19);
+    vec3 beige = vec3(0.90, 0.83, 0.75);
+    vec3 teal  = vec3(0.48, 0.77, 0.88);
+
+    // height → base color
+    vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
+
+    // attractor glow: tint toward teal near attractor
+    col = mix(col, teal, attr * 0.9);
+
+    // noise-gradient shading: darken where noise changes quickly (crackle)
+    col -= nGrad * uNoise * 0.3;
+
+    // apply height-map lighting
+    float lightFactor = 0.35 + 0.65 * diff;
+    col *= lightFactor;
+
+    // small grain
+    float g = noise(gl_FragCoord.xy * 0.8);
+    col *= 0.96 + 0.04 * (g - 0.5);
+
+    // gentle vignette
+    float vig = smoothstep(1.4, 0.65, length(uv));
+    col *= vig;
+
+    // keep the inverted look you liked
+    col = 1.0 - col;
+
+    gl_FragColor = vec4(col, 1.0);
+}
+`;
   function compileShader(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src); gl.compileShader(s);
