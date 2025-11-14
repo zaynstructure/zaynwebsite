@@ -564,8 +564,8 @@ void main(){
   const h = window.innerHeight;
   particles = [];
 
-  // more, smaller particles
-  const count = Math.floor(w * 4.0); // increase density
+  // much denser field
+  const count = Math.floor(w * 6.0); // was 4.0 → more dust
 
   for (let i = 0; i < count; i++) {
     particles.push({
@@ -573,13 +573,13 @@ void main(){
       y: Math.random() * h,
       vx: 0,
       vy: 0,
-      size: 0.2 + Math.random() * 0.25,  // tiny specks
+      // slightly larger specks so they actually read on screen
+      size: 0.35 + Math.random() * 0.55,   // was 0.2–0.45
       life: Math.random() * 5,
       maxLife: 5 + Math.random() * 5
     });
   }
 }
-
   function updateParticles() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -677,21 +677,24 @@ p.y += (Math.random() - 0.5) * 0.1;
 }
 
   function drawParticles() {
-    const rect = pCanvas.getBoundingClientRect();
-    pCtx.clearRect(0,0,rect.width,rect.height);
+  const rect = pCanvas.getBoundingClientRect();
+  pCtx.clearRect(0, 0, rect.width, rect.height);
 
-    particles.forEach(p => {
-      const alpha = 0.15 + 0.4*(1 - p.life/p.maxLife);
-      const grey = 0.1 + Math.random()*0.2;
-      const c = Math.round(grey*255);
-      pCtx.fillStyle = `rgba(${c},${c},${c},${alpha})`;
+  particles.forEach(p => {
+    // stronger presence
+    const alpha = 0.4 + 0.5 * (1 - p.life / p.maxLife); // was 0.15–0.55
 
-      pCtx.beginPath();
-      pCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-      pCtx.fill();
-    });
-  }
+    // darker greys, closer to black
+    const grey = 0.02 + Math.random() * 0.10; // was ~0.1–0.3
+    const c = Math.round(grey * 255);
 
+    pCtx.fillStyle = `rgba(${c},${c},${c},${alpha})`;
+
+    pCtx.beginPath();
+    pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    pCtx.fill();
+  });
+}
   // ------------------ MAIN LOOP ------------------
   const t0 = performance.now();
   function render() {
