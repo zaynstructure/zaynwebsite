@@ -582,29 +582,146 @@ function updateParticles() {
   const w = rect.width;
   const h = rect.height;
 
-  const gVal = evf.gradient;
-  const aVal = evf.attractor;
-  const cVal = evf.coupling;
+  const gVal = evf.gradient;   // 0..1
+  const aVal = evf.attractor;  // 0..1
+  const cVal = evf.coupling;   // 0..1
 
-  const drive   = Math.max(gVal, aVal);
+  // commitment vs wandering
+  const drive   = Math.max(gVal, aVal);  // 0 = no drive, 1 = very driven
   const aimless = 1.0 - drive;
 
-  const GRAD_STRENGTH  = 0.025 * gVal;
-  const ATTR_STRENGTH  = 0.07  * aVal;
-  const NOISE_STRENGTH = 0.02  + 0.06 * evf.noise;
-  const DRIFT_STRENGTH = 0.02  + 0.06 * aimless;
+  // --- force scales (pixel / frame) ---
+  // stronger gradient + attractor than before, but tied to drive
+  const GRAD_STRENGTH  = (0.010 + 0.030 * gVal) * (0.4 + 0.6 * drive);
+  const ATTR_STRENGTH  = (0.015 + 0.060 * aVal) * (0.5 + 0.5 * drive);
 
-  // attractor center in the SAME rect as the shader
+  // noise and drift shrink when drive is high
+  const NOISE_STRENGTH = (0.02 + 0.06 * evf.noise) * (0.3 + 0.7 * aimless);
+  const DRIFT_STRENGTH = (0.015 + 0.08 * aimless);
+
+  // attractor center in the SAME screen rect as everything else
   const ax = w * 0.72;
-  const ay = h * 0.65;
+  const ay = h * 0.35;  // move this up if the crater visually sits higher
 
+  // damping → friction
   const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
   const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
 
-  // ... keep the rest of your updateParticles code the same,
-  // just with this new w, h, and ax, ay ...
-}
+  // -------- CLUSTER CENTERS (coupling-driven) --------
+  const t = performance.now() * 0.00005;
+  const clusterCount = 1 + Math.floor(cVal * 4); // 1–5 clusters
+  const clusters = [];
 
+  const baseRadius = 0.15 + 0.10 * cVal;
+  for (let i = 0; i < clusterCount; i++) {
+    const angle = (Math.PI * 2 * i) / clusterCount;
+    let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.6));
+    let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.5));
+
+    // when attractor is high, clusters are pulled toward it (but less than before)
+    const clusterBias = 0.25 * aVal; // 0 → free orbit, 0.25 → mildly biased
+    cx = cx * (1.0 - clusterBias) + ax * clusterBias;
+    cy = cy * (1.0 - clusterBias) + ay * clusterBias;
+
+    clusters.push({ x: cx, y: cy });
+  }
+
+  // -------- PARTICLES --------
+  for (let p of particles) {
+    // 0) baseline random drift (exists even when driven, but much weaker)
+    p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
+    p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+
+    if (drive < 0.10) {
+      // almost no gradient/attractor: wandering dust
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0) p.x += w;
+      if (p.x > w) p.x -= w;
+      if (p.y < 0) p.y += h;
+      if (p.y > h) p.y -= h;
+
+      p.life += 0.02;
+      if (p.life > p.maxLife) {
+        p.x = Math.random() * w;
+        p.y = Math.random() * h;
+        p.vx = 0;
+        p.vy = 0;
+        p.life = 0;
+      }
+      continue;
+    }
+
+    // 1) GRADIENT: global directional flow (down-right-ish)
+    p.vx += GRAD_STRENGTH * 0.6;
+    p.vy += -GRAD_STRENGTH * 0.4;
+
+    // 2) ATTRACTOR: radial pull into center
+    const dxA = ax - p.x, dyA = ay - p.y;
+    const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
+    const uxA = dxA / distA, uyA = dyA / distA;
+
+    p.vx += uxA * ATTR_STRENGTH;
+    p.vy += uyA * ATTR_STRENGTH;
+
+    // 3) CLUSTERS: local flocking – but weaken when attractor is strong
+    if (clusters.length > 0 && cVal > 0.05) {
+      let closest = clusters[0];
+      let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
+      for (let k = 1; k < clusters.length; k++) {
+        const cx = clusters[k].x, cy = clusters[k].y;
+        const d2 = (p.x - cx)**2 + (p.y - cy)**2;
+        if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
+      }
+      const dxC = closest.x - p.x, dyC = closest.y - p.y;
+      const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
+
+      // cluster pull is scaled by coupling and *reduced* by strong attractor
+      const CLUSTER_PULL = (0.04 + 0.20 * cVal) * (1.0 - 0.6 * aVal);
+      p.vx += (dxC / distC) * CLUSTER_PULL;
+      p.vy += (dyC / distC) * CLUSTER_PULL;
+    }
+
+    // 4) NOISE jitter (suppressed when drive is high)
+    p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
+    p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
+
+    // 5) DAMPING
+    p.vx *= DAMP;
+    p.vy *= DAMP;
+
+    // 6) integrate
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // 7) light extra pull to attractor for very high A (tight funnel)
+    if (aVal > 0.75) {
+      const extraBias = 0.02 * (aVal - 0.75) / 0.25; // 0 → 0.02
+      p.x += (ax - p.x) * extraBias;
+      p.y += (ay - p.y) * extraBias;
+    }
+
+    // wrap edges
+    if (p.x < 0) p.x += w;
+    if (p.x > w) p.x -= w;
+    if (p.y < 0) p.y += h;
+    if (p.y > h) p.y -= h;
+
+    // life / respawn
+    p.life += 0.02;
+    if (p.life > p.maxLife) {
+      p.x = Math.random() * w;
+      p.y = Math.random() * h;
+      p.vx = 0;
+      p.vy = 0;
+      p.life = 0;
+    }
+  }
+}
   function drawParticles() {
   const rect = pCanvas.getBoundingClientRect();
   pCtx.clearRect(0, 0, rect.width, rect.height);
