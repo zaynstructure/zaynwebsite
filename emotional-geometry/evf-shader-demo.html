@@ -265,24 +265,24 @@ void computeField(vec2 p, out float h, out float attr, out float nGrad){
     vec2 q2 = vec2(-q.x, q.y);
     q = mix(q, q2, uCoherence * 0.5);
 
-    // GRADIENT (∇φ): directional slope
+        // GRADIENT (∇φ): directional slope
     vec2 gdir = normalize(vec2(0.7,-0.4));
     float grad = dot(q,gdir) * (1.0 + 2.0 * uGradient);
 
     // ATTRACTOR: crater-like pull
-// uAttractor = 0.0 → very soft, wide, low amplitude (barely visible)
-// uAttractor = 1.0 → tight, localized, stronger
-vec2 aPos = vec2(0.5, -0.5);
-float dA = length(q - aPos);
+    // uAttractor = 0.0 → very soft, wide, low amplitude (barely visible)
+    // uAttractor = 1.0 → tight, localized, stronger
+    vec2 aPos = vec2(0.5, -0.5);
+    float dA = length(q - aPos);
 
-// falloff: low attractor → slow falloff (wide), high attractor → fast falloff (localized)
-float falloff  = mix(0.8, 4.0, uAttractor);
+    float falloff  = mix(0.8, 4.0, uAttractor);
+    float amplitude = mix(0.12, 1.0, uAttractor);
+    float attractField = exp(-dA * falloff) * amplitude;
 
-// amplitude: low attractor → faint, high attractor → strong
-float amplitude = mix(0.12, 1.0, uAttractor);
-
-// final attractor field
-float attractField = exp(-dA * falloff) * amplitude;
+    // polygonal clusters (coupling)
+    float cellScale = mix(10.0, 5.0, uCoupling);
+    float edges = voronoiEdge(q, cellScale);
+    float facets = smoothstep(0.0, 0.55, edges);
 
     // NOISE (ξ) with gradient
     float noiseScale = mix(3.0, 18.0, uNoise);
