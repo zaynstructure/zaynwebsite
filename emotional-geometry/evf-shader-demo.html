@@ -584,19 +584,24 @@ void main(){
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  // base EVF-driven forces
-  const GRAD = 0.001 + evf.gradient * 0.01;
-  const ATTR = 0.002 + evf.attractor * 0.018;
+  // --- EVF-driven scalars ---
+  const gVal = evf.gradient;          // 0..1
+  const aVal = evf.attractor;         // 0..1
 
-  // noise amplitude (we’ll scale it down a bit with coupling)
+  // base slope strength (overall “downhill” drift)
+  const GRAD_BASE = 0.001 + gVal * 0.008;
+
+  // base attractor pull
+  const ATTR_BASE = 0.002 + aVal * 0.018;
+
+  // noise amplitude
   const NOISE_BASE = evf.noise * 0.002;
 
-  // coupling now used as flocking / stickiness strength (0–1)
-  const COUP = evf.coupling;
+  // coupling → flock strength
+  const COUP = evf.coupling;          // 0..1
 
-  // damping → velocity decay (friction)
-  // damping = 0.0 → ~0.98 (almost no braking, fast motion)
-  // damping = 1.0 → ~0.40 (strong braking, slow motion)
+  // damping → velocity decay (friction):
+  // damping = 0 → fast, loose; damping = 1 → slow, sticky
   const DAMP_MIN = 0.40;
   const DAMP_MAX = 0.98;
   const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
@@ -618,25 +623,42 @@ void main(){
   const avgVx   = sumVx / n;
   const avgVy   = sumVy / n;
 
-  // tuning constants for flock behaviour
-  const ALIGN_STRENGTH  = 0.02;    // how strongly velocity aligns
-  const COHERE_STRENGTH = 0.0008;  // how strongly particles move toward center
+  const ALIGN_STRENGTH  = 0.02;
+  const COHERE_STRENGTH = 0.0008;
+
+  // how much gradient *supports* attractor vs *fights* it
+  const alignWithA = gVal;        // 0..1 → more drive, more committed pull into A
+  const spreadFromA = 1.0 - gVal; // 1..0 → low drive → more spreading / circling
 
   for (let i = 0; i < n; i++) {
     const p = particles[i];
 
-    // 1) gradient-driven drift (overall “slope” of the field)
-    p.vx += GRAD * 0.5;
-    p.vy += GRAD * -0.7;
+    // 1) global slope (gradient) — baseline flow direction
+    p.vx += GRAD_BASE * 0.5;
+    p.vy += GRAD_BASE * -0.7;
 
-    // 2) attractor pull (toward a region in the field)
+    // 2) attractor math
     const ax = w * 0.72, ay = h * 0.65;
     const dx = ax - p.x, dy = ay - p.y;
     const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
-    p.vx += (dx / dist) * ATTR;
-    p.vy += (dy / dist) * ATTR;
+    const ux = dx / dist;
+    const uy = dy / dist;
 
-    // 3) stochastic noise (jitter) – slightly suppressed by strong coupling
+    // inward pull: stronger when gradient is high (complements attractor)
+    p.vx += ux * ATTR_BASE * alignWithA;
+    p.vy += uy * ATTR_BASE * alignWithA;
+
+    // outward push: stronger when gradient is low (fights attractor)
+    p.vx -= ux * ATTR_BASE * 0.7 * spreadFromA;
+    p.vy -= uy * ATTR_BASE * 0.7 * spreadFromA;
+
+    // tangential swirl around attractor when gradient is low
+    const tx = -uy;
+    const ty = ux;
+    p.vx += tx * GRAD_BASE * 12.0 * spreadFromA;
+    p.vy += ty * GRAD_BASE * 12.0 * spreadFromA;
+
+    // 3) stochastic noise (jitter) – slightly damped when coupling is high
     const noiseScale = NOISE_BASE * (1.0 - 0.4 * COUP);
     p.vx += (Math.random() - 0.5) * noiseScale;
     p.vy += (Math.random() - 0.5) * noiseScale;
@@ -653,9 +675,9 @@ void main(){
     p.vx *= DAMP;
     p.vy *= DAMP;
 
-    // tiny dust jitter so nothing fully freezes
-p.x += (Math.random() - 0.5) * 0.1;
-p.y += (Math.random() - 0.5) * 0.1;
+    // tiny dust jitter so nothing ever fully freezes
+    p.x += (Math.random() - 0.5) * 0.1;
+    p.y += (Math.random() - 0.5) * 0.1;
 
     // integrate position
     p.x += p.vx;
@@ -670,12 +692,14 @@ p.y += (Math.random() - 0.5) * 0.1;
     // life / respawn
     p.life += 0.02;
     if (p.life > p.maxLife) {
-      p.x = Math.random()*w; p.y = Math.random()*h;
-      p.vx = 0; p.vy = 0; p.life = 0;
+      p.x = Math.random() * w;
+      p.y = Math.random() * h;
+      p.vx = 0;
+      p.vy = 0;
+      p.life = 0;
     }
   }
 }
-
   function drawParticles() {
   const rect = pCanvas.getBoundingClientRect();
   pCtx.clearRect(0, 0, rect.width, rect.height);
