@@ -869,8 +869,9 @@ gl.uniform2f(uAttrPosLoc, axNorm, ayNormGL);
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-  updateParticles();
-  drawParticles();
+  updateFlowParticles();
+updateClusterParticles();
+drawParticles();
 
   requestAnimationFrame(render);
 }
