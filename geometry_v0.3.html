@@ -863,14 +863,14 @@
 
   // ---------- update ----------
   function update(){
-  // still use the v0.2 analyzer for metrics (temporary)
+  // still use the v0.2 analyzer for metrics (for now)
   const result = analyzeEVFState(state,{maxScale:MAX_SCALE,baseRadius:BASE_RADIUS});
   lastResult = result;
 
-  // NEW: use v0.3 topology engine for visual geometry
+  // ✅ NEW: use v0.3 topology engine for the visual geometry
   drawGeometry(ctx, state);
 
-  // --- metrics & UI updates ---
+  // --- metrics & UI updates (same as before) ---
   spikinessEl.textContent = result.spikiness.toFixed(2);
   avgRadiusEl.textContent = result.avgRadius.toFixed(1);
 
