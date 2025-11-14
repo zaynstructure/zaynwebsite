@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EVF Emotional Geometry Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #020617;
+      --ink: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, .15);
+      --danger: #f97373;
+      --radius: 10px;
+      --border: #1f2937;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      background: radial-gradient(circle at top, #111827, #020617 60%);
+      color: var(--ink);
+      font-family: var(--font);
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      width: min(1100px, 100vw);
+      height: min(720px, 100vh);
+      margin: 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #020617, #020617 40%, #020617);
+      border: 1px solid #111827;
+      overflow: hidden;
+      box-shadow:
+        0 18px 45px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(148, 163, 184, 0.07);
+    }
+
+    .app-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid #111827;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .app-title {
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .app-sub {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.75;
+    }
+
+    .app-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) 1fr;
+      min-height: 0;
+    }
+
+    @media (max-width: 800px) {
+      .app {
+        height: auto;
+      }
+      .app-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+    }
+
+    .panel {
+      padding: 14px 16px;
+      background: radial-gradient(circle at top left, #020617, #020617 55%, #000);
+      border-right: 1px solid #020617;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
+
+    @media (max-width: 800px) {
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid #020617;
+      }
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1.3fr 3fr auto;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+    }
+
+    .slider-row label {
+      text-transform: lowercase;
+    }
+
+    .slider-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .slider-value {
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      min-width: 24px;
+      text-align: right;
+      color: var(--ink);
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      background: radial-gradient(circle at top, #020617, #020617 55%, #000);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .canvas-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 10px 14px 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    #evfCanvas {
+      flex: 1;
+      width: 100%;
+      background: radial-gradient(circle at center, #020617, #020617 60%, #000);
+      display: block;
+    }
+
+    .readout {
+      border-top: 1px solid #111827;
+      padding: 8px 14px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .metric {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric strong {
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .notes-list {
+      margin: 0;
+      padding-left: 14px;
+    }
+
+    .notes-list li {
+      margin: 2px 0;
+    }
+
+    .badge {
+      border-radius: 999px;
+      border: 1px solid #1e293b;
+      padding: 2px 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    .badge.alert {
+      border-color: rgba(248, 113, 113, 0.7);
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div>
+      <div class="app-title">emotional vector field · geometry demo</div>
+      <div class="app-sub">7-axis EVF polygon · move sliders to morph the field</div>
+    </div>
+    <div class="badge" id="balanceBadge">pattern: mixed</div>
+  </header>
+
+  <div class="app-body">
+    <!-- Controls -->
+    <section class="panel">
+      <div class="panel-title">parameters (0–10)</div>
+      <div class="hint">drag to change the field; all updates are live.</div>
+
+      <div id="sliders"></div>
+    </section>
+
+    <!-- Canvas + readout -->
+    <section class="canvas-wrap">
+      <div class="canvas-header">
+        <span>emotional geometry</span>
+        <span id="dominantLabel"></span>
+      </div>
+      <canvas id="evfCanvas"></canvas>
+      <div class="readout">
+        <div class="metric-row">
+          <div class="metric">
+            <strong>spikiness:</strong>
+            <span id="spikinessValue">—
