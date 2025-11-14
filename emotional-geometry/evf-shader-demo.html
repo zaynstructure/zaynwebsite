@@ -128,122 +128,165 @@
 
   // --- polygonal landscape EVF shader ---
   const fsSource = `
-    precision highp float;
+precision highp float;
 
-    uniform float uDamping;
-    uniform float uCoupling;
-    uniform float uNoise;
-    uniform float uRhythm;
-    uniform float uGradient;
-    uniform float uAttractor;
-    uniform float uCoherence;
+uniform float uDamping;
+uniform float uCoupling;
+uniform float uNoise;
+uniform float uRhythm;
+uniform float uGradient;
+uniform float uAttractor;
+uniform float uCoherence;
 
-    uniform vec2  uResolution;
-    uniform float uTime;
+uniform vec2  uResolution;
+uniform float uTime;
 
-    float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
-    }
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+}
 
-    float noise(vec2 p){
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        float a = hash(i);
-        float b = hash(i+vec2(1.0,0.0));
-        float c = hash(i+vec2(0.0,1.0));
-        float d = hash(i+vec2(1.0,1.0));
-        vec2 u = f*f*(3.0-2.0*f);
-        return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
-    }
+float noise(vec2 p){
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float a = hash(i);
+    float b = hash(i+vec2(1.0,0.0));
+    float c = hash(i+vec2(0.0,1.0));
+    float d = hash(i+vec2(1.0,1.0));
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+}
 
-    // distance to nearest cell boundary (polygonal effect)
-    float voronoiEdge(vec2 p, float scale){
-        vec2 g = floor(p*scale);
-        float d = 1.0;
-        for(int y=-1;y<=1;y++){
-            for(int x=-1;x<=1;x++){
-                vec2 o = vec2(x,y);
-                vec2 r = g + o + noise(g+o);
-                vec2 diff = r/scale - p;
-                d = min(d, length(diff));
-            }
+// distance to nearest cell boundary (polygonal effect)
+float voronoiEdge(vec2 p, float scale){
+    vec2 g = floor(p*scale);
+    float d = 1.0;
+    for(int y=-1;y<=1;y++){
+        for(int x=-1;x<=1;x++){
+            vec2 o = vec2(x,y);
+            vec2 r = g + o + noise(g+o);
+            vec2 diff = r/scale - p;
+            d = min(d, length(diff));
         }
-        return d;
+    }
+    return d;
+}
+
+// soft "tanh"
+float soft(float x){ return x / (1.0 + abs(x)); }
+
+// core EVF height field, returns:
+// h = height (0..1-ish), attr = attractor strength,
+// ng = noise-gradient magnitude
+void computeField(vec2 p, out float h, out float attr, out float ng){
+    // coherence: blend with mirrored variant
+    vec2 q = p;
+    vec2 q2 = vec2(-q.x, q.y);
+    q = mix(q, q2, uCoherence*0.5);
+
+    // GRADIENT (∇φ): slope
+    vec2 gdir = normalize(vec2(0.7,-0.4));
+    float grad = dot(q,gdir) * (1.0 + 2.0*uGradient);
+
+    // ATTRACTOR: crater-like structure
+    vec2 aPos = vec2(0.5,-0.5);
+    float dA = length(q - aPos);
+    float attractField = exp(-dA * (2.0 + 6.0*(1.0-uAttractor)));
+    attractField *= mix(0.7,1.8,uAttractor);
+
+    // POLYGONAL CLUSTERS (coupling)
+    float cellScale = mix(12.0, 4.0, uCoupling);
+    float edges = voronoiEdge(q, cellScale);
+    float facets = smoothstep(0.0, 0.55, edges);
+
+    // NOISE (ξ)
+    float noiseScale = mix(3.0,18.0,uNoise);
+    float n0 = noise(q*noiseScale + uTime*0.2);
+    float turbulence = pow(n0, mix(2.0,0.4,uNoise));
+
+    // noise *gradient* (how fast noise changes in x/y)
+    float eps = 0.03;
+    float nX = noise(q*noiseScale + vec2(eps,0.0));
+    float nY = noise(q*noiseScale + vec2(0.0,eps));
+    float noiseGrad = length(vec2(nX - n0, nY - n0)); // 0..~something
+
+    // RHYTHM (R): stratification layers
+    float stripesFreq = mix(0.0,18.0,uRhythm);
+    float stripes = 0.0;
+    if (stripesFreq > 0.0) {
+        stripes = sin(q.y * stripesFreq + uTime*0.6);
+        stripes = 0.5 + 0.5*stripes;
     }
 
-    float soft(float x){ return x / (1.0 + abs(x)); }
+    // LANDSCAPE HEIGHT FIELD (scalar)
+    float field =
+          1.0 * grad +
+          2.0 * attractField +
+          1.2 * (1.0 - facets) * uCoupling +
+          1.4 * turbulence +
+          0.9 * stripes +
+          1.2 * noiseGrad * uNoise; // noise-gradient contribution
 
-    void main(){
-        vec2 uv = (gl_FragCoord.xy/uResolution.xy)*2.0-1.0;
-        uv.x *= uResolution.x/uResolution.y;
+    // DAMPING: soften/harden contrast
+    float contrast = mix(2.0, 0.6, uDamping);
+    h = soft(field * contrast);
+    attr = attractField;
+    ng = noiseGrad;
+}
 
-        // zoom slightly out
-        vec2 p = uv * 1.7;
+void main(){
+    vec2 uv = (gl_FragCoord.xy/uResolution.xy)*2.0-1.0;
+    uv.x *= uResolution.x/uResolution.y;
 
-        // coherence: blend with mirrored variant
-        vec2 p2 = vec2(-p.x, p.y);
-        p = mix(p, p2, uCoherence*0.5);
+    // zoom slightly out
+    vec2 p = uv * 1.7;
 
-        // GRADIENT (∇φ): slope
-        vec2 gdir = normalize(vec2(0.7,-0.4));
-        float grad = dot(p,gdir) * (1.0 + 2.0*uGradient);
+    // base height / attractor / noise gradient
+    float h, attr, ng;
+    computeField(p, h, attr, ng);
 
-        // ATTRACTOR: crater-like structure
-        vec2 aPos = vec2(0.5,-0.5);
-        float dA = length(p - aPos);
-        float attract = exp(-dA * (2.0 + 6.0*(1.0-uAttractor)));
-        attract *= mix(0.7,1.8,uAttractor);
+    // estimate height gradient for fake normals (height-map shading)
+    float eps = 0.04;
+    float hX, dummy1, dummy2;
+    computeField(p + vec2(eps,0.0), hX, dummy1, dummy2);
+    float hY;
+    computeField(p + vec2(0.0,eps), hY, dummy1, dummy2);
 
-        // POLYGONAL CLUSTERS (coupling)
-        float cellScale = mix(12.0, 4.0, uCoupling);
-        float edges = voronoiEdge(p, cellScale);
-        float facets = smoothstep(0.0, 0.55, edges);
+    // tangent-space normal (x = dh/dx, y = dh/dy, z = "up")
+    vec3 n = normalize(vec3(hX - h, hY - h, 0.09));
 
-        // NOISE (ξ): high freq turbulence
-        float turbulence = noise(p*mix(3.0,18.0,uNoise)+uTime*0.2);
-        turbulence = pow(turbulence, mix(2.0,0.4,uNoise));
+    // light direction
+    vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
+    float diff = clamp(dot(n, lightDir), 0.0, 1.0);
 
-        // RHYTHM (R): stratification layers
-        float stripesFreq = mix(0.0,18.0,uRhythm);
-        float stripes = 0.0;
-        if (stripesFreq > 0.0) {
-            stripes = sin(p.y * stripesFreq + uTime*0.6);
-            stripes = 0.5 + 0.5*stripes;
-        }
+    // Friendly Geometry palette
+    vec3 deep  = vec3(0.08,0.12,0.19);
+    vec3 beige = vec3(0.90,0.83,0.75);
+    vec3 teal  = vec3(0.48,0.77,0.88);
 
-        // LANDSCAPE HEIGHT FIELD
-        float field =
-              1.0 * grad +
-              2.0 * attract +
-              1.2 * (1.0 - facets) * uCoupling +
-              1.4 * turbulence +
-              0.9 * stripes;
+    // height → base color
+    vec3 col = mix(deep, beige, 0.5 + 0.5*h);
 
-        // DAMPING: soften/harden contrast
-        float contrast = mix(2.0, 0.6, uDamping);
-        float h = soft(field * contrast);
+    // attractor glow tint
+    col = mix(col, teal, attr * 0.8);
 
-        // Friendly Geometry palette
-        vec3 deep  = vec3(0.08,0.12,0.19);
-        vec3 beige = vec3(0.90,0.83,0.75);
-        vec3 teal  = vec3(0.48,0.77,0.88);
+    // noise gradient darkening (edges / crackle)
+    col -= ng * uNoise * 0.3;
 
-        vec3 col = mix(deep, beige, 0.5+0.5*h);
+    // apply lighting from height-map normal
+    float lightFactor = 0.35 + 0.65 * diff;
+    col *= lightFactor;
 
-        // attractor glow tint
-        col = mix(col, teal, attract * 0.8);
+    // grain
+    float g = noise(gl_FragCoord.xy*0.8);
+    col *= 0.96 + 0.04*(g-0.5);
 
-        // grain
-        float g = noise(gl_FragCoord.xy*0.8);
-        col *= 0.96 + 0.04*(g-0.5);
+    // vignette
+    float vig = smoothstep(1.4,0.65,length(uv));
+    col *= vig;
 
-        // vignette
-        float vig = smoothstep(1.4,0.65,length(uv));
-        col *= vig;
-
-        gl_FragColor = vec4(col,1.0);
-    }
-  `;
+    gl_FragColor = vec4(col,1.0);
+}
+`;
 
   function compileShader(gl, type, source) {
     const s = gl.createShader(type);
