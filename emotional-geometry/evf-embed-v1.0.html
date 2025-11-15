@@ -420,25 +420,22 @@ float gradGain = GRAD_EPS + (1.0 - GRAD_EPS) * gradSlider;
   float nX = noise(q * noiseScale + vec2(eps,0.0));
   float nY = noise(q * noiseScale + vec2(0.0,eps));
   // sharpen crackle when micro-noise is active
-if (uNoiseExtra > 0.0) {
-    noiseGrad += abs(extraJitter) * 0.9;
-}
+// base noise gradient
+float noiseGrad = length(vec2(nX - n0, nY - n0));
 
-  // ------------------ MICRO-NOISE (ξ_fine) ------------------
+// ------------------ MICRO-NOISE (ξ_fine) ------------------
 float extraJitter = 0.0;
 if (uNoiseExtra > 0.0) {
-    // slightly expanded frequency range
     float fineScale = mix(24.0, 52.0, uNoise);
-
-    // very fine noise sample
     float fine = noise(q * fineScale + uTime * 0.9);
 
-    // amplitude: stronger scaling
-    float amp = mix(0.3, 1.5, uNoiseExtra);  // 0.3 → 1.5
+    float amp = mix(0.3, 1.5, uNoiseExtra);
     extraJitter = (fine - 0.5) * amp * uNoise;
 
-    // add directly to turbulence
     turb += extraJitter;
+
+    // strengthen crackle where micro-noise is active
+    noiseGrad += abs(extraJitter) * 0.9;
 }
 
   float stripesFreq = mix(0.0, 18.0, uRhythm);
