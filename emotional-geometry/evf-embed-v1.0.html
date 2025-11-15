@@ -979,7 +979,7 @@ const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
       const targetDamp      = parseFloat(sliders.damping.value);
       const targetCoupling  = parseFloat(sliders.coupling.value)  * gammaScale;
       const targetNoise     = parseFloat(sliders.noise.value)     * gammaScale;
-      
+      const targetRhythm    = parseFloat(sliders.rhythm.value);   // ← no gammaScale
       const targetGradient  = parseFloat(sliders.gradient.value)  * gammaScale;
       const targetAttractor = parseFloat(sliders.attractor.value) * gammaScale;
       const targetCoh       = parseFloat(sliders.coherence.value);
