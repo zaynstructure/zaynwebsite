@@ -390,7 +390,9 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
 
   vec2 gdir = normalize(vec2(0.7, -0.4));
   float grad = dot(q, gdir) * (1.0 + 2.0 * uGradient);
-
+float GRAD_EPS = 0.03;
+float gradSlider = uGradient;
+float gradGain = GRAD_EPS + (1.0 - GRAD_EPS) * gradSlider;
   float dA = length(uvScreen - uAttractorPos);
 
   float radius  = mix(1.6, 0.25, uAttractor);
@@ -755,7 +757,10 @@ void main(){
       const w = rect.width;
       const h = rect.height;
 
-      const gVal = evf.gradient;
+      // slider → effective gradient (never fully zero)
+const GRAD_EPS = 0.03;
+const gValRaw  = evf.gradient;            // slider 0..1
+const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
       const aVal = evf.attractor;
       const cVal = evf.coupling;
 
