@@ -879,17 +879,31 @@ function updateParticles() {
     p.vx += GRAD_STRENGTH * 0.4;
     p.vy += -GRAD_STRENGTH * 0.3;
 
-    // distance to attractor
-    let dxA = ax - p.x;
-    let dyA = ay - p.y;
-    let distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
+   // distance to attractor
+let dxA = ax - p.x;
+let dyA = ay - p.y;
+let distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
 
-    // inner repulsion: keep them from stacking on the exact point
-    if (distA < innerRadius) {
-      const repel = (innerRadius - distA) / innerRadius * 0.03 * aVal;
-      p.vx -= (dxA / distA) * repel;
-      p.vy -= (dyA / distA) * repel;
-    }
+// "drain" zone: if too close, vanish + respawn elsewhere
+const vanishRadius = innerRadius * 0.8; // slightly inside the inner ring
+if (distA < vanishRadius && aVal > 0.15) {
+  // respawn somewhere random in the field
+  p.x = Math.random() * w;
+  p.y = Math.random() * h;
+  p.vx = 0;
+  p.vy = 0;
+  p.life = 0;
+  // skip the rest of this frame’s forces
+  continue;
+}
+
+// optional: keep a soft repulsion ring outside the drain
+if (distA < innerRadius) {
+  const t = 1.0 - distA / innerRadius;      // 0 at edge → 1 at innerRadius
+  const repel = 0.04 * (0.4 + aVal) * t * t;
+  p.vx -= (dxA / distA) * repel;
+  p.vy -= (dyA / distA) * repel;
+}
 
     // attractor pull
     p.vx += (dxA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
@@ -970,7 +984,9 @@ function drawParticles() {
     const dist = Math.sqrt((p.x - ax) * (p.x - ax) + (p.y - ay) * (p.y - ay));
     const distNorm = Math.min(1, dist / (innerRadius * 3.0));
     const blueBias = (1 - distNorm) * 20; // small cool tint near center
-
+// extra fade when very close to attractor (visual dissolve)
+const centerFade = Math.min(1.0, dist / innerRadius); // 0 at center → 1 at innerRadius+
+const alpha = (0.10 + 0.25 * fade) * centerFade;
     // inverted brightness: light greys instead of dark
     const g = Math.floor(180 + Math.random() * 60); // 180–240
     const r = Math.max(0, g - blueBias);
