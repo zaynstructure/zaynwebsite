@@ -216,7 +216,7 @@
       void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }`;
 
     // ------------------ EVF SHADER (inverted colors) ------------------
-    const fsSource = `
+      const fsSource = `
 precision highp float;
 
 uniform float uDamping, uCoupling, uNoise, uRhythm;
@@ -272,7 +272,6 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
     float grad = dot(q, gdir) * (1.0 + 2.0 * uGradient);
 
     // --- ATTRACTOR: use *screen-space* distance, same as particles ---
-    // uAttractorPos is in 0–1 screen coordinates.
     float dA = length(uvScreen - uAttractorPos);
 
     float radius  = mix(1.6, 0.25, uAttractor);
@@ -370,6 +369,24 @@ void main(){
     float g = noise(gl_FragCoord.xy * 0.8);
     col *= 0.96 + 0.04 * (g - 0.5);
 
+    // -------- RHYTHM × DAMPING TEMPORAL MODULATION --------
+    // base temporal frequency from rhythm
+    float baseFreq = mix(0.2, 1.4, uRhythm);          // higher rhythm → faster cycling
+    float phase    = uTime * baseFreq;
+
+    // amplitude: more rhythm, less damping = more wobble
+    float amp = 0.25 * uRhythm * (1.0 - 0.7 * uDamping);
+    float wave = 0.5 + 0.5 * sin(phase);              // 0..1
+
+    float hueAmt = amp * wave;                        // 0..~0.25 max
+
+    // crude hue "orbit": rotate channels a bit
+    vec3 shifted = vec3(col.g, col.b, col.r);
+    col = mix(col, shifted, hueAmt);
+
+    // brightness pulse linked to same wave
+    col *= 1.0 + 0.35 * hueAmt;
+
     // vignette in symmetric uv
     float radius = length(uv);
     float vig = smoothstep(1.4, 0.65, radius);
@@ -381,7 +398,6 @@ void main(){
     gl_FragColor = vec4(col, 1.0);
 }
 `;
-
     function compileShader(gl, type, src) {
       const s = gl.createShader(type);
       gl.shaderSource(s, src); gl.compileShader(s);
