@@ -191,7 +191,9 @@
       </label>
     </div>
   </div>
-
+<script src="evf-core.js"></script>
+<script>
+  // your existing JS starts here…
   <script>
     // ------------------ WEBGL SETUP ------------------
     const canvas = document.getElementById('glCanvas');
@@ -561,15 +563,8 @@ void main(){
       coherence: document.getElementById("coherence")
     };
 
-    const evf = {
-      damping:   0.4,
-      coupling:  0.7,
-      noise:     0.5,
-      rhythm:    0.6,
-      gradient:  0.6,
-      attractor: 0.7,
-      coherence: 0.5
-    };
+    const evf    = EVFCore.state;
+const tuning = EVFCore.tuning;
 
     function lerp(a,b,t){ return a + (b-a)*t; }
 
@@ -592,15 +587,13 @@ function initParticles() {
   const h = rect.height;
   particles = [];
 
-  const count = Math.floor(w * 5.0); // density
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: 0,
-      vy: 0,
-      // base size with more spread
-      size: 0.4 + Math.random() * 0.9,    // ~0.4–1.3 px
+  const pCfg = tuning.particles;
+const count = Math.floor(w * pCfg.densityPerPixel);
+for (let i = 0; i < count; i++) {
+  const baseSize = pCfg.sizeMin + Math.random() * (pCfg.sizeMax - pCfg.sizeMin);
+  particles.push({
+    ...
+    size: baseSize,
       phase: Math.random() * Math.PI * 2, // for breathing
       life: Math.random() * 5,
       maxLife: 5 + Math.random() * 5
