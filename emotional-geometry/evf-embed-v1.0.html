@@ -223,6 +223,22 @@
     </div>
 
     <!-- right: sliders -->
+      <div id="controls">
+    <!-- left: presets + inline description -->
+    <div class="presets">
+      <div class="presets-title">presets</div>
+      <div class="preset-grid">
+        <button class="preset-btn" data-preset="A">A</button>
+        <button class="preset-btn" data-preset="B">B</button>
+        <button class="preset-btn" data-preset="C">C</button>
+        <button class="preset-btn" data-preset="D">D</button>
+      </div>
+      <div id="presetDescription" class="preset-description">
+        Select a preset (A–D) to load a typical field pattern and see a short description.
+      </div>
+    </div>
+
+    <!-- right: sliders -->
     <div class="controls-main">
       <label class="label">
         <span class="name">damping</span>
@@ -258,16 +274,17 @@
         <span class="name">coherence</span>
         <input id="coherence" type="range" min="0" max="1" step="0.01" value="0.5">
       </label>
-    </div>
-  </div>
 
-          <label class="label">
+      <label class="label">
         <span class="name">contain</span>
         <select id="containmentMode">
           <option value="porous">porous</option>
           <option value="balanced" selected>balanced</option>
           <option value="tight">tight</option>
         </select>
+      </label>
+    </div>
+  </div>
       </label>
 <div id="devPanel" class="dev-panel">
     <div class="dev-title">particles</div>
@@ -685,14 +702,15 @@ void main(){
     gl.enableVertexAttribArray(positionLoc);
     gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
 
-    const sliders = {
+        const sliders = {
       damping:   document.getElementById("damping"),
       coupling:  document.getElementById("coupling"),
       noise:     document.getElementById("noise"),
       rhythm:    document.getElementById("rhythm"),
       gradient:  document.getElementById("gradient"),
       attractor: document.getElementById("attractor"),
-      coherence: document.getElementById("
+      coherence: document.getElementById("coherence")
+    };
 
     const containmentSelect = document.getElementById("containmentMode");
     let cMode = "balanced";
@@ -710,7 +728,7 @@ void main(){
     }
 
     const evf    = EVFCore.state;
-const tuning = EVFCore.tuning;
+    const tuning = EVFCore.tuning;
 // ------------------ DEV PANEL: NOISE EXTRA TOGGLE ------------------
 const devNoiseExtra = document.getElementById("dev-noise-extra");
 
