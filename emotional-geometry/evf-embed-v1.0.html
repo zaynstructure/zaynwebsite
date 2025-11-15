@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EVF Field · Embed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #020617;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* visual area */
+    #glWrap {
+      flex: 1;
+      position: relative;
+      min-height: 320px;
+    }
+
+    /* field canvas */
+    #glCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* particle overlay */
+    #particles {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* slider bar */
+    #controls {
+      background: #000;
+      padding: 12px 14px;
+      border-top: 1px solid #222;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      font-size: 12px;
+      color: #d4d4d4;
+    }
+
+    /* left presets column */
+    .presets {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 56px;
+    }
+
+    .presets-title {
+      font-size: 11px;
+      text-transform: lowercase;
+      color: #6b7280;
+    }
+
+    .preset-btn {
+      border: 1px solid #374151;
+      background: #000;
+      color: #d1d5db;
+      font-size: 11px;
+      padding: 4px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .preset-btn.active {
+      border-color: #38bdf8;
+      color: #e5f3ff;
+    }
+
+    /* right slider column */
+    .controls-main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      align-items: center;
+    }
+
+    .label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .label .name {
+      width: 74px;
+      text-transform: lowercase;
+      color: #9ca3af;
+    }
+
+    .label input[type="range"] {
+      width: 130px;
+    }
+
+    /* statement block */
+    .artist-summary {
+      background: #000;
+      color: #9ca3af;
+      font-size: 12px;
+      padding: 10px 14px;
+      border-top: 1px solid #222;
+      line-height: 1.35;
+    }
+
+    .preset-description {
+      background: #000;
+      color: #d1d5db;
+      font-size: 12px;
+      padding: 8px 14px 12px;
+      border-top: 1px solid #222;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 640px) {
+      #controls {
+        flex-direction: column;
+      }
+      .controls-main {
+        gap: 6px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="glWrap">
+    <canvas id="glCanvas"></canvas>
+    <canvas id="particles"></canvas>
+  </div>
+
+  <div id="controls">
+    <!-- left: presets -->
+    <div class="presets">
+      <div class="presets-title">presets</div>
+      <button class="preset-btn" data-preset="A">A</button>
+      <button class="preset-btn" data-preset="B">B</button>
+      <button class="preset-btn" data-preset="C">C</button>
+      <button class="preset-btn" data-preset="D">D</button>
+    </div>
+
+    <!-- right: sliders -->
+    <div class="controls-main">
+      <label class="label">
+        <span class="name">damping</span>
+        <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
+      </label>
+
+      <label class="label">
+        <span class="name">coupling</span>
+        <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.7">
+      </label>
+
+      <label class="label">
+        <span class="name">noise</span>
+        <input id="noise" type="range" min="0" max="1" step="0.01" value="0.5">
+      </label>
+
+      <label class="label">
+        <span class="name">rhythm</span>
+        <input id="rhythm" type="range" min="0" max="1" step="0.01" value="0.6">
+      </label>
+
+      <label class="label">
+        <span class="name">gradient</span>
+        <input id="gradient" type="range" min="0" max="1" step="0.01" value="0.6">
+      </label>
+
+      <label class="label">
+        <span class="name">attractor</span>
+        <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
+      </label>
+
+      <label class="label">
+        <span class="name">coherence</span>
+        <input id="coherence" type="range" min="0" max="1" step="0.01" value="0.5">
+      </label>
+    </div>
+  </div>
+
+  <div class="artist-summary">
+    This view models emotion as a multi-parameter system.
+    Damping is the rate at which an emotional signal returns to baseline.
+    Coupling is the degree to which external emotional inputs alter your state.
+    Noise is background mental interference.
+    Rhythm is the stability of emotional cycles across the day.
+    Gradient is the directional drive from motivation or intent.
+    Attractor is the dominance of a single emotional theme.
+    Coherence is how well signals align into a unified state.
+  </div>
+
+  <div id="presetDescription" class="preset-description">
+    Select a preset (A–D) to load a typical field pattern and see a short description.
+  </div>
+
+<script>
+  // ------------------ WEBGL SETUP ------------------
+  const canvas = document.getElementById('glCanvas');
+  const gl = canvas.getContext('webgl');
+  if (!gl) { alert('WebGL not supported'); }
+
+  function resizeGL() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width * dpr, h = rect.height * dpr;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    }
+  }
+  window.addEventListener('resize', () => {
+    resizeGL();
+    resizeParticles();
+  });
+
+  const vsSource = `
+    attribute vec2 aPosition;
+    void main() {
+      gl_Position = vec4(aPosition, 0.0, 1.0);
+    }
+  `;
+
+  // ------------------ EVF SHADER (inverted colors) ------------------
+  const fsSource = `
+precision highp float;
+
+uniform float uDamping, uCoupling, uNoise, uRhythm;
+uniform float uGradient, uAttractor, uCoherence;
+uniform vec2  uResolution;
+uniform float uTime;
+uniform vec2  uAttractorPos;   // 0–1 screen-space
+
+float hash(vec2 p){
+    return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+}
+
+float noise(vec2 p){
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0,0.0));
+    float c = hash(i + vec2(0.0,1.0));
+    float d = hash(i + vec2(1.0,1.0));
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+}
+
+// Voronoi-ish edge distance for polygonal clustering
+float voronoiEdge(vec2 p, float scale){
+    vec2 g = floor(p * scale);
+    float d = 1.0;
+    for (int y=-1; y<=1; y++) {
+        for (int x=-1; x<=1; x++) {
+            vec2 o = vec2(x,y);
+            vec2 r = g + o + noise(g + o);
+            vec2 diff = r/scale - p;
+            d = min(d, length(diff));
+        }
+    }
+    return d;
+}
+
+float soft(float x){ return x / (1.0 + abs(x)); }
+
+// core EVF height field
+void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float nGrad){
+    // coherence: mirror blend
+    vec2 q  = p;
+    vec2 q2 = vec2(-q.x, q.y);
+    q = mix(q, q2, uCoherence * 0.5);
+
+    // GRADIENT (∇φ)
+    vec2 gdir = normalize(vec2(0.7, -0.4));
+    float grad = dot(q, gdir) * (1.0 + 2.0 * uGradient);
+
+    // ATTRACTOR: screen-space distance, tied to particles
+    float dA = length(uvScreen - uAttractorPos);
+
+    float radius  = mix(1.6, 0.25, uAttractor);
+    float falloff = mix(1.0, 6.0, uAttractor);
+    float depth   = mix(0.08, 1.4, uAttractor);
+
+    float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
+
+    float attractField =
+          exp(-dA * falloff) * depth
+        + ring * 0.25 * uAttractor;
+
+    // polygonal clusters (coupling)
+    float cellScale = mix(10.0, 5.0, uCoupling);
+    float edges = voronoiEdge(q, cellScale);
+    float facets = smoothstep(0.0, 0.55, edges);
+
+    // NOISE (ξ)
+    float noiseScale = mix(3.0, 18.0, uNoise);
+    float n0 = noise(q * noiseScale + uTime * 0.2);
+    float turb = pow(n0, mix(2.0, 0.4, uNoise));
+
+    float eps = 0.03;
+    float nX = noise(q * noiseScale + vec2(eps,0.0));
+    float nY = noise(q * noiseScale + vec2(0.0,eps));
+    float noiseGrad = length(vec2(nX - n0, nY - n0));
+
+    // RHYTHM (R)
+    float stripesFreq = mix(0.0, 18.0, uRhythm);
+    float stripes = 0.0;
+    if (stripesFreq > 0.0) {
+        stripes = sin(q.y * stripesFreq + uTime * 0.6);
+        stripes = 0.5 + 0.5 * stripes;
+    }
+
+    float field =
+          1.0 * grad
+        + 1.7 * attractField
+        + 1.2 * (1.0 - facets) * uCoupling
+        + 1.2 * turb
+        + 0.9 * stripes
+        + 1.2 * noiseGrad * uNoise;
+
+    float contrast = mix(2.0, 0.7, uDamping);
+    h     = soft(field * contrast);
+    attr  = attractField;
+    nGrad = noiseGrad;
+}
+
+void main(){
+    // screen-space 0–1 (for attractor tie-in)
+    vec2 uvScreen = gl_FragCoord.xy / uResolution.xy;
+
+    // symmetric view coords
+    vec2 uv = uvScreen * 2.0 - 1.0;
+    uv.x *= uResolution.x / uResolution.y;
+
+    vec2 p = uv * 1.7;
+
+    float h, attr, nGrad;
+    computeField(p, uvScreen, h, attr, nGrad);
+
+    // height-map lighting
+    float eps = 0.04;
+    float hX, tmpA, tmpN;
+    computeField(p + vec2(eps, 0.0), uvScreen, hX, tmpA, tmpN);
+    float hY;
+    computeField(p + vec2(0.0, eps), uvScreen, hY, tmpA, tmpN);
+
+    vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
+    vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
+    float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
+
+    // Friendly Geometry palette
+    vec3 deep  = vec3(0.08, 0.12, 0.19);
+    vec3 beige = vec3(0.90, 0.83, 0.75);
+    vec3 teal  = vec3(0.48, 0.77, 0.88);
+
+    vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
+
+    // attractor tint
+    col = mix(col, teal, attr * 0.9);
+
+    // crackle
+    col -= nGrad * uNoise * 0.3;
+
+    // lighting
+    float lightFactor = 0.35 + 0.65 * diff;
+    col *= lightFactor;
+
+    // grain
+    float g = noise(gl_FragCoord.xy * 0.8);
+    col *= 0.96 + 0.04 * (g - 0.5);
+
+    // vignette
+    float radius = length(uv);
+    float vig = smoothstep(1.4, 0.65, radius);
+    col *= vig;
+
+    // inverted look
+    col = 1.0 - col;
+
+    gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+  function compileShader(gl, type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(s));
+      return null;
+    }
+    return s;
+  }
+
+  function createProgram(gl, vs, fs) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compileShader(gl, gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compileShader(gl, gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(p));
+      return null;
+    }
+    return p;
+  }
+
+  const program = createProgram(gl, vsSource, fsSource);
+  gl.useProgram(program);
+
+  const positionLoc = gl.getAttribLocation(program, "aPosition");
+  const uResLoc     = gl.getUniformLocation(program, "uResolution");
+  const uTimeLoc    = gl.getUniformLocation(program, "uTime");
+  const uDampLoc    = gl.getUniformLocation(program, "uDamping");
+  const uCoupleLoc  = gl.getUniformLocation(program, "uCoupling");
+  const uNoiseLoc   = gl.getUniformLocation(program, "uNoise");
+  const uRhyLoc     = gl.getUniformLocation(program, "uRhythm");
+  const uGradLoc    = gl.getUniformLocation(program, "uGradient");
+  const uAttrLoc    = gl.getUniformLocation(program, "uAttractor");
+  const uCohLoc     = gl.getUniformLocation(program, "uCoherence");
+  const uAttrPosLoc = gl.getUniformLocation(program, "uAttractorPos");
+
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([
+      -1,-1,  1,-1, -1, 1,
+      -1, 1,  1,-1,  1, 1
+    ]),
+    gl.STATIC_DRAW
+  );
+
+  gl.enableVertexAttribArray(positionLoc);
+  gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+  // ------------------ PRESETS ------------------
+  const PRESETS = {
+    A: {
+      name: 'A – regulated / steady',
+      params: {
+        damping: 0.8,
+        coupling: 0.4,
+        noise: 0.2,
+        rhythm: 0.7,
+        gradient: 0.5,
+        attractor: 0.4,
+        coherence: 0.7
+      },
+      description:
+        'Relatively regulated: emotions settle quickly, noise is low, rhythm is stable, and the field is mostly coherent with only mild external pull.'
+    },
+    B: {
+      name: 'B – over-coupled / noisy',
+      params: {
+        damping: 0.3,
+        coupling: 0.9,
+        noise: 0.8,
+        rhythm: 0.4,
+        gradient: 0.5,
+        attractor: 0.6,
+        coherence: 0.4
+      },
+      description:
+        'Over-coupled and noisy: the field picks up a lot from others, with high internal noise and weaker rhythm.'
+    },
+    C: {
+      name: 'C – flat / low drive',
+      params: {
+        damping: 0.6,
+        coupling: 0.3,
+        noise: 0.3,
+        rhythm: 0.3,
+        gradient: 0.2,
+        attractor: 0.2,
+        coherence: 0.5
+      },
+      description:
+        'Low-drive field: relatively calm but with weak gradient and attractor. Limited directional pull or momentum.'
+    },
+    D: {
+      name: 'D – driven / focused',
+      params: {
+        damping: 0.4,
+        coupling: 0.5,
+        noise: 0.4,
+        rhythm: 0.6,
+        gradient: 0.9,
+        attractor: 0.9,
+        coherence: 0.6
+      },
+      description:
+        'Strongly driven field with a clear pull and dominant focus; noticeable activation around one theme.'
+    }
+  };
+
+  const presetButtons = Array.from(document.querySelectorAll('.preset-btn'));
+  const presetDescEl  = document.getElementById('presetDescription');
+
+  const sliders = {
+    damping:   document.getElementById("damping"),
+    coupling:  document.getElementById("coupling"),
+    noise:     document.getElementById("noise"),
+    rhythm:    document.getElementById("rhythm"),
+    gradient:  document.getElementById("gradient"),
+    attractor: document.getElementById("attractor"),
+    coherence: document.getElementById("coherence")
+  };
+
+  const evf = {
+    damping:   0.4,
+    coupling:  0.7,
+    noise:     0.5,
+    rhythm:    0.6,
+    gradient:  0.6,
+    attractor: 0.7,
+    coherence: 0.5
+  };
+
+  function applyPreset(key) {
+    const preset = PRESETS[key];
+    if (!preset) return;
+    const p = preset.params;
+
+    sliders.damping.value   = p.damping;
+    sliders.coupling.value  = p.coupling;
+    sliders.noise.value     = p.noise;
+    sliders.rhythm.value    = p.rhythm;
+    sliders.gradient.value  = p.gradient;
+    sliders.attractor.value = p.attractor;
+    sliders.coherence.value = p.coherence;
+
+    evf.damping   = p.damping;
+    evf.coupling  = p.coupling;
+    evf.noise     = p.noise;
+    evf.rhythm    = p.rhythm;
+    evf.gradient  = p.gradient;
+    evf.attractor = p.attractor;
+    evf.coherence = p.coherence;
+
+    presetButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.preset === key);
+    });
+    presetDescEl.textContent = preset.description;
+  }
+
+  presetButtons.forEach(btn => {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+  });
+
+  function lerp(a,b,t){ return a + (b-a)*t; }
+
+  // ------------------ PARTICLES ------------------
+  const pCanvas = document.getElementById("particles");
+  const pCtx    = pCanvas.getContext("2d");
+  let particles = [];
+
+  function resizeParticles() {
+    const rect = pCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    pCanvas.width  = rect.width * dpr;
+    pCanvas.height = rect.height * dpr;
+    pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function initParticles() {
+    const rect = pCanvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    particles = [];
+
+    const count = Math.floor(w * 5.0);
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: 0,
+        vy: 0,
+        size: 0.35 + Math.random() * 0.55,
+        life: Math.random() * 5,
+        maxLife: 5 + Math.random() * 5
+      });
+    }
+  }
+
+  function updateParticles() {
+    const rect = pCanvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+
+    const gVal = evf.gradient;
+    const aVal = evf.attractor;
+    const cVal = evf.coupling;
+
+    const drive   = Math.max(gVal, aVal);
+    const aimless = 1.0 - drive;
+
+    const GRAD_STRENGTH  = 0.025 * gVal;
+    const ATTR_STRENGTH  = 0.07  * aVal;
+    const NOISE_STRENGTH = 0.02  + 0.06 * evf.noise;
+    const DRIFT_STRENGTH = 0.02  + 0.06 * aimless;
+
+    // attractor center in rect coords (matching uAttractorPos)
+    const ax = w * 0.72;
+    const ay = h * 0.65;
+
+    const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
+    const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
+
+    // cluster centers
+    const t = performance.now() * 0.00005;
+    const clusterCount = 1 + Math.floor(cVal * 4); // 1–5
+    const clusters = [];
+
+    const baseRadius = 0.12 + 0.10 * cVal;
+    for (let i = 0; i < clusterCount; i++) {
+      const angle = (Math.PI * 2 * i) / clusterCount;
+      let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.6));
+      let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.5));
+
+      const clusterBias = 0.0 + 0.35 * aVal;
+      cx = cx * (1.0 - clusterBias) + ax * clusterBias;
+      cy = cy * (1.0 - clusterBias) + ay * clusterBias;
+
+      clusters.push({ x: cx, y: cy });
+    }
+
+    for (let p of particles) {
+      // baseline drift
+      p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
+      p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+
+      if (drive < 0.12) {
+        // wandering dust
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0) p.x += w;
+        if (p.x > w) p.x -= w;
+        if (p.y < 0) p.y += h;
+        if (p.y > h) p.y -= h;
+
+        p.life += 0.02;
+        if (p.life > p.maxLife) {
+          p.x = Math.random() * w;
+          p.y = Math.random() * h;
+          p.vx = 0;
+          p.vy = 0;
+          p.life = 0;
+        }
+        continue;
+      }
+
+      // gradient drift
+      p.vx += GRAD_STRENGTH * 0.4;
+      p.vy += -GRAD_STRENGTH * 0.3;
+
+      // attractor pull
+      const dxA = ax - p.x, dyA = ay - p.y;
+      const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
+      p.vx += (dxA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
+      p.vy += (dyA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
+
+      // cluster pull
+      if (clusters.length > 0 && cVal > 0.05) {
+        let closest = clusters[0];
+        let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
+        for (let k = 1; k < clusters.length; k++) {
+          const cx = clusters[k].x, cy = clusters[k].y;
+          const d2 = (p.x - cx)**2 + (p.y - cy)**2;
+          if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
+        }
+        const dxC = closest.x - p.x, dyC = closest.y - p.y;
+        const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
+        const CLUSTER_PULL = 0.05 + 0.18 * cVal;
+        p.vx += (dxC / distC) * CLUSTER_PULL;
+        p.vy += (dyC / distC) * CLUSTER_PULL;
+      }
+
+      // noise jitter
+      p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
+      p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
+
+      // damping
+      p.vx *= DAMP;
+      p.vy *= DAMP;
+
+      // integrate
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // gentle destination bias
+      const destBias = 0.015 * (aVal * aVal);
+      if (destBias > 0.0) {
+        p.x += (ax - p.x) * destBias;
+        p.y += (ay - p.y) * destBias;
+      }
+
+      // wrap
+      if (p.x < 0) p.x += w;
+      if (p.x > w) p.x -= w;
+      if (p.y < 0) p.y += h;
+      if (p.y > h) p.y -= h;
+
+      p.life += 0.02;
+      if (p.life > p.maxLife) {
+        p.x = Math.random() * w;
+        p.y = Math.random() * h;
+        p.vx = 0;
+        p.vy = 0;
+        p.life = 0;
+      }
+    }
+  }
+
+  function drawParticles() {
+    const rect = pCanvas.getBoundingClientRect();
+    pCtx.clearRect(0, 0, rect.width, rect.height);
+
+    for (let p of particles) {
+      const fade = 1 - p.life / p.maxLife;
+      const alpha = 0.10 + 0.25 * fade;
+      const g = Math.floor(40 + Math.random() * 45); // dark grey specks
+
+      pCtx.fillStyle = `rgba(${g},${g},${g},${alpha})`;
+      pCtx.beginPath();
+      pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      pCtx.fill();
+    }
+  }
+
+  // ------------------ MAIN LOOP ------------------
+  const t0 = performance.now();
+
+  function render() {
+    resizeGL();
+
+    const t = (performance.now() - t0) / 1000;
+    gl.useProgram(program);
+
+    // shared attractor center in 0–1 screen space (same for field + particles)
+    const axNorm = 0.72;
+    const ayNorm = 0.65;
+    gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
+
+    const speed = 0.08;
+    evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   speed);
+    evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  speed);
+    evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     speed);
+    evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    speed);
+    evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  speed);
+    evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
+    evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
+
+    gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.uniform1f(uTimeLoc, t);
+
+    gl.uniform1f(uDampLoc, evf.damping);
+    gl.uniform1f(uCoupleLoc, evf.coupling);
+    gl.uniform1f(uNoiseLoc, evf.noise);
+    gl.uniform1f(uRhyLoc, evf.rhythm);
+    gl.uniform1f(uGradLoc, evf.gradient);
+    gl.uniform1f(uAttrLoc, evf.attractor);
+    gl.uniform1f(uCohLoc, evf.coherence);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    updateParticles();
+    drawParticles();
+
+    requestAnimationFrame(render);
+  }
+
+  resizeGL();
+  resizeParticles();
+  initParticles();
+  render();
+</script>
+</body>
+</html>
