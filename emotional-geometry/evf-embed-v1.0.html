@@ -281,8 +281,8 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
     float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
 
     float attractField =
-          exp(-dA * falloff) * depth       // dark crater center
-        + ring * 0.25 * uAttractor;        // subtle lighter outline
+          exp(-dA * falloff) * depth
+        + ring * 0.25 * uAttractor;
 
     // polygonal clusters (coupling)
     float cellScale = mix(10.0, 5.0, uCoupling);
@@ -316,7 +316,9 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
         + 0.9 * stripes
         + 1.2 * noiseGrad * uNoise;
 
-    float contrast = mix(2.0, 0.7, uDamping);
+    // *** DAMPING: narrower range, less extreme ***
+    // low damping → slightly heavier; high damping → slightly crisper
+    float contrast = mix(0.9, 1.35, uDamping);
     h     = soft(field * contrast);
     attr  = attractField;
     nGrad = noiseGrad;
@@ -369,46 +371,26 @@ void main(){
     float g = noise(gl_FragCoord.xy * 0.8);
     col *= 0.96 + 0.04 * (g - 0.5);
 
-    // ---------------- DAMPING BASELINE ----------------
-    // low damping  → darker, heavier
-    // high damping → lighter, gently warmed
-    float dT = clamp(uDamping, 0.0, 1.0);
-
-    // brightness scaling: 0 → ~0.6x, 1 → ~1.4x
-    float darkMul  = 0.6;
-    float lightMul = 1.4;
-    float brightnessScale = mix(darkMul, lightMul, dT);
-    col *= brightnessScale;
-
-    // tint: low D → cooler/deeper, high D → warmer/creamier
-    vec3 darkTint  = vec3(0.10, 0.12, 0.18);
-    vec3 lightTint = vec3(0.98, 0.95, 0.90);
-    vec3 targetTint = mix(darkTint, lightTint, dT);
-    col = mix(col, targetTint, 0.25);
-
-    // ---------------- RHYTHM × DAMPING TEMPORAL MOD ----------------
-    float baseFreq = mix(0.2, 1.4, uRhythm);      // rhythm → speed
-    float phase    = uTime * baseFreq;
-
-    // more rhythm, less damping = more wobble
-    float amp = 0.25 * uRhythm * (1.0 - 0.7 * uDamping);
-    float wave = 0.5 + 0.5 * sin(phase);          // 0..1
-    float hueAmt = amp * wave;
-
-    // rough hue orbit
-    vec3 shifted = vec3(col.g, col.b, col.r);
-    col = mix(col, shifted, hueAmt);
-
-    // small brightness pulse
-    col *= 1.0 + 0.35 * hueAmt;
-
     // vignette in symmetric uv
     float radius = length(uv);
     float vig = smoothstep(1.4, 0.65, radius);
     col *= vig;
 
-    // inverted look
+    // keep the inverted look you like
     col = 1.0 - col;
+
+    // ---- POST-INVERSION EMOTIONAL MAPPING ----
+    // 1) DAMPING → brightness, but *subtle* on both ends
+    float dampBright = mix(-0.08, 0.10, uDamping);
+    col += vec3(dampBright);
+    col = clamp(col, 0.0, 1.0);
+
+    // 2) RHYTHM → very soft temporal hue shift
+    float pulse = 0.5 + 0.5 * sin(uTime * 0.7);
+    float rAmt  = (uRhythm - 0.5) * 0.14;   // gentle
+    vec3 rTint  = vec3(0.03, -0.02, 0.0) * rAmt * pulse;
+    col += rTint;
+    col = clamp(col, 0.0, 1.0);
 
     gl_FragColor = vec4(col, 1.0);
 }
