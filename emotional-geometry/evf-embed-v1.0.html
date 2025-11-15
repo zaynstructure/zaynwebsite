@@ -574,7 +574,6 @@ void main(){
     function lerp(a,b,t){ return a + (b-a)*t; }
 
     // ------------------ PARTICLES ------------------
-    // ------------------ PARTICLES ------------------
 const pCanvas = document.getElementById("particles");
 const pCtx = pCanvas.getContext("2d");
 let particles = [];
@@ -593,7 +592,7 @@ function initParticles() {
   const h = rect.height;
   particles = [];
 
-  const count = Math.floor(w * 5.0); // same density as before
+  const count = Math.floor(w * 5.0); // density
   for (let i = 0; i < count; i++) {
     particles.push({
       x: Math.random() * w,
@@ -601,8 +600,8 @@ function initParticles() {
       vx: 0,
       vy: 0,
       // base size with more spread
-      size: 0.4 + Math.random() * 0.9,   // ~0.4–1.3 px
-      phase: Math.random() * Math.PI * 2, // per-particle size oscillation
+      size: 0.4 + Math.random() * 0.9,    // ~0.4–1.3 px
+      phase: Math.random() * Math.PI * 2, // for breathing
       life: Math.random() * 5,
       maxLife: 5 + Math.random() * 5
     });
@@ -624,7 +623,7 @@ function updateParticles() {
 
   // forces
   const GRAD_STRENGTH  = 0.025 * gVal;
-  const ATTR_STRENGTH  = 0.05 * aVal;        // ↓ a bit, less suction
+  const ATTR_STRENGTH  = 0.05 * aVal;        // softer pull
   const NOISE_STRENGTH = 0.02 + 0.06 * evf.noise;
   const DRIFT_STRENGTH = 0.02 + 0.06 * aimless;
 
@@ -633,7 +632,7 @@ function updateParticles() {
   const ay = h * 0.65;
 
   // inner “no-pile” radius around attractor
-  const innerRadius = Math.min(w, h) * 0.09; // ~9% of height
+  const innerRadius = Math.min(w, h) * 0.09;
 
   const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
   const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
@@ -730,8 +729,8 @@ function updateParticles() {
     p.x += p.vx;
     p.y += p.vy;
 
-    // gentler destination bias to keep global trend toward attractor
-    const destBias = 0.008 * (aVal * aVal); // ↓ compared to before
+    // gentle destination bias to keep global trend toward attractor
+    const destBias = 0.008 * (aVal * aVal);
     if (destBias > 0.0) {
       p.x += (ax - p.x) * destBias;
       p.y += (ay - p.y) * destBias;
@@ -790,16 +789,55 @@ function drawParticles() {
     pCtx.fill();
   }
 }
-      updateParticles();
-      drawParticles();
 
-      requestAnimationFrame(render);
-    }
+// ------------------ MAIN LOOP ------------------
+const t0 = performance.now();
+function render() {
+  resizeGL();
 
-    resizeGL();
-    resizeParticles();
-    initParticles();
-    render();
+  gl.useProgram(program);
+
+  const t = (performance.now() - t0) / 1000;
+
+  // shared attractor center in 0–1 screen space (match particles)
+  const axNorm = 0.72;
+  const ayNorm = 0.65;
+  gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
+
+  // smooth EVF lerp
+  const speed = 0.08;
+  evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   speed);
+  evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  speed);
+  evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     speed);
+  evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    speed);
+  evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  speed);
+  evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
+  evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
+
+  gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  gl.uniform1f(uTimeLoc, t);
+
+  gl.uniform1f(uDampLoc, evf.damping);
+  gl.uniform1f(uCoupleLoc, evf.coupling);
+  gl.uniform1f(uNoiseLoc, evf.noise);
+  gl.uniform1f(uRhyLoc, evf.rhythm);
+  gl.uniform1f(uGradLoc, evf.gradient);
+  gl.uniform1f(uAttrLoc, evf.attractor);
+  gl.uniform1f(uCohLoc, evf.coherence);
+
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  updateParticles();
+  drawParticles();
+
+  requestAnimationFrame(render);
+}
+
+resizeGL();
+resizeParticles();
+initParticles();
+render();
+    
   </script>
 </body>
 </html>
