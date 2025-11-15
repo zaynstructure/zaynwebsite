@@ -449,7 +449,7 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
         + 1.7 * attractField
         + 1.2 * (1.0 - facets) * uCoupling
         + 1.2 * turb
-        + 0.9 * stripes
+        + 1.6 * stripes
         // low coherence: more crackle; high: smoother
         + 1.2 * noiseGrad * uNoise * mix(1.1, 0.5, coh);
 
