@@ -18,7 +18,6 @@
   body {
     display: flex;
     flex-direction: column;
-    /* shorter overall footprint for iframe */
     max-height: 520px;
     overflow: hidden;
   }
@@ -26,7 +25,6 @@
   /* visual area */
   #glWrap {
     position: relative;
-    /* fixed compact height instead of flex:1 */
     height: 320px;
   }
 
@@ -47,7 +45,7 @@
     display: block;
   }
 
-  /* slider bar - more compact */
+  /* slider bar */
   #controls {
     background: #000;
     padding: 8px 10px;
@@ -105,7 +103,6 @@
     align-items: center;
   }
 
-  /* slider rows */
   .label {
     display: flex;
     align-items: center;
@@ -120,93 +117,100 @@
   }
 
   .label input[type="range"] {
-    width: 110px; /* shorter slider to keep everything tighter */
+    width: 110px;
   }
 
-  /* inline preset description beside buttons */
+  .label select {
+    font-size: 10px;
+    padding: 1px 4px;
+    background: #020617;
+    color: #e5e7eb;
+    border-radius: 4px;
+    border: 1px solid #374151;
+  }
+
   .preset-description {
     margin-top: 4px;
     font-size: 10px;
     line-height: 1.3;
     color: #9ca3af;
   }
-/* dev panel */
-.dev-panel {
-  position: relative;
-  width: 100%;
-  padding: 10px 14px;
-  background: #0a0a0a;
-  border-top: 1px solid #333;
-  color: #ddd;
-  font-size: 11px;
-}
-.dev-panel.hidden {
-  display: none;
-}
 
-.dev-title {
-  font-size: 10px;
-  text-transform: lowercase;
-  letter-spacing: 0.03em;
-  color: #9ca3af;
-  margin-bottom: 4px;
-}
+  /* dev panel */
+  .dev-panel {
+    position: relative;
+    width: 100%;
+    padding: 10px 14px;
+    background: #0a0a0a;
+    border-top: 1px solid #333;
+    color: #ddd;
+    font-size: 11px;
+  }
+  .dev-panel.hidden {
+    display: none;
+  }
 
-.dev-row {
-  margin-bottom: 4px;
-}
+  .dev-title {
+    font-size: 10px;
+    text-transform: lowercase;
+    letter-spacing: 0.03em;
+    color: #9ca3af;
+    margin-bottom: 4px;
+  }
 
-.dev-row label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+  .dev-row {
+    margin-bottom: 4px;
+  }
 
-.dev-row input[type="range"] {
-  width: 100%;
-}
+  .dev-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
 
-.dev-val {
-  font-size: 9px;
-  color: #6b7280;
-}
+  .dev-row input[type="range"] {
+    width: 100%;
+  }
 
-.dev-footer {
-  margin-top: 4px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 4px;
-}
+  .dev-val {
+    font-size: 9px;
+    color: #6b7280;
+  }
 
-#devCopyBtn {
-  border: 1px solid #374151;
-  background: #020617;
-  color: #e5e7eb;
-  font-size: 9px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-}
+  .dev-footer {
+    margin-top: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+  }
 
-#devCopyBtn:hover {
-  border-color: #38bdf8;
-}
+  #devCopyBtn {
+    border: 1px solid #374151;
+    background: #020617;
+    color: #e5e7eb;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
 
-.dev-hint {
-  font-size: 8px;
-  color: #6b7280;
-}
-    
-</style>
+  #devCopyBtn:hover {
+    border-color: #38bdf8;
+  }
+
+  .dev-hint {
+    font-size: 8px;
+    color: #6b7280;
+  }
+  </style>
 </head>
 <body>
   <div id="glWrap">
-  <canvas id="glCanvas"></canvas>
-  <canvas id="particles"></canvas>
+    <canvas id="glCanvas"></canvas>
+    <canvas id="particles"></canvas>
+  </div>
 
-  <!-- dev particle panel -->
-  
   <div id="controls">
     <!-- left: presets + inline description -->
     <div class="presets">
@@ -216,29 +220,13 @@
         <button class="preset-btn" data-preset="B">B</button>
         <button class="preset-btn" data-preset="C">C</button>
         <button class="preset-btn" data-preset="D">D</button>
-      </div
-      <div id="presetDescription" class="preset-description">
-        Select a preset (A–D) to load a typical field pattern and see a short description.
-      </div>
-    </div>
-
-    <!-- right: sliders -->
-      <div id="controls">
-    <!-- left: presets + inline description -->
-    <div class="presets">
-      <div class="presets-title">presets</div>
-      <div class="preset-grid">
-        <button class="preset-btn" data-preset="A">A</button>
-        <button class="preset-btn" data-preset="B">B</button>
-        <button class="preset-btn" data-preset="C">C</button>
-        <button class="preset-btn" data-preset="D">D</button>
       </div>
       <div id="presetDescription" class="preset-description">
         Select a preset (A–D) to load a typical field pattern and see a short description.
       </div>
     </div>
 
-    <!-- right: sliders -->
+    <!-- right: sliders + containment -->
     <div class="controls-main">
       <label class="label">
         <span class="name">damping</span>
@@ -285,8 +273,8 @@
       </label>
     </div>
   </div>
-      </label>
-<div id="devPanel" class="dev-panel">
+
+  <div id="devPanel" class="dev-panel">
     <div class="dev-title">particles</div>
 
     <div class="dev-row">
@@ -305,10 +293,10 @@
       </label>
     </div>
 
-  <label class="dev-row">
-  <span>extra noise</span>
-  <input id="dev-noise-extra" type="checkbox">
-</label>
+    <label class="dev-row">
+      <span>extra noise</span>
+      <input id="dev-noise-extra" type="checkbox">
+    </label>
 
     <div class="dev-row">
       <label>
@@ -323,11 +311,8 @@
       <span class="dev-hint">press “p” to toggle panel</span>
     </div>
   </div>
-</div>
 
-
-    
-<script src="evf-core.js"></script>
+  <script src="evf-core.js"></script>
 
   <script>
     // ------------------ WEBGL SETUP ------------------
@@ -335,8 +320,6 @@
     const gl = canvas.getContext('webgl');
     if (!gl) { alert('WebGL not supported'); }
 
-
-    
     function resizeGL() {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
@@ -351,218 +334,182 @@
       resizeParticles();
     });
 
-    const vsSource = `attribute vec2 aPosition;
-      void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }`;
+    const vsSource = `
+attribute vec2 aPosition;
+void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }`;
 
     // ------------------ EVF SHADER (inverted colors) ------------------
-      const fsSource = `
+    const fsSource = `
 precision highp float;
 
 uniform float uDamping, uCoupling, uNoise, uRhythm;
 uniform float uGradient, uAttractor, uCoherence;
 uniform vec2  uResolution;
 uniform float uTime;
-uniform vec2  uAttractorPos;   // 0–1 screen-space (same as particles)
-uniform float uNoiseExtra; // 0 or 1
+uniform vec2  uAttractorPos;
+uniform float uNoiseExtra;
+
 float hash(vec2 p){
-    return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+  return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
 }
 
 float noise(vec2 p){
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0,0.0));
-    float c = hash(i + vec2(0.0,1.0));
-    float d = hash(i + vec2(1.0,1.0));
-    vec2 u = f*f*(3.0-2.0*f);
-    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0,0.0));
+  float c = hash(i + vec2(0.0,1.0));
+  float d = hash(i + vec2(1.0,1.0));
+  vec2 u = f*f*(3.0-2.0*f);
+  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
 }
 
-// Voronoi-ish edge distance for polygonal clustering
 float voronoiEdge(vec2 p, float scale){
-    vec2 g = floor(p * scale);
-    float d = 1.0;
-    for (int y=-1; y<=1; y++) {
-        for (int x=-1; x<=1; x++) {
-            vec2 o = vec2(x,y);
-            vec2 r = g + o + noise(g + o);
-            vec2 diff = r/scale - p;
-            d = min(d, length(diff));
-        }
+  vec2 g = floor(p * scale);
+  float d = 1.0;
+  for (int y=-1; y<=1; y++) {
+    for (int x=-1; x<=1; x++) {
+      vec2 o = vec2(x,y);
+      vec2 r = g + o + noise(g + o);
+      vec2 diff = r/scale - p;
+      d = min(d, length(diff));
     }
-    return d;
+  }
+  return d;
 }
 
 float soft(float x){ return x / (1.0 + abs(x)); }
 
-// core EVF height field:
-// h      = height
-// attr   = attractor strength
-// nGrad  = noise-gradient magnitude
-// core EVF height field:
-// h      = height
-// attr   = attractor strength
-// nGrad  = noise-gradient magnitude
 void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float nGrad){
-    float coh = uCoherence;
+  float coh = uCoherence;
 
-    // --- COHERENCE (Cₒ): structural alignment ---
-    vec2 q2 = vec2(-p.x, p.y);
-    float mirrorAmt = coh * 0.25;   // soft geometric alignment
-    vec2 q = mix(p, q2, mirrorAmt);
+  vec2 q  = p;
+  vec2 q2 = vec2(-q.x, q.y);
+  float mirrorAmt = coh * 0.25;
+  q = mix(q, q2, mirrorAmt);
 
-    // --- GRADIENT (∇φ): directional slope (kept as before) ---
-    vec2 gdir = normalize(vec2(0.7, -0.4));
-    float grad = dot(q, gdir) * (1.0 + 2.0 * uGradient);
+  vec2 gdir = normalize(vec2(0.7, -0.4));
+  float grad = dot(q, gdir) * (1.0 + 2.0 * uGradient);
 
-    // --- ATTRACTOR (A): screen-space distance, shared with particles ---
-    float dA = length(uvScreen - uAttractorPos);
+  float dA = length(uvScreen - uAttractorPos);
 
-    float radius  = mix(1.6, 0.25, uAttractor);
-    float falloff = mix(1.0, 6.0, uAttractor);
-    float depth   = mix(0.08, 1.4, uAttractor);
+  float radius  = mix(1.6, 0.25, uAttractor);
+  float falloff = mix(1.0, 6.0, uAttractor);
+  float depth   = mix(0.08, 1.4, uAttractor);
 
-    float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
+  float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
 
-    float attractField =
-          exp(-dA * falloff) * depth
-        + ring * 0.25 * uAttractor;
+  float attractField =
+        exp(-dA * falloff) * depth
+      + ring * 0.25 * uAttractor;
 
-    // --- COUPLING (c) + COHERENCE → facets vs smoothness ---
-    float baseCellScale = mix(10.0, 5.0, uCoupling);           // more coupling → larger cells
-    float cellScale     = baseCellScale * mix(1.3, 0.75, coh); // low coh = more fragmentation
-    float edges  = voronoiEdge(q, cellScale);
-    float facets = smoothstep(0.0, 0.55, edges);
+  float baseCellScale = mix(10.0, 5.0, uCoupling);
+  float cellScale = baseCellScale * mix(1.3, 0.75, coh);
+  float edges = voronoiEdge(q, cellScale);
+  float facets = smoothstep(0.0, 0.55, edges);
 
-    // --- NOISE (ξ) + COHERENCE: crackle / turbulence ---
-    float noiseScaleBase = mix(3.0, 18.0, uNoise);
-    float noiseScale     = noiseScaleBase * mix(1.25, 0.75, coh);
+  float noiseScaleBase = mix(3.0, 18.0, uNoise);
+  float noiseScale = noiseScaleBase * mix(1.25, 0.75, coh);
 
-    float n0   = noise(q * noiseScale + uTime * 0.2);
-    float turb = pow(n0, mix(2.0, 0.4, uNoise));
+  float n0 = noise(q * noiseScale + uTime * 0.2);
+  float turb = pow(n0, mix(2.0, 0.4, uNoise));
 
-    float eps = 0.03;
-    float nX  = noise(q * noiseScale + vec2(eps, 0.0));
-    float nY  = noise(q * noiseScale + vec2(0.0, eps));
-    float noiseGrad = length(vec2(nX - n0, nY - n0));
+  float eps = 0.03;
+  float nX = noise(q * noiseScale + vec2(eps,0.0));
+  float nY = noise(q * noiseScale + vec2(0.0,eps));
+  float noiseGrad = length(vec2(nX - n0, nY - n0));
 
-    // optional extra micro-noise layer (dev toggle)
-    if (uNoiseExtra > 0.5) {
-        float fineScale = mix(24.0, 48.0, uNoise);
-        float fine      = noise(q * fineScale + uTime * 0.9);
-        float extraJitter = (fine - 0.5) * 0.4 * uNoise;
-        turb += extraJitter;
-    }
+  if (uNoiseExtra > 0.5) {
+    float fineScale = mix(24.0, 48.0, uNoise);
+    float fine = noise(q * fineScale + uTime * 0.9);
+    float extraJitter = (fine - 0.5) * 0.4 * uNoise;
+    turb += extraJitter;
+  }
 
-    // --- RHYTHM (R): macro bands (more visible) ---
-    float stripesFreq = mix(0.0, 22.0, uRhythm);
-    float stripes = 0.0;
-    if (stripesFreq > 0.0) {
-        stripes = sin(q.y * stripesFreq + uTime * 0.9);
-        stripes = 0.5 + 0.5 * stripes;
-        float rhythmAmp = 0.4 + 0.8 * coh;   // coherence sharpens bands
-        stripes = 0.5 + (stripes - 0.5) * rhythmAmp;
-    }
+  float stripesFreq = mix(0.0, 18.0, uRhythm);
+  float stripes = 0.0;
+  if (stripesFreq > 0.0) {
+    stripes = sin(q.y * stripesFreq + uTime * 0.6);
+    stripes = 0.5 + 0.5 * stripes;
+    float rhythmAmp = 0.6 + 0.9 * coh;
+    stripes = 0.5 + (stripes - 0.5) * rhythmAmp;
+  }
 
-    // --- SCALAR FIELD COMPOSITION ---
-    float field =
-          1.0 * grad                                   // ∇φ
-        + 1.7 * attractField                           // A
-        + 1.2 * (1.0 - facets) * uCoupling            // c → smooth interiors
-        + 1.2 * turb                                   // ξ
-        + 1.6 * stripes                                // R
-        + 1.2 * noiseGrad * uNoise * mix(1.1, 0.5, coh); // ξ vs coherence
+  float field =
+        1.0 * grad
+      + 1.7 * attractField
+      + 1.2 * (1.0 - facets) * uCoupling
+      + 1.2 * turb
+      + 1.6 * stripes
+      + 1.2 * noiseGrad * uNoise * mix(1.1, 0.5, coh);
 
-    // --- DAMPING (γ): contrast at field level ---
-    float contrast = mix(0.9, 1.35, uDamping);
-    h     = soft(field * contrast);
-    attr  = attractField;
-    nGrad = noiseGrad;
+  float contrast = mix(0.9, 1.35, uDamping);
+  h     = soft(field * contrast);
+  attr  = attractField;
+  nGrad = noiseGrad;
 }
 
 void main(){
-    // screen-space 0–1 (for attractor tie-in)
-    vec2 uvScreen = gl_FragCoord.xy / uResolution.xy;
+  vec2 uvScreen = gl_FragCoord.xy / uResolution.xy;
 
-    // symmetric view / field coord
-    vec2 uv = uvScreen * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
+  vec2 uv = uvScreen * 2.0 - 1.0;
+  uv.x *= uResolution.x / uResolution.y;
+  vec2 p = uv * 1.7;
 
-    // zoom out a bit
-    vec2 p = uv * 1.7;
+  float h, attr, nGrad;
+  computeField(p, uvScreen, h, attr, nGrad);
 
-    // base height, attractor, noise-gradient
-    float h, attr, nGrad;
-    computeField(p, uvScreen, h, attr, nGrad);
+  float eps = 0.04;
+  float hX, tmpA, tmpN;
+  computeField(p + vec2(eps, 0.0), uvScreen, hX, tmpA, tmpN);
+  float hY;
+  computeField(p + vec2(0.0, eps), uvScreen, hY, tmpA, tmpN);
 
-    // height-map lighting: estimate normals from height differences
-    float eps = 0.04;
-    float hX, tmpA, tmpN;
-    computeField(p + vec2(eps, 0.0), uvScreen, hX, tmpA, tmpN);
-    float hY;
-    computeField(p + vec2(0.0, eps), uvScreen, hY, tmpA, tmpN);
+  vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
+  vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
+  float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
 
-    vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
-    vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
-    float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
+  vec3 deep  = vec3(0.08, 0.12, 0.19);
+  vec3 beige = vec3(0.90, 0.83, 0.75);
+  vec3 teal  = vec3(0.48, 0.77, 0.88);
 
-    // Friendly Geometry palette
-    vec3 deep  = vec3(0.08, 0.12, 0.19);
-    vec3 beige = vec3(0.90, 0.83, 0.75);
-    vec3 teal  = vec3(0.48, 0.77, 0.88);
+  vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
+  col = mix(col, teal, attr * 0.9);
+  col -= nGrad * uNoise * 0.3;
 
-    // height → base color
-    vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
+  float lightFactor = 0.35 + 0.65 * diff;
+  col *= lightFactor;
 
-    // attractor tint
-    col = mix(col, teal, attr * 0.9);
+  float g = noise(gl_FragCoord.xy * 0.8);
+  col *= 0.96 + 0.04 * (g - 0.5);
 
-    // noise-gradient shading: darken where noise changes quickly (crackle)
-    col -= nGrad * uNoise * 0.3;
+  float radius = length(uv);
+  float vig = smoothstep(1.4, 0.65, radius);
+  col *= vig;
 
-    // apply height-map lighting
-    float lightFactor = 0.35 + 0.65 * diff;
-    col *= lightFactor;
+  col = 1.0 - col;
 
-    // small grain
-    float g = noise(gl_FragCoord.xy * 0.8);
-    col *= 0.96 + 0.04 * (g - 0.5);
+  float dampBright = mix(-0.08, 0.10, uDamping);
+  col += vec3(dampBright);
+  col = clamp(col, 0.0, 1.0);
 
-    // gentle vignette in symmetric uv
-    float radius = length(uv);
-    float vig = smoothstep(1.4, 0.65, radius);
-    col *= vig;
+  float pulse = 0.5 + 0.5 * sin(uTime * 0.7);
+  float rAmt  = (uRhythm - 0.5) * 0.14;
+  vec3 rTint  = vec3(0.03, -0.02, 0.0) * rAmt * pulse;
+  col += rTint;
+  col = clamp(col, 0.0, 1.0);
 
-    // keep the inverted look you liked
-    col = 1.0 - col;
-
-        // keep the inverted look you liked
-    col = 1.0 - col;
-
-    // ---- POST-INVERSION: DAMPING (γ) ----
-    float dampBright   = mix(-0.10, 0.12, uDamping);
-    float dampContrast = mix(0.85, 1.35, uDamping);
-
-    col = (col - 0.5) * dampContrast + 0.5;
-    col += vec3(dampBright);
-    col = clamp(col, 0.0, 1.0);
-
-    // ---- RHYTHM (R): subtle temporal tint ----
-    float pulse = 0.5 + 0.5 * sin(uTime * 0.7);
-    float rAmt  = (uRhythm - 0.5) * 0.14;
-    vec3 rTint  = vec3(0.03, -0.02, 0.0) * rAmt * pulse;
-
-    col += rTint;
-    col = clamp(col, 0.0, 1.0);
-
-    gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(col, 1.0);
 }
+`;
+
     function compileShader(gl, type, src) {
       const s = gl.createShader(type);
-      gl.shaderSource(s, src); gl.compileShader(s);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(s)); return null;
+        console.error(gl.getShaderInfoLog(s));
+        return null;
       }
       return s;
     }
@@ -630,6 +577,350 @@ void main(){
     const presetButtons = Array.from(document.querySelectorAll('.preset-btn'));
     const presetDescEl = document.getElementById('presetDescription');
 
+    const program = (function createProgram(gl, vs, fs) {
+      const p = gl.createProgram();
+      gl.attachShader(p, compileShader(gl, gl.VERTEX_SHADER, vs));
+      gl.attachShader(p, compileShader(gl, gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(p));
+        return null;
+      }
+      return p;
+    })(gl, vsSource, fsSource);
+
+    gl.useProgram(program);
+
+    const positionLoc   = gl.getAttribLocation(program, "aPosition");
+    const uResLoc       = gl.getUniformLocation(program, "uResolution");
+    const uTimeLoc      = gl.getUniformLocation(program, "uTime");
+    const uDampLoc      = gl.getUniformLocation(program, "uDamping");
+    const uCoupleLoc    = gl.getUniformLocation(program, "uCoupling");
+    const uNoiseLoc     = gl.getUniformLocation(program, "uNoise");
+    const uRhyLoc       = gl.getUniformLocation(program, "uRhythm");
+    const uGradLoc      = gl.getUniformLocation(program, "uGradient");
+    const uAttrLoc      = gl.getUniformLocation(program, "uAttractor");
+    const uCohLoc       = gl.getUniformLocation(program, "uCoherence");
+    const uAttrPosLoc   = gl.getUniformLocation(program, "uAttractorPos");
+    const uNoiseExtraLoc = gl.getUniformLocation(program, "uNoiseExtra");
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([
+        -1,-1, 1,-1, -1,1,
+        -1,1, 1,-1, 1,1
+      ]),
+      gl.STATIC_DRAW
+    );
+
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
+
+    const sliders = {
+      damping:   document.getElementById("damping"),
+      coupling:  document.getElementById("coupling"),
+      noise:     document.getElementById("noise"),
+      rhythm:    document.getElementById("rhythm"),
+      gradient:  document.getElementById("gradient"),
+      attractor: document.getElementById("attractor"),
+      coherence: document.getElementById("coherence")
+    };
+
+    const containmentSelect = document.getElementById("containmentMode");
+    let cMode = "balanced";
+
+    const CONTAINMENT_GAIN = {
+      porous:   1.4,
+      balanced: 1.0,
+      tight:    0.6
+    };
+
+    if (containmentSelect) {
+      containmentSelect.addEventListener("change", (e) => {
+        cMode = e.target.value;
+      });
+    }
+
+    const evf    = EVFCore.state;
+    const tuning = EVFCore.tuning;
+
+    // ------------------ DEV PANEL: NOISE EXTRA TOGGLE ------------------
+    const devNoiseExtra = document.getElementById("dev-noise-extra");
+    tuning.noiseExtra = 0;
+
+    if (devNoiseExtra) {
+      devNoiseExtra.addEventListener("input", e => {
+        tuning.noiseExtra = e.target.checked ? 1 : 0;
+      });
+    }
+
+    // ------------------ DEV PANEL HOOKS ------------------
+    const pCfg = tuning.particles;
+
+    const devPanel      = document.getElementById('devPanel');
+    const pDensityInput = document.getElementById('pDensity');
+    const pSizeMinInput = document.getElementById('pSizeMin');
+    const pSizeMaxInput = document.getElementById('pSizeMax');
+
+    const pDensityVal = document.getElementById('pDensityVal');
+    const pSizeMinVal = document.getElementById('pSizeMinVal');
+    const pSizeMaxVal = document.getElementById('pSizeMaxVal');
+
+    const devCopyBtn = document.getElementById('devCopyBtn');
+
+    function syncPanelFromTuning() {
+      pDensityInput.value = pCfg.densityPerPixel;
+      pSizeMinInput.value = pCfg.sizeMin;
+      pSizeMaxInput.value = pCfg.sizeMax;
+
+      pDensityVal.textContent = pCfg.densityPerPixel.toFixed(1);
+      pSizeMinVal.textContent = pCfg.sizeMin.toFixed(2);
+      pSizeMaxVal.textContent = pCfg.sizeMax.toFixed(2);
+    }
+
+    function applyPanelToTuning() {
+      pCfg.densityPerPixel = parseFloat(pDensityInput.value) || pCfg.densityPerPixel;
+      pCfg.sizeMin         = parseFloat(pSizeMinInput.value) || pCfg.sizeMin;
+      pCfg.sizeMax         = parseFloat(pSizeMaxInput.value) || pCfg.sizeMax;
+
+      if (pCfg.sizeMax < pCfg.sizeMin) {
+        pCfg.sizeMax = pCfg.sizeMin + 0.05;
+        pSizeMaxInput.value = pCfg.sizeMax;
+      }
+
+      syncPanelFromTuning();
+      initParticles();
+    }
+
+    [pDensityInput, pSizeMinInput, pSizeMaxInput].forEach(inp => {
+      inp.addEventListener('input', applyPanelToTuning);
+    });
+
+    devCopyBtn.addEventListener('click', () => {
+      const json = JSON.stringify(pCfg, null, 2);
+      navigator.clipboard?.writeText(json).catch(() => {});
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'p') {
+        devPanel.classList.toggle('hidden');
+      }
+    });
+
+    syncPanelFromTuning();
+
+    function lerp(a,b,t){ return a + (b-a)*t; }
+
+    // ------------------ PARTICLES ------------------
+    const pCanvas = document.getElementById("particles");
+    const pCtx = pCanvas.getContext("2d");
+    let particles = [];
+
+    function resizeParticles() {
+      const rect = pCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      pCanvas.width = rect.width * dpr;
+      pCanvas.height = rect.height * dpr;
+      pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function initParticles() {
+      const rect = pCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      particles = [];
+
+      const pCfg  = tuning.particles;
+      const count = Math.floor(w * pCfg.densityPerPixel);
+
+      for (let i = 0; i < count; i++) {
+        const baseSize = pCfg.sizeMin + Math.random() * (pCfg.sizeMax - pCfg.sizeMin);
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: 0,
+          vy: 0,
+          size: baseSize,
+          phase: Math.random() * Math.PI * 2,
+          life: Math.random() * 5,
+          maxLife: 5 + Math.random() * 5
+        });
+      }
+    }
+
+    function updateParticles() {
+      const rect = pCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      const gVal = evf.gradient;
+      const aVal = evf.attractor;
+      const cVal = evf.coupling;
+
+      const drive   = Math.max(gVal, aVal);
+      const aimless = 1.0 - drive;
+
+      const GRAD_STRENGTH  = 0.025 * gVal;
+      const ATTR_STRENGTH  = 0.05 * aVal;
+      const NOISE_STRENGTH = 0.02 + 0.06 * evf.noise;
+      const DRIFT_STRENGTH = 0.02 + 0.06 * aimless;
+
+      const ax = w * 0.72;
+      const ay = h * 0.65;
+
+      const innerRadius = Math.min(w, h) * 0.09;
+
+      const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
+      const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
+
+      const t = performance.now() * 0.00005;
+      const clusterCount = 1 + Math.floor(cVal * 4);
+      const clusters = [];
+      const baseRadius = 0.12 + 0.10 * cVal;
+
+      for (let i = 0; i < clusterCount; i++) {
+        const angle = (Math.PI * 2 * i) / clusterCount;
+        let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.6));
+        let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.5));
+
+        const clusterBias = 0.0 + 0.35 * aVal;
+        cx = cx * (1.0 - clusterBias) + ax * clusterBias;
+        cy = cy * (1.0 - clusterBias) + ay * clusterBias;
+
+        clusters.push({ x: cx, y: cy });
+      }
+
+      for (let p of particles) {
+        p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
+        p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+
+        if (drive < 0.12) {
+          p.vx *= 0.97;
+          p.vy *= 0.97;
+
+          p.x += p.vx;
+          p.y += p.vy;
+
+          if (p.x < 0) p.x += w;
+          if (p.x > w) p.x -= w;
+          if (p.y < 0) p.y += h;
+          if (p.y > h) p.y -= h;
+
+          p.life += 0.02;
+          if (p.life > p.maxLife) {
+            p.x = Math.random() * w; p.y = Math.random() * h;
+            p.vx = 0; p.vy = 0; p.life = 0;
+          }
+          continue;
+        }
+
+        const dxA = ax - p.x;
+        const dyA = ay - p.y;
+        const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
+
+        const vanishRadius = innerRadius * 0.8;
+        if (distA < vanishRadius && aVal > 0.15) {
+          p.x = Math.random() * w;
+          p.y = Math.random() * h;
+          p.vx = 0;
+          p.vy = 0;
+          p.life = 0;
+          continue;
+        }
+
+        if (distA < innerRadius) {
+          const tInner = 1.0 - distA / innerRadius;
+          const repel = 0.04 * (0.4 + aVal) * tInner * tInner;
+          p.vx -= (dxA / distA) * repel;
+          p.vy -= (dyA / distA) * repel;
+        }
+
+        p.vx += (dxA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
+        p.vy += (dyA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
+
+        if (clusters.length > 0 && cVal > 0.05) {
+          let closest = clusters[0];
+          let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
+          for (let k = 1; k < clusters.length; k++) {
+            const cx = clusters[k].x, cy = clusters[k].y;
+            const d2 = (p.x - cx)**2 + (p.y - cy)**2;
+            if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
+          }
+          const dxC = closest.x - p.x, dyC = closest.y - p.y;
+          const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
+          const CLUSTER_PULL = 0.05 + 0.18 * cVal;
+          p.vx += (dxC / distC) * CLUSTER_PULL;
+          p.vy += (dyC / distC) * CLUSTER_PULL;
+        }
+
+        p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
+        p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
+
+        p.vx *= DAMP;
+        p.vy *= DAMP;
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        const destBias = 0.008 * (aVal * aVal);
+        if (destBias > 0.0) {
+          p.x += (ax - p.x) * destBias;
+          p.y += (ay - p.y) * destBias;
+        }
+
+        if (p.x < 0) p.x += w;
+        if (p.x > w) p.x -= w;
+        if (p.y < 0) p.y += h;
+        if (p.y > h) p.y -= h;
+
+        p.life += 0.02;
+        if (p.life > p.maxLife) {
+          p.x = Math.random() * w; p.y = Math.random() * h;
+          p.vx = 0; p.vy = 0; p.life = 0;
+        }
+      }
+    }
+
+    function drawParticles() {
+      const rect = pCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      const ax = w * 0.72;
+      const ay = h * 0.65;
+      const innerRadius = Math.min(w, h) * 0.09;
+
+      pCtx.clearRect(0, 0, rect.width, rect.height);
+
+      for (let p of particles) {
+        const fade = 1 - p.life / p.maxLife;
+
+        const rhythmFactor = 0.4 + 0.6 * evf.rhythm;
+        const osc = 0.5 + 0.5 * Math.sin(p.life * 1.5 * rhythmFactor + p.phase);
+        const radius = p.size * (0.6 + 0.7 * osc);
+
+        const dist = Math.sqrt((p.x - ax) * (p.x - ax) + (p.y - ay) * (p.y - ay));
+        const distNorm = Math.min(1, dist / (innerRadius * 3.0));
+        const blueBias = (1 - distNorm) * 20;
+
+        const centerFade = Math.min(1.0, dist / innerRadius);
+        const alpha = (0.10 + 0.25 * fade) * centerFade;
+
+        const g = Math.floor(180 + Math.random() * 60);
+        const r = Math.max(0, g - blueBias);
+        const gb = g;
+
+        pCtx.fillStyle = `rgba(${r},${r},${gb},${alpha})`;
+
+        pCtx.beginPath();
+        pCtx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        pCtx.fill();
+      }
+    }
+
+    // ------------------ PRESET HANDLERS ------------------
     function applyPreset(key) {
       const preset = PRESETS[key];
       if (!preset) return;
@@ -664,418 +955,62 @@ void main(){
       });
     });
 
-    function createProgram(gl, vs, fs) {
-      const p = gl.createProgram();
-      gl.attachShader(p, compileShader(gl, gl.VERTEX_SHADER, vs));
-      gl.attachShader(p, compileShader(gl, gl.FRAGMENT_SHADER, fs));
-      gl.linkProgram(p);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-        console.error(gl.getProgramInfoLog(p)); return null;
-      }
-      return p;
+    // ------------------ MAIN LOOP ------------------
+    const t0 = performance.now();
+    function render() {
+      resizeGL();
+
+      gl.useProgram(program);
+
+      const t = (performance.now() - t0) / 1000;
+
+      const axNorm = 0.72;
+      const ayNorm = 0.45;
+      gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
+
+      const speed = 0.08;
+      const gammaScale = CONTAINMENT_GAIN[cMode] ?? 1.0;
+
+      const targetDamp      = parseFloat(sliders.damping.value);
+      const targetCoupling  = parseFloat(sliders.coupling.value)  * gammaScale;
+      const targetNoise     = parseFloat(sliders.noise.value)     * gammaScale;
+      const targetRhythm    = parseFloat(sliders.rhythm.value)    * gammaScale;
+      const targetGradient  = parseFloat(sliders.gradient.value)  * gammaScale;
+      const targetAttractor = parseFloat(sliders.attractor.value) * gammaScale;
+      const targetCoh       = parseFloat(sliders.coherence.value);
+
+      evf.damping   = lerp(evf.damping,   targetDamp,      speed);
+      evf.coupling  = lerp(evf.coupling,  targetCoupling,  speed);
+      evf.noise     = lerp(evf.noise,     targetNoise,     speed);
+      evf.rhythm    = lerp(evf.rhythm,    targetRhythm,    speed);
+      evf.gradient  = lerp(evf.gradient,  targetGradient,  speed);
+      evf.attractor = lerp(evf.attractor, targetAttractor, speed);
+      evf.coherence = lerp(evf.coherence, targetCoh,       speed);
+
+      gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.uniform1f(uTimeLoc, t);
+
+      gl.uniform1f(uDampLoc, evf.damping);
+      gl.uniform1f(uCoupleLoc, evf.coupling);
+      gl.uniform1f(uNoiseLoc, evf.noise);
+      gl.uniform1f(uRhyLoc, evf.rhythm);
+      gl.uniform1f(uGradLoc, evf.gradient);
+      gl.uniform1f(uAttrLoc, evf.attractor);
+      gl.uniform1f(uCohLoc, evf.coherence);
+      gl.uniform1f(uNoiseExtraLoc, tuning.noiseExtra);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      updateParticles();
+      drawParticles();
+
+      requestAnimationFrame(render);
     }
 
-    const program = createProgram(gl, vsSource, fsSource);
-    gl.useProgram(program);
-
-    const positionLoc   = gl.getAttribLocation(program, "aPosition");
-    const uResLoc       = gl.getUniformLocation(program, "uResolution");
-    const uTimeLoc      = gl.getUniformLocation(program, "uTime");
-    const uDampLoc      = gl.getUniformLocation(program, "uDamping");
-    const uCoupleLoc    = gl.getUniformLocation(program, "uCoupling");
-    const uNoiseLoc     = gl.getUniformLocation(program, "uNoise");
-    const uRhyLoc       = gl.getUniformLocation(program, "uRhythm");
-    const uGradLoc      = gl.getUniformLocation(program, "uGradient");
-    const uAttrLoc      = gl.getUniformLocation(program, "uAttractor");
-    const uCohLoc       = gl.getUniformLocation(program, "uCoherence");
-    const uAttrPosLoc   = gl.getUniformLocation(program, "uAttractorPos");
-    const uNoiseExtraLoc = gl.getUniformLocation(program, "uNoiseExtra");
-    
-    const quad = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1,-1, 1,-1, -1,1,
-      -1,1, 1,-1, 1,1
-    ]), gl.STATIC_DRAW);
-
-    gl.enableVertexAttribArray(positionLoc);
-    gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
-
-        const sliders = {
-      damping:   document.getElementById("damping"),
-      coupling:  document.getElementById("coupling"),
-      noise:     document.getElementById("noise"),
-      rhythm:    document.getElementById("rhythm"),
-      gradient:  document.getElementById("gradient"),
-      attractor: document.getElementById("attractor"),
-      coherence: document.getElementById("coherence")
-    };
-
-    const containmentSelect = document.getElementById("containmentMode");
-    let cMode = "balanced";
-
-    const CONTAINMENT_GAIN = {
-      porous:   1.4,   // low containment → high sensitivity
-      balanced: 1.0,   // current behaviour
-      tight:    0.6    // high containment → muted response
-    };
-
-    if (containmentSelect) {
-      containmentSelect.addEventListener("change", (e) => {
-        cMode = e.target.value;
-      });
-    }
-
-    const evf    = EVFCore.state;
-    const tuning = EVFCore.tuning;
-// ------------------ DEV PANEL: NOISE EXTRA TOGGLE ------------------
-const devNoiseExtra = document.getElementById("dev-noise-extra");
-
-// default
-tuning.noiseExtra = 0;
-
-// bind checkbox → tuning value
-if (devNoiseExtra) {
-  devNoiseExtra.addEventListener("input", e => {
-    tuning.noiseExtra = e.target.checked ? 1 : 0;
-  });
-}
-    
-// ------------------ DEV PANEL HOOKS ------------------
-const pCfg = tuning.particles;
-
-const devPanel      = document.getElementById('devPanel');
-const pDensityInput = document.getElementById('pDensity');
-const pSizeMinInput = document.getElementById('pSizeMin');
-const pSizeMaxInput = document.getElementById('pSizeMax');
-
-const pDensityVal = document.getElementById('pDensityVal');
-const pSizeMinVal = document.getElementById('pSizeMinVal');
-const pSizeMaxVal = document.getElementById('pSizeMaxVal');
-
-const devCopyBtn = document.getElementById('devCopyBtn');
-
-function syncPanelFromTuning() {
-  pDensityInput.value = pCfg.densityPerPixel;
-  pSizeMinInput.value = pCfg.sizeMin;
-  pSizeMaxInput.value = pCfg.sizeMax;
-
-  pDensityVal.textContent = pCfg.densityPerPixel.toFixed(1);
-  pSizeMinVal.textContent = pCfg.sizeMin.toFixed(2);
-  pSizeMaxVal.textContent = pCfg.sizeMax.toFixed(2);
-}
-
-function applyPanelToTuning() {
-  pCfg.densityPerPixel = parseFloat(pDensityInput.value) || pCfg.densityPerPixel;
-  pCfg.sizeMin         = parseFloat(pSizeMinInput.value) || pCfg.sizeMin;
-  pCfg.sizeMax         = parseFloat(pSizeMaxInput.value) || pCfg.sizeMax;
-
-  // make sure max >= min
-  if (pCfg.sizeMax < pCfg.sizeMin) {
-    pCfg.sizeMax = pCfg.sizeMin + 0.05;
-    pSizeMaxInput.value = pCfg.sizeMax;
-  }
-
-  syncPanelFromTuning();
-
-  // re-spawn particles with new tuning
-  initParticles();
-}
-
-// react to slider changes
-[pDensityInput, pSizeMinInput, pSizeMaxInput].forEach(inp => {
-  inp.addEventListener('input', applyPanelToTuning);
-});
-
-// copy tuning JSON to clipboard
-   devCopyBtn.addEventListener('click', () => {
-  const json = JSON.stringify(pCfg, null, 2);
-  navigator.clipboard?.writeText(json).catch(() => {});
-});
-
-// toggle panel with "p"
-window.addEventListener('keydown', (e) => {
-  if (e.key.toLowerCase() === 'p') {
-    devPanel.classList.toggle('hidden');
-  }
-});
-
-// initialise panel from current tuning
-syncPanelFromTuning();
-    function lerp(a,b,t){ return a + (b-a)*t; }
-
-    // ------------------ PARTICLES ------------------
-// ------------------ PARTICLES ------------------
-const pCanvas = document.getElementById("particles");
-const pCtx = pCanvas.getContext("2d");
-let particles = [];
-
-function resizeParticles() {
-  const rect = pCanvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  pCanvas.width = rect.width * dpr;
-  pCanvas.height = rect.height * dpr;
-  pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-function initParticles() {
-  const rect = pCanvas.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
-  particles = [];
-
-  const pCfg  = tuning.particles;
-  const count = Math.floor(w * pCfg.densityPerPixel);
-
-  for (let i = 0; i < count; i++) {
-    const baseSize = pCfg.sizeMin + Math.random() * (pCfg.sizeMax - pCfg.sizeMin);
-    particles.push({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: 0,
-      vy: 0,
-      size: baseSize,
-      phase: Math.random() * Math.PI * 2,
-      life: Math.random() * 5,
-      maxLife: 5 + Math.random() * 5
-    });
-  }
-}
-
-function updateParticles() {
-  const rect = pCanvas.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
-
-  const gVal = evf.gradient;   // ∇φ
-  const aVal = evf.attractor;  // A
-  const cVal = evf.coupling;   // c
-
-  const drive   = Math.max(gVal, aVal);
-  const aimless = 1.0 - drive;
-
-  const GRAD_STRENGTH  = 0.025 * gVal;
-  const NOISE_STRENGTH = 0.02 + 0.06 * evf.noise;
-  const DRIFT_STRENGTH = 0.02 + 0.06 * aimless;
-
-  const ax = w * 0.72;
-  const ay = h * 0.65;
-  const innerRadius = Math.min(w, h) * 0.09;
-
-  // cluster centers
-  const t = performance.now() * 0.00005;
-  const clusterCount = 1 + Math.floor(cVal * 4);
-  const clusters = [];
-  const baseRadius = 0.12 + 0.10 * cVal;
-
-  for (let i = 0; i < clusterCount; i++) {
-    const angle = (Math.PI * 2 * i) / Math.max(clusterCount, 1);
-    let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.6));
-    let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.5));
-
-    const clusterBias = 0.0 + 0.35 * aVal;
-    cx = cx * (1.0 - clusterBias) + ax * clusterBias;
-    cy = cy * (1.0 - clusterBias) + ay * clusterBias;
-
-    clusters.push({ x: cx, y: cy });
-  }
-
-  const DAMP_MIN = 0.65, DAMP_MAX = 0.97;
-  const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
-
-  for (let p of particles) {
-    // base wandering
-    p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
-    p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
-
-    if (drive < 0.12) {
-      // low-drive float
-      p.vx *= 0.97;
-      p.vy *= 0.97;
-
-      p.x += p.vx;
-      p.y += p.vy;
-
-      if (p.x < 0) p.x += w;
-      if (p.x > w) p.x -= w;
-      if (p.y < 0) p.y += h;
-      if (p.y > h) p.y -= h;
-
-      p.life += 0.02;
-      if (p.life > p.maxLife) {
-        p.x = Math.random() * w; p.y = Math.random() * h;
-        p.vx = p.vy = 0;
-        p.life = 0;
-      }
-      continue;
-    }
-
-    // ∇φ drift
-    p.vx += GRAD_STRENGTH * 0.4;
-    p.vy += -GRAD_STRENGTH * 0.3;
-
-    // ATTRACTOR (A)
-    let dxA = ax - p.x;
-    let dyA = ay - p.y;
-    let distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
-
-    const vanishRadius = innerRadius * 0.75;
-    if (distA < vanishRadius && aVal > 0.15) {
-      p.x = Math.random() * w;
-      p.y = Math.random() * h;
-      p.vx = p.vy = 0;
-      p.life = 0;
-      continue;
-    }
-
-    const ATTR_PULL = (0.25 + 0.65 * aVal) * drive;
-    p.vx += (dxA / distA) * ATTR_PULL;
-    p.vy += (dyA / distA) * ATTR_PULL;
-
-    // COUPLING (c): cluster-only
-    if (cVal > 0.05 && clusters.length > 0) {
-      let closest = clusters[0];
-      let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
-
-      for (let k = 1; k < clusters.length; k++) {
-        const cx = clusters[k].x, cy = clusters[k].y;
-        const d2 = (p.x - cx)**2 + (p.y - cy)**2;
-        if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
-      }
-
-      const dxC = closest.x - p.x;
-      const dyC = closest.y - p.y;
-      const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
-
-      const CLUSTER_PULL = 0.05 + 0.20 * cVal;
-      p.vx += (dxC / distC) * CLUSTER_PULL;
-      p.vy += (dyC / distC) * CLUSTER_PULL;
-    }
-
-    // ξ: minimal jitter
-    const jitter = 0.008 + 0.025 * evf.noise;
-    p.vx += (Math.random() - 0.5) * jitter;
-    p.vy += (Math.random() - 0.5) * jitter;
-
-    // γ: slowdown
-    p.vx *= DAMP;
-    p.vy *= DAMP;
-
-    p.x += p.vx;
-    p.y += p.vy;
-
-    const destBias = 0.008 * (aVal * aVal);
-    if (destBias > 0.0) {
-      p.x += (ax - p.x) * destBias;
-      p.y += (ay - p.y) * destBias;
-    }
-
-    if (p.x < 0) p.x += w;
-    if (p.x > w) p.x -= w;
-    if (p.y < 0) p.y += h;
-    if (p.y > h) p.y -= h;
-
-    p.life += 0.02;
-    if (p.life > p.maxLife) {
-      p.x = Math.random() * w; p.y = Math.random() * h;
-      p.vx = p.vy = 0;
-      p.life = 0;
-    }
-  }
-}
-
-function drawParticles() {
-  const rect = pCanvas.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
-
-  const ax = w * 0.72;
-  const ay = h * 0.65;
-  const innerRadius = Math.min(w, h) * 0.09;
-
-  pCtx.clearRect(0, 0, rect.width, rect.height);
-
-  for (let p of particles) {
-    const fade = 1 - p.life / p.maxLife;
-
-    // breathing ↔ rhythm (R)
-    const rhythmFactor = 0.6 + 1.2 * evf.rhythm;
-    const osc = 0.5 + 0.5 * Math.sin(p.life * 2.4 * rhythmFactor + p.phase);
-    const radius = p.size * (0.6 + 0.7 * osc);
-
-    const dist = Math.sqrt((p.x - ax) * (p.x - ax) + (p.y - ay) * (p.y - ay));
-    const distNorm = Math.min(1, dist / (innerRadius * 3.0));
-    const blueBias = (1 - distNorm) * 20;
-
-    const centerFade = Math.min(1.0, dist / innerRadius);
-    const alpha = (0.10 + 0.25 * fade) * centerFade;
-
-    const g = Math.floor(180 + Math.random() * 60);
-    const r = Math.max(0, g - blueBias);
-    const gb = g;
-
-    pCtx.fillStyle = `rgba(${r},${r},${gb},${alpha})`;
-    pCtx.beginPath();
-    pCtx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-    pCtx.fill();
-  }
-}
-// ------------------ MAIN LOOP ------------------
-const t0 = performance.now();
-function render() {
-  resizeGL();
-
-  gl.useProgram(program);
-
-  const t = (performance.now() - t0) / 1000;
-
-  // shared attractor center in 0–1 screen space (match particles)
-  const axNorm = 0.72;
-  const ayNorm = 0.45;
-  gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
-
-   // smooth EVF lerp + containment amplifier γ
-  const speed = 0.08;
-  const gammaScale = CONTAINMENT_GAIN[cMode] ?? 1.0;
-
-  const targetDamp      = parseFloat(sliders.damping.value);
-  const targetCoupling  = parseFloat(sliders.coupling.value)  * gammaScale;
-  const targetNoise     = parseFloat(sliders.noise.value)     * gammaScale;
-  const targetRhythm    = parseFloat(sliders.rhythm.value)    * gammaScale;
-  const targetGradient  = parseFloat(sliders.gradient.value)  * gammaScale;
-  const targetAttractor = parseFloat(sliders.attractor.value) * gammaScale;
-  const targetCoh       = parseFloat(sliders.coherence.value);
-
-  evf.damping   = lerp(evf.damping,   targetDamp,      speed);
-  evf.coupling  = lerp(evf.coupling,  targetCoupling,  speed);
-  evf.noise     = lerp(evf.noise,     targetNoise,     speed);
-  evf.rhythm    = lerp(evf.rhythm,    targetRhythm,    speed);
-  evf.gradient  = lerp(evf.gradient,  targetGradient,  speed);
-  evf.attractor = lerp(evf.attractor, targetAttractor, speed);
-  evf.coherence = lerp(evf.coherence, targetCoh,       speed);
-
-  gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
-  gl.uniform1f(uTimeLoc, t);
-
-  gl.uniform1f(uDampLoc, evf.damping);
-  gl.uniform1f(uCoupleLoc, evf.coupling);
-  gl.uniform1f(uNoiseLoc, evf.noise);
-  gl.uniform1f(uRhyLoc, evf.rhythm);
-  gl.uniform1f(uGradLoc, evf.gradient);
-  gl.uniform1f(uAttrLoc, evf.attractor);
-  gl.uniform1f(uCohLoc, evf.coherence);
-  gl.uniform1f(uNoiseExtraLoc, tuning.noiseExtra);
-  updateParticles();
-  drawParticles();
-
-  requestAnimationFrame(render);
-}
-
-resizeGL();
-resizeParticles();
-initParticles();
-render();
-    
+    resizeGL();
+    resizeParticles();
+    initParticles();
+    render();
   </script>
 </body>
 </html>
