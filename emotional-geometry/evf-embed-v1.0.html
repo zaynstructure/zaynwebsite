@@ -770,7 +770,7 @@ void main(){
       const ax = w * 0.72;
       const ay = h * 0.65;
 
-      const innerRadius = Math.min(w, h) * 0.09;
+      const innerRadius = Math.min(w, h) * 0.06;
 
       const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
       const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
@@ -820,7 +820,7 @@ void main(){
         const dyA = ay - p.y;
         const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
 
-        const vanishRadius = innerRadius * 0.8;
+        const vanishRadius = innerRadius * 0.6;
         if (distA < vanishRadius && aVal > 0.15) {
           p.x = Math.random() * w;
           p.y = Math.random() * h;
