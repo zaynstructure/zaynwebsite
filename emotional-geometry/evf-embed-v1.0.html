@@ -267,7 +267,7 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
     // --- COHERENCE: subtle mirror instead of hard stretch ---
     vec2 q  = p;
     vec2 q2 = vec2(-q.x, q.y);
-    float mirrorAmt = coh * 0.25;          // was 0.5 → now much softer
+    float mirrorAmt = coh * 0.25;          // soft
     q = mix(q, q2, mirrorAmt);
 
     // GRADIENT (∇φ): directional slope (on q)
@@ -329,22 +329,79 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
         // low coherence: more crackle; high: smoother
         + 1.2 * noiseGrad * uNoise * mix(1.1, 0.5, coh);
 
-    // *** DAMPING: keep your (mild) contrast mapping ***
+    // DAMPING → contrast (mild)
     float contrast = mix(0.9, 1.35, uDamping);
     h     = soft(field * contrast);
     attr  = attractField;
     nGrad = noiseGrad;
 }
 
+void main(){
+    // screen-space 0–1 (for attractor tie-in)
+    vec2 uvScreen = gl_FragCoord.xy / uResolution.xy;
+
+    // symmetric view / field coord
+    vec2 uv = uvScreen * 2.0 - 1.0;
+    uv.x *= uResolution.x / uResolution.y;
+
+    // zoom out a bit
+    vec2 p = uv * 1.7;
+
+    // base height, attractor, noise-gradient
+    float h, attr, nGrad;
+    computeField(p, uvScreen, h, attr, nGrad);
+
+    // height-map lighting: estimate normals from height differences
+    float eps = 0.04;
+    float hX, tmpA, tmpN;
+    computeField(p + vec2(eps, 0.0), uvScreen, hX, tmpA, tmpN);
+    float hY;
+    computeField(p + vec2(0.0, eps), uvScreen, hY, tmpA, tmpN);
+
+    vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
+    vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
+    float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
+
+    // Friendly Geometry palette
+    vec3 deep  = vec3(0.08, 0.12, 0.19);
+    vec3 beige = vec3(0.90, 0.83, 0.75);
+    vec3 teal  = vec3(0.48, 0.77, 0.88);
+
+    // height → base color
+    vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
+
+    // attractor tint
+    col = mix(col, teal, attr * 0.9);
+
+    // noise-gradient shading: darken where noise changes quickly (crackle)
+    col -= nGrad * uNoise * 0.3;
+
+    // apply height-map lighting
+    float lightFactor = 0.35 + 0.65 * diff;
+    col *= lightFactor;
+
+    // small grain
+    float g = noise(gl_FragCoord.xy * 0.8);
+    col *= 0.96 + 0.04 * (g - 0.5);
+
+    // gentle vignette in symmetric uv
+    float radius = length(uv);
+    float vig = smoothstep(1.4, 0.65, radius);
+    col *= vig;
+
+    // keep the inverted look you liked
+    col = 1.0 - col;
+
     // ---- POST-INVERSION EMOTIONAL MAPPING ----
-    // 1) DAMPING → brightness, but *subtle* on both ends
+
+    // 1) DAMPING → brightness (low = darker, stuck; high = lighter)
     float dampBright = mix(-0.08, 0.10, uDamping);
     col += vec3(dampBright);
     col = clamp(col, 0.0, 1.0);
 
     // 2) RHYTHM → very soft temporal hue shift
     float pulse = 0.5 + 0.5 * sin(uTime * 0.7);
-    float rAmt  = (uRhythm - 0.5) * 0.14;   // gentle
+    float rAmt  = (uRhythm - 0.5) * 0.14;   // subtle
     vec3 rTint  = vec3(0.03, -0.02, 0.0) * rAmt * pulse;
     col += rTint;
     col = clamp(col, 0.0, 1.0);
