@@ -439,7 +439,7 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
         stripes = sin(q.y * stripesFreq + uTime * 0.6);
         stripes = 0.5 + 0.5 * stripes;
         // low coherence → bands washed out; high → clearer
-        float rhythmAmp = 0.4 + 0.6 * coh;
+        float rhythmAmp = 0.6 + 0.9 * coh;
         stripes = 0.5 + (stripes - 0.5) * rhythmAmp;
     }
 
