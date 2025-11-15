@@ -499,8 +499,31 @@ void main(){
   float vig = smoothstep(1.4, 0.65, radius);
   col *= vig;
 
-  col = 1.0 - col;
+  
+// keep the inverted look you liked
+col = 1.0 - col;
 
+// micro-noise color + pseudo-transparency
+if (uNoiseExtra > 0.0) {
+    // use noise-gradient as a mask: higher nGrad = more micro-texture
+    float microMask = smoothstep(0.08, 0.35, nGrad * uNoise);
+
+    // slightly cooler tint for micro-noise regions
+    vec3 microTint = vec3(0.80, 0.86, 1.00);  // soft blue-ish
+
+    // how strong the tint is
+    float tintAmt = 0.20 * uNoiseExtra;       // max 0.2 mix at full extra
+
+    // apply tint where microMask is strong
+    col = mix(col, microTint, tintAmt * microMask);
+
+    // pseudo-transparency: wash micro regions a bit toward mid-grey
+    vec3 fadeBase = vec3(0.5);                // neutral grey "behind" the field
+    float fadeAmt = 0.25 * uNoiseExtra;       // how see-through it feels
+    vec3 washed = mix(col, fadeBase, 0.5);    // partially faded version of col
+
+    col = mix(col, washed, fadeAmt * microMask);
+}
   float dampBright = mix(-0.08, 0.10, uDamping);
   col += vec3(dampBright);
   col = clamp(col, 0.0, 1.0);
