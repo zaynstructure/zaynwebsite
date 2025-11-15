@@ -944,7 +944,13 @@ const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
         const blueBias = (1 - distNorm) * 20;
 
         const centerFade = Math.min(1.0, dist / innerRadius);
-        const alpha = (0.10 + 0.25 * fade) * centerFade;
+        let alpha = (0.10 + 0.25 * fade) * centerFade;
+
+// BOOST VISIBILITY when porous + micro-noise active + high noise
+if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
+  alpha *= 1.8;                  // stronger particle visibility
+  if (alpha > 0.7) alpha = 0.7;  // clamp so they don't get too bright
+}
 
         const g = Math.floor(180 + Math.random() * 60);
         const r = Math.max(0, g - blueBias);
