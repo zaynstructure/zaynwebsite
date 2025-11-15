@@ -420,6 +420,17 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
     float nX = noise(q * noiseScale + vec2(eps,0.0));
     float nY = noise(q * noiseScale + vec2(0.0,eps));
     float noiseGrad = length(vec2(nX - n0, nY - n0));
+    // optional extra micro-noise layer (dev toggle)
+    if (uNoiseExtra > 0.5) {
+        float fineScale = mix(24.0, 48.0, uNoise);      // very fine grain
+        float fine = noise(q * fineScale + uTime * 0.9);
+        // subtle: small offset around zero, scaled by existing noise
+        float extraJitter = (fine - 0.5) * 0.4 * uNoise;
+        // feed it into the base noise field, not the gradient
+        turb += extraJitter;
+    }
+
+
 
     // --- RHYTHM (R) + COHERENCE: band clarity ---
     float stripesFreq = mix(0.0, 18.0, uRhythm);
