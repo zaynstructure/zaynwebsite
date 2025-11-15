@@ -754,6 +754,14 @@ function updateParticles() {
 
 function drawParticles() {
   const rect = pCanvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+
+  // match attractor position + inner radius used in updateParticles
+  const ax = w * 0.72;
+  const ay = h * 0.65;
+  const innerRadius = Math.min(w, h) * 0.09;
+
   pCtx.clearRect(0, 0, rect.width, rect.height);
 
   for (let p of particles) {
@@ -761,59 +769,27 @@ function drawParticles() {
     const alpha = 0.10 + 0.25 * fade;
 
     // subtle "breathing" size tied to rhythm
-    const rhythmFactor = 0.4 + 0.6 * evf.rhythm; // more rhythm → more breathing
+    const rhythmFactor = 0.4 + 0.6 * evf.rhythm;
     const osc = 0.5 + 0.5 * Math.sin(p.life * 1.5 * rhythmFactor + p.phase);
-    const radius = p.size * (0.6 + 0.7 * osc); // ~0.6–1.3× base
-// inverted particle brightness (light greys instead of dark)
-const distNorm = Math.min(1, Math.sqrt((p.x-ax)**2 + (p.y-ay)**2) / (innerRadius*3));
-const blueBias = (1 - distNorm) * 20; // small cool tint
+    const radius = p.size * (0.6 + 0.7 * osc);
 
-const g = Math.floor(180 + Math.random()*60);
-pCtx.fillStyle = `rgba(${g-blueBias}, ${g-blueBias}, ${g}, ${alpha})`;
-    
+    // distance-based cool tint near attractor
+    const dist = Math.sqrt((p.x - ax) * (p.x - ax) + (p.y - ay) * (p.y - ay));
+    const distNorm = Math.min(1, dist / (innerRadius * 3.0));
+    const blueBias = (1 - distNorm) * 20; // small cool tint near center
+
+    // inverted brightness: light greys instead of dark
+    const g = Math.floor(180 + Math.random() * 60); // 180–240
+    const r = Math.max(0, g - blueBias);
+    const gb = g; // keep blue slightly higher
+
+    pCtx.fillStyle = `rgba(${r},${r},${gb},${alpha})`;
+
     pCtx.beginPath();
     pCtx.arc(p.x, p.y, radius, 0, Math.PI * 2);
     pCtx.fill();
   }
 }
-
-    // ------------------ MAIN LOOP ------------------
-    const t0 = performance.now();
-    function render() {
-      resizeGL();
-
-      gl.useProgram(program);
-
-      const t = (performance.now() - t0) / 1000;
-
-      // shared attractor center in 0–1 screen space (match particles)
-      const axNorm = 0.72;
-      const ayNorm = 0.65;
-      gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
-
-      // smooth EVF lerp
-      const speed = 0.08;
-      evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   speed);
-      evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  speed);
-      evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     speed);
-      evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    speed);
-      evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  speed);
-      evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
-      evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
-
-      gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      gl.uniform1f(uTimeLoc, t);
-
-      gl.uniform1f(uDampLoc, evf.damping);
-      gl.uniform1f(uCoupleLoc, evf.coupling);
-      gl.uniform1f(uNoiseLoc, evf.noise);
-      gl.uniform1f(uRhyLoc, evf.rhythm);
-      gl.uniform1f(uGradLoc, evf.gradient);
-      gl.uniform1f(uAttrLoc, evf.attractor);
-      gl.uniform1f(uCohLoc, evf.coherence);
-
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-
       updateParticles();
       drawParticles();
 
