@@ -1,8 +1,8 @@
 // evf-core.js
-// Shared EVF state + tuning
+// central place to keep EVF defaults + tunable visual settings
 
 window.EVFCore = (function () {
-  // main state (what the sliders edit)
+  // --- EVF parameter state (0–1 each) ---
   const state = {
     damping:   0.4,
     coupling:  0.7,
@@ -13,27 +13,20 @@ window.EVFCore = (function () {
     coherence: 0.5
   };
 
-  // tuning knobs you can tweak without touching the main embed
+  // --- visual tuning (non-parameter stuff) ---
   const tuning = {
+    // particle system settings
     particles: {
-      densityPerPixel: 5.0,  // particle count ~ width * density
-      sizeMin: 0.4,
-      sizeMax: 1.3,
-      innerRadiusFactor: 0.09, // attractor “no pile” radius (fraction of min(w,h))
+      // how many particles per pixel of width
+      densityPerPixel: 5.0,  // matches: Math.floor(w * 5.0)
 
-      // motion forces
-      gradStrengthBase:  0.025,
-      attrStrengthBase:  0.05,
-      noiseStrengthBase: 0.02,
-      noiseStrengthVar:  0.06,
-      driftStrengthBase: 0.02,
-      driftStrengthVar:  0.06,
-      destBiasBase:      0.008
-    },
-    field: {
-      // spot for later: secondary fine-noise layer, etc.
-      secondaryNoiseMix: 0.0  // start at 0; we can hook this in the shader later
+      // size range in pixels (before breathing modulation)
+      sizeMin: 0.4,
+      sizeMax: 1.3
     }
+
+    // later we can add things like:
+    // field: { fineNoise: { enabled: true, scale: 10.0, gain: 0.15 } }
   };
 
   return { state, tuning };
