@@ -568,6 +568,7 @@ const tuning = EVFCore.tuning;
     function lerp(a,b,t){ return a + (b-a)*t; }
 
     // ------------------ PARTICLES ------------------
+// ------------------ PARTICLES ------------------
 const pCanvas = document.getElementById("particles");
 const pCtx = pCanvas.getContext("2d");
 let particles = [];
@@ -586,13 +587,17 @@ function initParticles() {
   const h = rect.height;
   particles = [];
 
-  const pCfg = tuning.particles;
-const count = Math.floor(w * pCfg.densityPerPixel);
-for (let i = 0; i < count; i++) {
-  const baseSize = pCfg.sizeMin + Math.random() * (pCfg.sizeMax - pCfg.sizeMin);
-  particles.push({
-    ...
-    size: baseSize,
+  const pCfg  = tuning.particles;
+  const count = Math.floor(w * pCfg.densityPerPixel);
+
+  for (let i = 0; i < count; i++) {
+    const baseSize = pCfg.sizeMin + Math.random() * (pCfg.sizeMax - pCfg.sizeMin);
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: 0,
+      vy: 0,
+      size: baseSize,
       phase: Math.random() * Math.PI * 2, // for breathing
       life: Math.random() * 5,
       maxLife: 5 + Math.random() * 5
@@ -781,7 +786,6 @@ function drawParticles() {
     pCtx.fill();
   }
 }
-
 // ------------------ MAIN LOOP ------------------
 const t0 = performance.now();
 function render() {
