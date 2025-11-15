@@ -130,14 +130,120 @@
     line-height: 1.3;
     color: #9ca3af;
   }
+/* dev panel */
+.dev-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid #1f2933;
+  border-radius: 6px;
+  font-size: 10px;
+  color: #e5e7eb;
+  max-width: 180px;
+  pointer-events: auto;
+}
+
+.dev-panel.hidden {
+  display: none;
+}
+
+.dev-title {
+  font-size: 10px;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.dev-row {
+  margin-bottom: 4px;
+}
+
+.dev-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dev-row input[type="range"] {
+  width: 100%;
+}
+
+.dev-val {
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.dev-footer {
+  margin-top: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+#devCopyBtn {
+  border: 1px solid #374151;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#devCopyBtn:hover {
+  border-color: #38bdf8;
+}
+
+.dev-hint {
+  font-size: 8px;
+  color: #6b7280;
+}
+    
 </style>
 </head>
 <body>
   <div id="glWrap">
-    <canvas id="glCanvas"></canvas>
-    <canvas id="particles"></canvas>
-  </div>
+  <canvas id="glCanvas"></canvas>
+  <canvas id="particles"></canvas>
 
+  <!-- dev particle panel -->
+  <div id="devPanel" class="dev-panel">
+    <div class="dev-title">particles</div>
+
+    <div class="dev-row">
+      <label>
+        density
+        <input id="pDensity" type="range" min="1" max="12" step="0.5">
+        <span id="pDensityVal" class="dev-val"></span>
+      </label>
+    </div>
+
+    <div class="dev-row">
+      <label>
+        size min
+        <input id="pSizeMin" type="range" min="0.1" max="3" step="0.05">
+        <span id="pSizeMinVal" class="dev-val"></span>
+      </label>
+    </div>
+
+    <div class="dev-row">
+      <label>
+        size max
+        <input id="pSizeMax" type="range" min="0.2" max="4" step="0.05">
+        <span id="pSizeMaxVal" class="dev-val"></span>
+      </label>
+    </div>
+
+    <div class="dev-footer">
+      <button id="devCopyBtn" type="button">copy tuning</button>
+      <span class="dev-hint">press “p” to toggle panel</span>
+    </div>
+  </div>
+</div>
   <div id="controls">
     <!-- left: presets + inline description -->
     <div class="presets">
@@ -564,7 +670,67 @@ void main(){
 
     const evf    = EVFCore.state;
 const tuning = EVFCore.tuning;
+// ------------------ DEV PANEL HOOKS ------------------
+const pCfg = tuning.particles;
 
+const devPanel      = document.getElementById('devPanel');
+const pDensityInput = document.getElementById('pDensity');
+const pSizeMinInput = document.getElementById('pSizeMin');
+const pSizeMaxInput = document.getElementById('pSizeMax');
+
+const pDensityVal = document.getElementById('pDensityVal');
+const pSizeMinVal = document.getElementById('pSizeMinVal');
+const pSizeMaxVal = document.getElementById('pSizeMaxVal');
+
+const devCopyBtn = document.getElementById('devCopyBtn');
+
+function syncPanelFromTuning() {
+  pDensityInput.value = pCfg.densityPerPixel;
+  pSizeMinInput.value = pCfg.sizeMin;
+  pSizeMaxInput.value = pCfg.sizeMax;
+
+  pDensityVal.textContent = pCfg.densityPerPixel.toFixed(1);
+  pSizeMinVal.textContent = pCfg.sizeMin.toFixed(2);
+  pSizeMaxVal.textContent = pCfg.sizeMax.toFixed(2);
+}
+
+function applyPanelToTuning() {
+  pCfg.densityPerPixel = parseFloat(pDensityInput.value) || pCfg.densityPerPixel;
+  pCfg.sizeMin         = parseFloat(pSizeMinInput.value) || pCfg.sizeMin;
+  pCfg.sizeMax         = parseFloat(pSizeMaxInput.value) || pCfg.sizeMax;
+
+  // make sure max >= min
+  if (pCfg.sizeMax < pCfg.sizeMin) {
+    pCfg.sizeMax = pCfg.sizeMin + 0.05;
+    pSizeMaxInput.value = pCfg.sizeMax;
+  }
+
+  syncPanelFromTuning();
+
+  // re-spawn particles with new tuning
+  initParticles();
+}
+
+// react to slider changes
+[pDensityInput, pSizeMinInput, pSizeMaxInput].forEach(inp => {
+  inp.addEventListener('input', applyPanelToTuning);
+});
+
+// copy tuning JSON to clipboard
+devCopyBtn.addEventListener('click', () => {
+  const json = JSON.stringify(pCfg, null, 2);
+  navigator.clipboard?.writeText(json).catch(() => {});
+});
+
+// toggle panel with "p"
+window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'p') {
+    devPanel.classList.toggle('hidden');
+  }
+});
+
+// initialise panel from current tuning
+syncPanelFromTuning();
     function lerp(a,b,t){ return a + (b-a)*t; }
 
     // ------------------ PARTICLES ------------------
