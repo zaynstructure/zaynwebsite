@@ -973,7 +973,6 @@ function drawParticles() {
 
   for (let p of particles) {
     const fade = 1 - p.life / p.maxLife;
-    const alpha = 0.10 + 0.25 * fade;
 
     // subtle "breathing" size tied to rhythm
     const rhythmFactor = 0.4 + 0.6 * evf.rhythm;
@@ -984,9 +983,11 @@ function drawParticles() {
     const dist = Math.sqrt((p.x - ax) * (p.x - ax) + (p.y - ay) * (p.y - ay));
     const distNorm = Math.min(1, dist / (innerRadius * 3.0));
     const blueBias = (1 - distNorm) * 20; // small cool tint near center
-// extra fade when very close to attractor (visual dissolve)
-const centerFade = Math.min(1.0, dist / innerRadius); // 0 at center → 1 at innerRadius+
-const alpha = (0.10 + 0.25 * fade) * centerFade;
+
+    // extra fade when very close to attractor (visual dissolve)
+    const centerFade = Math.min(1.0, dist / innerRadius); // 0 at center → 1 at innerRadius+
+    const alpha = (0.10 + 0.25 * fade) * centerFade;
+
     // inverted brightness: light greys instead of dark
     const g = Math.floor(180 + Math.random() * 60); // 180–240
     const r = Math.max(0, g - blueBias);
