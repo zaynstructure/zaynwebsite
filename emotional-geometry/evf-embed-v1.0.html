@@ -1002,7 +1002,18 @@ const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
       gl.uniform1f(uGradLoc, evf.gradient);
       gl.uniform1f(uAttrLoc, evf.attractor);
       gl.uniform1f(uCohLoc, evf.coherence);
-      gl.uniform1f(uNoiseExtraLoc, tuning.noiseExtra);
+      let baseExtra = tuning.noiseExtra; // 0 or 1 from dev checkbox
+
+let containmentBoost;
+switch (cMode) {
+  case "porous":   containmentBoost = 1.0; break;   // full strength
+  case "balanced": containmentBoost = 0.5; break;   // half strength
+  case "tight":    containmentBoost = 0.0; break;   // fully hidden
+  default:         containmentBoost = 1.0;
+}
+
+const noiseExtraEffective = baseExtra * containmentBoost;
+gl.uniform1f(uNoiseExtraLoc, noiseExtraEffective);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
