@@ -369,22 +369,37 @@ void main(){
     float g = noise(gl_FragCoord.xy * 0.8);
     col *= 0.96 + 0.04 * (g - 0.5);
 
-    // -------- RHYTHM × DAMPING TEMPORAL MODULATION --------
-    // base temporal frequency from rhythm
-    float baseFreq = mix(0.2, 1.4, uRhythm);          // higher rhythm → faster cycling
+    // ---------------- DAMPING BASELINE ----------------
+    // low damping  → darker, heavier
+    // high damping → lighter, gently warmed
+    float dT = clamp(uDamping, 0.0, 1.0);
+
+    // brightness scaling: 0 → ~0.6x, 1 → ~1.4x
+    float darkMul  = 0.6;
+    float lightMul = 1.4;
+    float brightnessScale = mix(darkMul, lightMul, dT);
+    col *= brightnessScale;
+
+    // tint: low D → cooler/deeper, high D → warmer/creamier
+    vec3 darkTint  = vec3(0.10, 0.12, 0.18);
+    vec3 lightTint = vec3(0.98, 0.95, 0.90);
+    vec3 targetTint = mix(darkTint, lightTint, dT);
+    col = mix(col, targetTint, 0.25);
+
+    // ---------------- RHYTHM × DAMPING TEMPORAL MOD ----------------
+    float baseFreq = mix(0.2, 1.4, uRhythm);      // rhythm → speed
     float phase    = uTime * baseFreq;
 
-    // amplitude: more rhythm, less damping = more wobble
+    // more rhythm, less damping = more wobble
     float amp = 0.25 * uRhythm * (1.0 - 0.7 * uDamping);
-    float wave = 0.5 + 0.5 * sin(phase);              // 0..1
+    float wave = 0.5 + 0.5 * sin(phase);          // 0..1
+    float hueAmt = amp * wave;
 
-    float hueAmt = amp * wave;                        // 0..~0.25 max
-
-    // crude hue "orbit": rotate channels a bit
+    // rough hue orbit
     vec3 shifted = vec3(col.g, col.b, col.r);
     col = mix(col, shifted, hueAmt);
 
-    // brightness pulse linked to same wave
+    // small brightness pulse
     col *= 1.0 + 0.35 * hueAmt;
 
     // vignette in symmetric uv
