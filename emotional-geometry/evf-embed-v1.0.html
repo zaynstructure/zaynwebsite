@@ -1034,8 +1034,7 @@ function render() {
   const ayNorm = 0.45;
   gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
 
-  // smooth EVF lerp
-    // smooth EVF lerp + containment amplifier γ
+   // smooth EVF lerp + containment amplifier γ
   const speed = 0.08;
   const gammaScale = CONTAINMENT_GAIN[cMode] ?? 1.0;
 
@@ -1054,6 +1053,7 @@ function render() {
   evf.gradient  = lerp(evf.gradient,  targetGradient,  speed);
   evf.attractor = lerp(evf.attractor, targetAttractor, speed);
   evf.coherence = lerp(evf.coherence, targetCoh,       speed);
+
   gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
   gl.uniform1f(uTimeLoc, t);
 
@@ -1064,9 +1064,7 @@ function render() {
   gl.uniform1f(uGradLoc, evf.gradient);
   gl.uniform1f(uAttrLoc, evf.attractor);
   gl.uniform1f(uCohLoc, evf.coherence);
-gl.uniform1f(uNoiseExtraLoc, tuning.noiseExtra);
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
-
+  gl.uniform1f(uNoiseExtraLoc, tuning.noiseExtra);
   updateParticles();
   drawParticles();
 
