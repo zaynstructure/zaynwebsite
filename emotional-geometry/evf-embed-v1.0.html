@@ -262,10 +262,13 @@ float soft(float x){ return x / (1.0 + abs(x)); }
 // attr   = attractor strength
 // nGrad  = noise-gradient magnitude
 void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float nGrad){
-    // coherence: mirror blend for general geometry
+    float coh = uCoherence;
+
+    // --- COHERENCE: subtle mirror instead of hard stretch ---
     vec2 q  = p;
     vec2 q2 = vec2(-q.x, q.y);
-    q = mix(q, q2, uCoherence * 0.5);
+    float mirrorAmt = coh * 0.25;          // was 0.5 → now much softer
+    q = mix(q, q2, mirrorAmt);
 
     // GRADIENT (∇φ): directional slope (on q)
     vec2 gdir = normalize(vec2(0.7, -0.4));
@@ -284,13 +287,19 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
           exp(-dA * falloff) * depth
         + ring * 0.25 * uAttractor;
 
-    // polygonal clusters (coupling)
-    float cellScale = mix(10.0, 5.0, uCoupling);
+    // --- COUPLING + COHERENCE → facets vs smoothness ---
+    float baseCellScale = mix(10.0, 5.0, uCoupling);
+    // low coherence → more, smaller cells (fragmented)
+    // high coherence → fewer, larger cells (smoother)
+    float cellScale = baseCellScale * mix(1.3, 0.75, coh);
     float edges = voronoiEdge(q, cellScale);
     float facets = smoothstep(0.0, 0.55, edges);
 
-    // NOISE (ξ) with gradient
-    float noiseScale = mix(3.0, 18.0, uNoise);
+    // --- NOISE (ξ) + COHERENCE: how crackly it is ---
+    float noiseScaleBase = mix(3.0, 18.0, uNoise);
+    // low coherence: more high-freq detail; high: smoother
+    float noiseScale = noiseScaleBase * mix(1.25, 0.75, coh);
+
     float n0 = noise(q * noiseScale + uTime * 0.2);
     float turb = pow(n0, mix(2.0, 0.4, uNoise));
 
@@ -299,12 +308,15 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
     float nY = noise(q * noiseScale + vec2(0.0,eps));
     float noiseGrad = length(vec2(nX - n0, nY - n0));
 
-    // RHYTHM (R): time-based stratified bands
+    // --- RHYTHM (R) + COHERENCE: band clarity ---
     float stripesFreq = mix(0.0, 18.0, uRhythm);
     float stripes = 0.0;
     if (stripesFreq > 0.0) {
         stripes = sin(q.y * stripesFreq + uTime * 0.6);
         stripes = 0.5 + 0.5 * stripes;
+        // low coherence → bands washed out; high → clearer
+        float rhythmAmp = 0.4 + 0.6 * coh;
+        stripes = 0.5 + (stripes - 0.5) * rhythmAmp;
     }
 
     // scalar field
@@ -314,70 +326,15 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
         + 1.2 * (1.0 - facets) * uCoupling
         + 1.2 * turb
         + 0.9 * stripes
-        + 1.2 * noiseGrad * uNoise;
+        // low coherence: more crackle; high: smoother
+        + 1.2 * noiseGrad * uNoise * mix(1.1, 0.5, coh);
 
-    // *** DAMPING: narrower range, less extreme ***
-    // low damping → slightly heavier; high damping → slightly crisper
+    // *** DAMPING: keep your (mild) contrast mapping ***
     float contrast = mix(0.9, 1.35, uDamping);
     h     = soft(field * contrast);
     attr  = attractField;
     nGrad = noiseGrad;
 }
-
-void main(){
-    // screen-space 0–1 (for attractor tie-in)
-    vec2 uvScreen = gl_FragCoord.xy / uResolution.xy;
-
-    // symmetric view / field coord
-    vec2 uv = uvScreen * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-
-    // zoom out a bit
-    vec2 p = uv * 1.7;
-
-    // base height, attractor, noise-gradient
-    float h, attr, nGrad;
-    computeField(p, uvScreen, h, attr, nGrad);
-
-    // height-map lighting
-    float eps = 0.04;
-    float hX, tmpA, tmpN;
-    computeField(p + vec2(eps, 0.0), uvScreen, hX, tmpA, tmpN);
-    float hY;
-    computeField(p + vec2(0.0, eps), uvScreen, hY, tmpA, tmpN);
-
-    vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
-    vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
-    float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
-
-    // Friendly Geometry palette
-    vec3 deep  = vec3(0.08, 0.12, 0.19);
-    vec3 beige = vec3(0.90, 0.83, 0.75);
-    vec3 teal  = vec3(0.48, 0.77, 0.88);
-
-    vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
-
-    // attractor tint
-    col = mix(col, teal, attr * 0.9);
-
-    // crackle
-    col -= nGrad * uNoise * 0.3;
-
-    // lighting
-    float lightFactor = 0.35 + 0.65 * diff;
-    col *= lightFactor;
-
-    // grain
-    float g = noise(gl_FragCoord.xy * 0.8);
-    col *= 0.96 + 0.04 * (g - 0.5);
-
-    // vignette in symmetric uv
-    float radius = length(uv);
-    float vig = smoothstep(1.4, 0.65, radius);
-    col *= vig;
-
-    // keep the inverted look you like
-    col = 1.0 - col;
 
     // ---- POST-INVERSION EMOTIONAL MAPPING ----
     // 1) DAMPING → brightness, but *subtle* on both ends
