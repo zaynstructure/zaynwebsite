@@ -216,7 +216,7 @@
         <button class="preset-btn" data-preset="B">B</button>
         <button class="preset-btn" data-preset="C">C</button>
         <button class="preset-btn" data-preset="D">D</button>
-      </div>
+      </div
       <div id="presetDescription" class="preset-description">
         Select a preset (A–D) to load a typical field pattern and see a short description.
       </div>
@@ -260,6 +260,15 @@
       </label>
     </div>
   </div>
+
+          <label class="label">
+        <span class="name">contain</span>
+        <select id="containmentMode">
+          <option value="porous">porous</option>
+          <option value="balanced" selected>balanced</option>
+          <option value="tight">tight</option>
+        </select>
+      </label>
 <div id="devPanel" class="dev-panel">
     <div class="dev-title">particles</div>
 
@@ -664,7 +673,7 @@ void main(){
     const uAttrLoc      = gl.getUniformLocation(program, "uAttractor");
     const uCohLoc       = gl.getUniformLocation(program, "uCoherence");
     const uAttrPosLoc   = gl.getUniformLocation(program, "uAttractorPos");
-const uNoiseExtraLoc = gl.getUniformLocation(program, "uNoiseExtra");
+    const uNoiseExtraLoc = gl.getUniformLocation(program, "uNoiseExtra");
     
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -683,8 +692,22 @@ const uNoiseExtraLoc = gl.getUniformLocation(program, "uNoiseExtra");
       rhythm:    document.getElementById("rhythm"),
       gradient:  document.getElementById("gradient"),
       attractor: document.getElementById("attractor"),
-      coherence: document.getElementById("coherence")
+      coherence: document.getElementById("
+
+    const containmentSelect = document.getElementById("containmentMode");
+    let cMode = "balanced";
+
+    const CONTAINMENT_GAIN = {
+      porous:   1.4,   // low containment → high sensitivity
+      balanced: 1.0,   // current behaviour
+      tight:    0.6    // high containment → muted response
     };
+
+    if (containmentSelect) {
+      containmentSelect.addEventListener("change", (e) => {
+        cMode = e.target.value;
+      });
+    }
 
     const evf    = EVFCore.state;
 const tuning = EVFCore.tuning;
@@ -748,7 +771,7 @@ function applyPanelToTuning() {
 });
 
 // copy tuning JSON to clipboard
-devCopyBtn.addEventListener('click', () => {
+   devCopyBtn.addEventListener('click', () => {
   const json = JSON.stringify(pCfg, null, 2);
   navigator.clipboard?.writeText(json).catch(() => {});
 });
@@ -1015,15 +1038,25 @@ function render() {
   gl.uniform2f(uAttrPosLoc, axNorm, ayNorm);
 
   // smooth EVF lerp
+    // smooth EVF lerp + containment amplifier γ
   const speed = 0.08;
-  evf.damping   = lerp(evf.damping,   parseFloat(sliders.damping.value),   speed);
-  evf.coupling  = lerp(evf.coupling,  parseFloat(sliders.coupling.value),  speed);
-  evf.noise     = lerp(evf.noise,     parseFloat(sliders.noise.value),     speed);
-  evf.rhythm    = lerp(evf.rhythm,    parseFloat(sliders.rhythm.value),    speed);
-  evf.gradient  = lerp(evf.gradient,  parseFloat(sliders.gradient.value),  speed);
-  evf.attractor = lerp(evf.attractor, parseFloat(sliders.attractor.value), speed);
-  evf.coherence = lerp(evf.coherence, parseFloat(sliders.coherence.value), speed);
+  const gammaScale = CONTAINMENT_GAIN[cMode] ?? 1.0;
 
+  const targetDamp      = parseFloat(sliders.damping.value);
+  const targetCoupling  = parseFloat(sliders.coupling.value)  * gammaScale;
+  const targetNoise     = parseFloat(sliders.noise.value)     * gammaScale;
+  const targetRhythm    = parseFloat(sliders.rhythm.value)    * gammaScale;
+  const targetGradient  = parseFloat(sliders.gradient.value)  * gammaScale;
+  const targetAttractor = parseFloat(sliders.attractor.value) * gammaScale;
+  const targetCoh       = parseFloat(sliders.coherence.value);
+
+  evf.damping   = lerp(evf.damping,   targetDamp,      speed);
+  evf.coupling  = lerp(evf.coupling,  targetCoupling,  speed);
+  evf.noise     = lerp(evf.noise,     targetNoise,     speed);
+  evf.rhythm    = lerp(evf.rhythm,    targetRhythm,    speed);
+  evf.gradient  = lerp(evf.gradient,  targetGradient,  speed);
+  evf.attractor = lerp(evf.attractor, targetAttractor, speed);
+  evf.coherence = lerp(evf.coherence, targetCoh,       speed);
   gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
   gl.uniform1f(uTimeLoc, t);
 
