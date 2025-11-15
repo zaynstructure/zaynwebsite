@@ -279,6 +279,11 @@
       </label>
     </div>
 
+  <label class="dev-row">
+  <span>extra noise</span>
+  <input id="dev-noise-extra" type="checkbox">
+</label>
+
     <div class="dev-row">
       <label>
         size max
@@ -304,6 +309,8 @@
     const gl = canvas.getContext('webgl');
     if (!gl) { alert('WebGL not supported'); }
 
+
+    
     function resizeGL() {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
@@ -330,7 +337,7 @@ uniform float uGradient, uAttractor, uCoherence;
 uniform vec2  uResolution;
 uniform float uTime;
 uniform vec2  uAttractorPos;   // 0–1 screen-space (same as particles)
-
+uniform float uNoiseExtra; // 0 or 1
 float hash(vec2 p){
     return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
 }
@@ -646,7 +653,8 @@ void main(){
     const uAttrLoc      = gl.getUniformLocation(program, "uAttractor");
     const uCohLoc       = gl.getUniformLocation(program, "uCoherence");
     const uAttrPosLoc   = gl.getUniformLocation(program, "uAttractorPos");
-
+const uNoiseExtraLoc = gl.getUniformLocation(program, "uNoiseExtra");
+    
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -669,6 +677,19 @@ void main(){
 
     const evf    = EVFCore.state;
 const tuning = EVFCore.tuning;
+// ------------------ DEV PANEL: NOISE EXTRA TOGGLE ------------------
+const devNoiseExtra = document.getElementById("dev-noise-extra");
+
+// default
+tuning.noiseExtra = 0;
+
+// bind checkbox → tuning value
+if (devNoiseExtra) {
+  devNoiseExtra.addEventListener("input", e => {
+    tuning.noiseExtra = e.target.checked ? 1 : 0;
+  });
+}
+    
 // ------------------ DEV PANEL HOOKS ------------------
 const pCfg = tuning.particles;
 
@@ -985,7 +1006,7 @@ function render() {
   gl.uniform1f(uGradLoc, evf.gradient);
   gl.uniform1f(uAttrLoc, evf.attractor);
   gl.uniform1f(uCohLoc, evf.coherence);
-
+gl.uniform1f(uNoiseExtraLoc, tuning.noiseExtra);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   updateParticles();
