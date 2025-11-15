@@ -403,9 +403,10 @@ float soft(float x){ return x / (1.0 + abs(x)); }
 void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float nGrad){
     float coh = uCoherence;
 
-    // --- COHERENCE: subtle mirror instead of hard stretch ---
-    vec2 q  = p;
-    vec2 q2 = vec2(-q.x, q.y);
+    // --- COHERENCE (Cₒ): structural alignment ---
+float mirrorAmt = uCoherence * 0.28;   // soft, geometric alignment
+vec2 q2 = vec2(-p.x, p.y);
+vec2 q = mix(p, q2, mirrorAmt);
     float mirrorAmt = coh * 0.25;          // soft
     q = mix(q, q2, mirrorAmt);
 
@@ -432,7 +433,8 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
     // high coherence → fewer, larger cells (smoother)
     float cellScale = baseCellScale * mix(1.3, 0.75, coh);
     float edges = voronoiEdge(q, cellScale);
-    float facets = smoothstep(0.0, 0.55, edges);
+    float cellScale = mix(12.0, 6.0, uCoupling);
+cellScale *= mix(1.3, 0.6, uCoherence);  // coherence = bigger, smoother facets
 
     // --- NOISE (ξ) + COHERENCE: how crackly it is ---
     float noiseScaleBase = mix(3.0, 18.0, uNoise);
@@ -459,16 +461,16 @@ void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float 
 
 
     // --- RHYTHM (R) + COHERENCE: band clarity ---
-    float stripesFreq = mix(0.0, 18.0, uRhythm);
-    float stripes = 0.0;
-    if (stripesFreq > 0.0) {
-        stripes = sin(q.y * stripesFreq + uTime * 0.6);
-        stripes = 0.5 + 0.5 * stripes;
-        // low coherence → bands washed out; high → clearer
-        float rhythmAmp = 0.6 + 0.9 * coh;
-        stripes = 0.5 + (stripes - 0.5) * rhythmAmp;
-    }
+    // --- RHYTHM (R): macro field bands ---
+float stripesFreq = mix(0.0, 22.0, uRhythm);  // ↑ stronger visibility
+float stripes = 0.0;
 
+if (stripesFreq > 0.0) {
+    stripes = sin(q.y * stripesFreq + uTime * 0.9);
+    stripes = 0.5 + 0.5 * stripes;
+    float rhythmAmp = 0.4 + 0.8 * uCoherence;  // coherence shapes clarity
+    stripes = 0.5 + (stripes - 0.5) * rhythmAmp;
+}
     // scalar field
     float field =
           1.0 * grad
@@ -544,10 +546,14 @@ void main(){
 
     // ---- POST-INVERSION EMOTIONAL MAPPING ----
 
-    // 1) DAMPING → brightness (low = darker, stuck; high = lighter)
-    float dampBright = mix(-0.08, 0.10, uDamping);
-    col += vec3(dampBright);
-    col = clamp(col, 0.0, 1.0);
+// ---- POST-INVERSION: DAMPING (γ) ----
+// γ controls contrast + slight overall bright/dim
+float dampBright = mix(-0.10, 0.12, uDamping);
+float dampContrast = mix(0.85, 1.35, uDamping);
+
+col = (col - 0.5) * dampContrast + 0.5; 
+col += vec3(dampBright);
+col = clamp(col, 0.0, 1.0);
 
     // 2) RHYTHM → very soft temporal hue shift
     float pulse = 0.5 + 0.5 * sin(uTime * 0.7);
@@ -836,7 +842,8 @@ function initParticles() {
       vx: 0,
       vy: 0,
       size: baseSize,
-      phase: Math.random() * Math.PI * 2, // for breathing
+      const rhythmFactor = 0.6 + 1.2 * evf.rhythm; // ↑ more visible breathing
+const osc = 0.5 + 0.5 * Math.sin(p.life * 2.4 * rhythmFactor + p.phase);
       life: Math.random() * 5,
       maxLife: 5 + Math.random() * 5
     });
@@ -946,33 +953,56 @@ if (distA < innerRadius) {
   p.vy -= (dyA / distA) * repel;
 }
 
-    // attractor pull
-    p.vx += (dxA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
-    p.vy += (dyA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
+    // --- ATTRACTOR (A): curvature + pull strength ---
+let dxA = ax - p.x;
+let dyA = ay - p.y;
+let distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
 
-    // cluster pull
-    if (clusters.length > 0 && cVal > 0.05) {
-      let closest = clusters[0];
-      let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
-      for (let k = 1; k < clusters.length; k++) {
-        const cx = clusters[k].x, cy = clusters[k].y;
-        const d2 = (p.x - cx)**2 + (p.y - cy)**2;
-        if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
-      }
-      const dxC = closest.x - p.x, dyC = closest.y - p.y;
-      const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
-      const CLUSTER_PULL = 0.05 + 0.18 * cVal;
-      p.vx += (dxC / distC) * CLUSTER_PULL;
-      p.vy += (dyC / distC) * CLUSTER_PULL;
-    }
+// vanish inside deep basin
+const vanishRadius = innerRadius * 0.75;
+if (distA < vanishRadius && aVal > 0.15) {
+    p.x = Math.random() * w;
+    p.y = Math.random() * h;
+    p.vx = p.vy = 0;
+    p.life = 0;
+    continue;
+}
 
-    // noise jitter
-    p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
-    p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
+// pull toward attractor
+const ATTR_PULL = (0.25 + 0.65 * evf.attractor) * drive;
+p.vx += (dxA / distA) * ATTR_PULL;
+p.vy += (dyA / distA) * ATTR_PULL;
+   // --- COUPLING (c): particle clustering only ---
+if (cVal > 0.05) {
+  const clusterCount = 1 + Math.floor(cVal * 4);
+  let closest;
+  let minD2 = Infinity;
 
-    // damping
-    p.vx *= DAMP;
-    p.vy *= DAMP;
+  for (let i = 0; i < clusterCount; i++) {
+    const cx = clusters[i].x, cy = clusters[i].y;
+    const d2 = (p.x - cx)*(p.x - cx) + (p.y - cy)*(p.y - cy);
+    if (d2 < minD2) { minD2 = d2; closest = clusters[i]; }
+  }
+
+  const dxC = closest.x - p.x;
+  const dyC = closest.y - p.y;
+  const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
+
+  const CLUSTER_PULL = 0.05 + 0.20 * cVal;
+  p.vx += (dxC / distC) * CLUSTER_PULL;
+  p.vy += (dyC / distC) * CLUSTER_PULL;
+}
+
+// minimal particle jitter: ξ only hints, doesn’t dominate
+const jitter = 0.008 + 0.025 * evf.noise;
+p.vx += (Math.random() - 0.5) * jitter;
+p.vy += (Math.random() - 0.5) * jitter;
+
+    // particle slowdown from γ
+const DAMP_MIN = 0.65, DAMP_MAX = 0.97;
+const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
+p.vx *= DAMP;
+p.vy *= DAMP;
 
     // integrate
     p.x += p.vx;
