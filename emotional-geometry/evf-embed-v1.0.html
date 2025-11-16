@@ -258,11 +258,10 @@
         <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
       </label>
 
-      <label class="label">
+            <label class="label">
         <span class="name">coherence</span>
-        <input id="coherence" type="range" min="0" max="1" step="0.01" value="0.5">
+        <span id="coherenceDisplay">—</span>
       </label>
-
       <label class="label">
         <span class="name">contain</span>
         <select id="containmentMode">
@@ -560,7 +559,7 @@ if (uNoiseExtra > 0.0) {
           rhythm: 0.7,
           gradient: 0.5,
           attractor: 0.4,
-          coherence: 0.7
+          
         },
         description:
           'Preset A loads a relatively regulated field: emotions settle quickly, noise is low, daily rhythm is stable, and the system is mostly coherent with only mild external pull.'
@@ -574,7 +573,7 @@ if (uNoiseExtra > 0.0) {
           rhythm: 0.4,
           gradient: 0.5,
           attractor: 0.6,
-          coherence: 0.4
+          
         },
         description:
           'Preset B represents a field that picks up a lot from others, with high internal noise and weaker rhythm. The state is sensitive to the environment and harder to stabilise.'
@@ -588,7 +587,7 @@ if (uNoiseExtra > 0.0) {
           rhythm: 0.3,
           gradient: 0.2,
           attractor: 0.2,
-          coherence: 0.5
+          
         },
         description:
           'Preset C is a low-drive field: relatively calm but with weak gradient and attractor. Emotions are not extreme, but there is limited directional pull or momentum.'
@@ -602,7 +601,7 @@ if (uNoiseExtra > 0.0) {
           rhythm: 0.6,
           gradient: 0.9,
           attractor: 0.9,
-          coherence: 0.6
+          
         },
         description:
           'Preset D models a strongly driven field with a clear pull and dominant focus. There is noticeable activation around one theme, with enough structure to hold it together.'
@@ -660,7 +659,6 @@ if (uNoiseExtra > 0.0) {
       rhythm:    document.getElementById("rhythm"),
       gradient:  document.getElementById("gradient"),
       attractor: document.getElementById("attractor"),
-      coherence: document.getElementById("coherence")
     };
 
     const containmentSelect = document.getElementById("containmentMode");
@@ -747,6 +745,28 @@ if (uNoiseExtra > 0.0) {
     syncPanelFromTuning();
 
     function lerp(a,b,t){ return a + (b-a)*t; }
+function deriveCoherence(evf, cMode) {
+  const directional = evf.gradient * evf.attractor;
+  const stable      = evf.damping  * evf.rhythm;
+  const socialGlue  = evf.coupling * 0.5;
+
+  const noisePenalty = evf.noise * 0.8;
+
+  let containmentBoost = 1.0;
+  if (cMode === "porous")   containmentBoost = 0.8;
+  if (cMode === "balanced") containmentBoost = 1.0;
+  if (cMode === "tight")    containmentBoost = 1.15;
+
+  let raw = (0.9 * directional + 0.7 * stable + 0.4 * socialGlue) * containmentBoost
+          - noisePenalty;
+
+  raw = Math.max(0, Math.min(1, raw));
+
+  const SMOOTH = 0.10;
+  return evf.coherence + (raw - evf.coherence) * SMOOTH;
+}
+
+    
 
     // ------------------ PARTICLES ------------------
     const pCanvas = document.getElementById("particles");
@@ -965,7 +985,7 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
     }
 
     // ------------------ PRESET HANDLERS ------------------
-    function applyPreset(key) {
+        function applyPreset(key) {
       const preset = PRESETS[key];
       if (!preset) return;
 
@@ -976,7 +996,6 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
       sliders.rhythm.value    = p.rhythm;
       sliders.gradient.value  = p.gradient;
       sliders.attractor.value = p.attractor;
-      sliders.coherence.value = p.coherence;
 
       evf.damping   = p.damping;
       evf.coupling  = p.coupling;
@@ -984,7 +1003,7 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
       evf.rhythm    = p.rhythm;
       evf.gradient  = p.gradient;
       evf.attractor = p.attractor;
-      evf.coherence = p.coherence;
+      // coherence will be derived, so don't set it directly
 
       presetButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.preset === key);
@@ -992,13 +1011,6 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
 
       presetDescEl.textContent = preset.description;
     }
-
-    presetButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        applyPreset(btn.dataset.preset);
-      });
-    });
-
     // ------------------ MAIN LOOP ------------------
     const t0 = performance.now();
     function render() {
@@ -1021,15 +1033,17 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
       const targetRhythm    = parseFloat(sliders.rhythm.value);   // ← no gammaScale
       const targetGradient  = parseFloat(sliders.gradient.value)  * gammaScale;
       const targetAttractor = parseFloat(sliders.attractor.value) * gammaScale;
-      const targetCoh       = parseFloat(sliders.coherence.value);
+    
 
       evf.damping   = lerp(evf.damping,   targetDamp,      speed);
-      evf.coupling  = lerp(evf.coupling,  targetCoupling,  speed);
-      evf.noise     = lerp(evf.noise,     targetNoise,     speed);
-      evf.rhythm    = lerp(evf.rhythm,    targetRhythm,    speed);
-      evf.gradient  = lerp(evf.gradient,  targetGradient,  speed);
-      evf.attractor = lerp(evf.attractor, targetAttractor, speed);
-      evf.coherence = lerp(evf.coherence, targetCoh,       speed);
+evf.coupling  = lerp(evf.coupling,  targetCoupling,  speed);
+evf.noise     = lerp(evf.noise,     targetNoise,     speed);
+evf.rhythm    = lerp(evf.rhythm,    targetRhythm,    speed);
+evf.gradient  = lerp(evf.gradient,  targetGradient,  speed);
+evf.attractor = lerp(evf.attractor, targetAttractor, speed);
+
+// coherence is emergent now
+evf.coherence = deriveCoherence(evf, cMode);
 
       gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.uniform1f(uTimeLoc, t);
