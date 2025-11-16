@@ -653,17 +653,64 @@ if (uNoiseExtra > 0.0) {
     gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
 
     const sliders = {
-      damping:   document.getElementById("damping"),
-      coupling:  document.getElementById("coupling"),
-      noise:     document.getElementById("noise"),
-      rhythm:    document.getElementById("rhythm"),
-      gradient:  document.getElementById("gradient"),
-      attractor: document.getElementById("attractor"),
-    };
+  damping:   document.getElementById("damping"),
+  coupling:  document.getElementById("coupling"),
+  noise:     document.getElementById("noise"),
+  rhythm:    document.getElementById("rhythm"),
+  gradient:  document.getElementById("gradient"),
+  attractor: document.getElementById("attractor")
+};
 
+const coherenceDisplay = document.getElementById("coherenceDisplay");
+const saveTuningBtn    = document.getElementById("saveTuningBtn");
+const tuningSnapshotEl = document.getElementById("tuningSnapshot");
     const containmentSelect = document.getElementById("containmentMode");
     let cMode = "balanced";
+if (saveTuningBtn) {
+  saveTuningBtn.addEventListener("click", () => {
+    // raw slider inputs (what the user is “trying” to set)
+    const inputs = {
+      damping:   parseFloat(sliders.damping.value),
+      coupling:  parseFloat(sliders.coupling.value),
+      noise:     parseFloat(sliders.noise.value),
+      rhythm:    parseFloat(sliders.rhythm.value),
+      gradient:  parseFloat(sliders.gradient.value),
+      attractor: parseFloat(sliders.attractor.value)
+    };
 
+    // effective field state (after containment scaling + smoothing + emergent coherence)
+    const effective = {
+      damping:   evf.damping,
+      coupling:  evf.coupling,
+      noise:     evf.noise,
+      rhythm:    evf.rhythm,
+      gradient:  evf.gradient,
+      attractor: evf.attractor,
+      coherence: evf.coherence
+    };
+
+    const snapshot = {
+      mode: cMode,             // "porous" | "balanced" | "tight"
+      inputs,
+      effective,
+      meta: {
+        time: new Date().toISOString()
+      }
+    };
+
+    const text = JSON.stringify(snapshot, null, 2);
+
+    if (tuningSnapshotEl) {
+      tuningSnapshotEl.value = text;
+      tuningSnapshotEl.focus();
+      tuningSnapshotEl.select(); // easy copy on desktop
+    } else {
+      // fallback if textarea missing
+      console.log("EVF snapshot:", snapshot);
+      window.prompt("Copy EVF snapshot:", text);
+    }
+  });
+}
     const CONTAINMENT_GAIN = {
       porous:   1.4,
       balanced: 1.0,
