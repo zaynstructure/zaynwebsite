@@ -1044,6 +1044,9 @@ evf.attractor = lerp(evf.attractor, targetAttractor, speed);
 
 // coherence is emergent now
 evf.coherence = deriveCoherence(evf, cMode);
+            if (coherenceDisplay) {
+        coherenceDisplay.textContent = evf.coherence.toFixed(2);
+      }
 
       gl.uniform2f(uResLoc, gl.drawingBufferWidth, gl.drawingBufferHeight);
       gl.uniform1f(uTimeLoc, t);
