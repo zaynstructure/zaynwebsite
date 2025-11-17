@@ -663,13 +663,16 @@ const coherenceDisplay = document.getElementById("coherenceDisplay");
     let cMode = "balanced";
 
     const inputs = {
-      damping:   parseFloat(sliders.damping.value),
-      coupling:  parseFloat(sliders.coupling.value),
-      noise:     parseFloat(sliders.noise.value),
-      rhythm:    parseFloat(sliders.rhythm.value),
-      gradient:  parseFloat(sliders.gradient.value),
-      attractor: parseFloat(    const evf    = EVFCore.state;
-    const tuning = EVFCore.tuning;
+  damping:   parseFloat(sliders.damping.value),
+  coupling:  parseFloat(sliders.coupling.value),
+  noise:     parseFloat(sliders.noise.value),
+  rhythm:    parseFloat(sliders.rhythm.value),
+  gradient:  parseFloat(sliders.gradient.value),
+  attractor: parseFloat(sliders.attractor.value)
+};
+
+const evf    = EVFCore.state;
+const tuning = EVFCore.tuning;
     // effective field state (after containment scaling + smoothing + emergent coherence)
     const effective = {
       damping:   evf.damping,
