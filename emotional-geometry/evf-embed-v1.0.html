@@ -668,9 +668,8 @@ const coherenceDisplay = document.getElementById("coherenceDisplay");
       noise:     parseFloat(sliders.noise.value),
       rhythm:    parseFloat(sliders.rhythm.value),
       gradient:  parseFloat(sliders.gradient.value),
-      attractor: parseFloat(sliders.attractor.value)
-    };
-
+      attractor: parseFloat(    const evf    = EVFCore.state;
+    const tuning = EVFCore.tuning;
     // effective field state (after containment scaling + smoothing + emergent coherence)
     const effective = {
       damping:   evf.damping,
@@ -695,8 +694,7 @@ const coherenceDisplay = document.getElementById("coherenceDisplay");
       });
     }
 
-    const evf    = EVFCore.state;
-    const tuning = EVFCore.tuning;
+
 
     // ------------------ DEV PANEL: NOISE EXTRA TOGGLE ------------------
     const devNoiseExtra = document.getElementById("dev-noise-extra");
