@@ -237,16 +237,7 @@
       <div id="presetDescription" class="preset-description">
         Select a preset (A–D) to load a typical field pattern and see a short description.
       </div>
-<div class="row">
-  <button id="saveTuningBtn" class="btn">save tuning</button>
-</div>
 
-<label class="label">
-  <span class="name">snapshot</span>
-  <textarea id="tuningSnapshot" rows="6" readonly></textarea>
-</label>
-      
-    </div>
 
     <!-- right: sliders + containment -->
     <div class="controls-main">
@@ -675,12 +666,10 @@ if (uNoiseExtra > 0.0) {
 };
 
 const coherenceDisplay = document.getElementById("coherenceDisplay");
-const saveTuningBtn    = document.getElementById("saveTuningBtn");
-const tuningSnapshotEl = document.getElementById("tuningSnapshot");
+
     const containmentSelect = document.getElementById("containmentMode");
     let cMode = "balanced";
-if (saveTuningBtn) {
-  saveTuningBtn.addEventListener("click", () => {
+
     // raw slider inputs (what the user is “trying” to set)
     const inputs = {
       damping:   parseFloat(sliders.damping.value),
@@ -702,29 +691,7 @@ if (saveTuningBtn) {
       coherence: evf.coherence
     };
 
-    const snapshot = {
-      mode: cMode,             // "porous" | "balanced" | "tight"
-      inputs,
-      effective,
-      meta: {
-        time: new Date().toISOString()
-      }
-    };
-
-    const text = JSON.stringify(snapshot, null, 2);
-
-    if (tuningSnapshotEl) {
-      tuningSnapshotEl.value = text;
-      tuningSnapshotEl.focus();
-      tuningSnapshotEl.select(); // easy copy on desktop
-    } else {
-      // fallback if textarea missing
-      console.log("EVF snapshot:", snapshot);
-      window.prompt("Copy EVF snapshot:", text);
-    }
-  });
-}
-    const CONTAINMENT_GAIN = {
+        const CONTAINMENT_GAIN = {
       porous:   1.4,
       balanced: 1.0,
       tight:    0.6
