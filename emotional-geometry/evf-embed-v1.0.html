@@ -876,6 +876,23 @@ const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
       const drive   = Math.max(gVal, aVal);
       const aimless = 1.0 - drive;
 
+// PURE GRADIENT-DRIVEN FALL (strong drive, no destination)
+if (evf.gradient > 0.9 && evf.attractor < 0.1) {
+    // strong downward force
+    p.vy += 0.004 * evf.gradient;
+
+    // kill horizontal drift (optional)
+    p.vx *= 0.2;
+
+    // or even:
+    // p.vx = 0;
+}
+
+
+      
+
+      
+
       const GRAD_STRENGTH  = 0.025 * gVal;
       const ATTR_STRENGTH  = 0.05 * aVal;
       const NOISE_STRENGTH = 0.02 + 0.06 * evf.noise;
