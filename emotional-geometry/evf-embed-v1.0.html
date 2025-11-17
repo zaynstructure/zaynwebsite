@@ -604,6 +604,10 @@ if (uNoiseExtra > 0.0) {
   }
 };
 
+const evf    = EVFCore.state;
+const tuning = EVFCore.tuning;
+    
+
     const presetButtons = Array.from(document.querySelectorAll('.preset-btn'));
     const presetDescEl = document.getElementById('presetDescription');
 
@@ -671,8 +675,7 @@ const coherenceDisplay = document.getElementById("coherenceDisplay");
   attractor: parseFloat(sliders.attractor.value)
 };
 
-const evf    = EVFCore.state;
-const tuning = EVFCore.tuning;
+
     // effective field state (after containment scaling + smoothing + emergent coherence)
     const effective = {
       damping:   evf.damping,
