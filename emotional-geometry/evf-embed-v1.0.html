@@ -220,9 +220,11 @@
         <button class="preset-btn" data-preset="B">B</button>
         <button class="preset-btn" data-preset="C">C</button>
         <button class="preset-btn" data-preset="D">D</button>
+        <button class="preset-btn" data-preset="E">E</button>
+<button class="preset-btn" data-preset="F">F</button>
       </div>
       <div id="presetDescription" class="preset-description">
-        Select a preset (A–D) to load a typical field pattern and see a short description.
+        Select a preset (A–F) to load a typical field pattern and see a short description.
       </div>
 <div class="row">
   <button id="saveTuningBtn" class="btn">save tuning</button>
@@ -689,28 +691,7 @@ if (saveTuningBtn) {
       coherence: evf.coherence
     };
 
-    const snapshot = {
-      mode: cMode,             // "porous" | "balanced" | "tight"
-      inputs,
-      effective,
-      meta: {
-        time: new Date().toISOString()
-      }
-    };
-
-    const text = JSON.stringify(snapshot, null, 2);
-
-    if (tuningSnapshotEl) {
-      tuningSnapshotEl.value = text;
-      tuningSnapshotEl.focus();
-      tuningSnapshotEl.select(); // easy copy on desktop
-    } else {
-      // fallback if textarea missing
-      console.log("EVF snapshot:", snapshot);
-      window.prompt("Copy EVF snapshot:", text);
-    }
-  });
-}
+ 
     const CONTAINMENT_GAIN = {
       porous:   1.4,
       balanced: 1.0,
