@@ -354,9 +354,195 @@ uniform float uNoiseExtra;
 uniform float uTime;
 uniform vec2  uResolution;
 uniform vec2  uAttractorPos;
+precision highp float;
 
-/* --- noise + voronoi omitted here for brevity --- */
-/* In final version I'll include entire shader text */
+uniform float uDamping, uCoupling, uNoise, uRhythm;
+uniform float uGradient, uAttractor, uCoherence;
+uniform float uNoiseExtra;
+uniform vec2  uResolution;
+uniform float uTime;
+uniform vec2  uAttractorPos;
+
+float hash(vec2 p){
+  return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+}
+
+float noise(vec2 p){
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0,0.0));
+  float c = hash(i + vec2(0.0,1.0));
+  float d = hash(i + vec2(1.0,1.0));
+  vec2 u = f*f*(3.0-2.0*f);
+  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+}
+
+float voronoiEdge(vec2 p, float scale){
+  vec2 g = floor(p * scale);
+  float d = 1.0;
+  for (int y=-1; y<=1; y++) {
+    for (int x=-1; x<=1; x++) {
+      vec2 o = vec2(x,y);
+      vec2 r = g + o + noise(g + o);
+      vec2 diff = r/scale - p;
+      d = min(d, length(diff));
+    }
+  }
+  return d;
+}
+
+float soft(float x){ return x / (1.0 + abs(x)); }
+
+void computeField(vec2 p, vec2 uvScreen, out float h, out float attr, out float nGrad){
+  float coh = uCoherence;
+
+  vec2 q  = p;
+  vec2 q2 = vec2(-q.x, q.y);
+  float mirrorAmt = coh * 0.25;
+  q = mix(q, q2, mirrorAmt);
+
+  vec2 gdir = normalize(vec2(0.7, -0.4));
+  float grad = dot(q, gdir) * (1.0 + 2.0 * uGradient);
+  float GRAD_EPS = 0.03;
+  float gradSlider = uGradient;
+  float gradGain = GRAD_EPS + (1.0 - GRAD_EPS) * gradSlider;
+
+  float dA = length(uvScreen - uAttractorPos);
+
+  float radius  = mix(1.6, 0.25, uAttractor);
+  float falloff = mix(1.0, 6.0, uAttractor);
+  float depth   = mix(0.08, 1.4, uAttractor);
+
+  float ring = exp(-pow((dA / radius) - 0.6, 2.0) * (6.0 + 12.0 * uAttractor));
+
+  float attractField =
+        exp(-dA * falloff) * depth
+      + ring * 0.25 * uAttractor;
+
+  float baseCellScale = mix(10.0, 5.0, uCoupling);
+  float cellScale = baseCellScale * mix(1.3, 0.75, coh);
+  float edges = voronoiEdge(q, cellScale);
+  float facets = smoothstep(0.0, 0.55, edges);
+
+  float noiseScaleBase = mix(3.0, 18.0, uNoise);
+  float noiseScale = noiseScaleBase * mix(1.25, 0.75, coh);
+
+  float n0 = noise(q * noiseScale + uTime * 0.2);
+  float turb = pow(n0, mix(2.0, 0.4, uNoise));
+
+  float eps = 0.03;
+  float nX = noise(q * noiseScale + vec2(eps,0.0));
+  float nY = noise(q * noiseScale + vec2(0.0,eps));
+
+  float noiseGrad = length(vec2(nX - n0, nY - n0));
+
+  // ------------------ MICRO-NOISE (ξ_fine) ------------------
+  float extraJitter = 0.0;
+  if (uNoiseExtra > 0.0) {
+      float fineScale = mix(24.0, 52.0, uNoise);
+      float fine = noise(q * fineScale + uTime * 0.9);
+
+      float amp = mix(0.3, 1.5, uNoiseExtra);
+      extraJitter = (fine - 0.5) * amp * uNoise;
+
+      turb += extraJitter;
+
+      noiseGrad += abs(extraJitter) * 0.9;
+  }
+
+  float stripesFreq = mix(0.0, 18.0, uRhythm);
+  float stripes = 0.0;
+  if (stripesFreq > 0.0) {
+    stripes = sin(q.y * stripesFreq + uTime * 0.6);
+    stripes = 0.5 + 0.5 * stripes;
+    float rhythmAmp = 0.6 + 0.9 * coh;
+    stripes = 0.5 + (stripes - 0.5) * rhythmAmp;
+  }
+
+  float field =
+        1.0 * grad
+      + 1.7 * attractField
+      + 1.2 * (1.0 - facets) * uCoupling
+      + 1.2 * turb
+      + 1.6 * stripes
+      + 1.2 * noiseGrad * uNoise * mix(1.1, 0.5, coh);
+
+  float contrast = mix(0.9, 1.35, uDamping);
+  h     = soft(field * contrast);
+  attr  = attractField;
+  nGrad = noiseGrad;
+}
+
+void main(){
+  vec2 uvScreen = gl_FragCoord.xy / uResolution.xy;
+
+  vec2 uv = uvScreen * 2.0 - 1.0;
+  uv.x *= uResolution.x / uResolution.y;
+  vec2 p = uv * 1.7;
+
+  float h, attr, nGrad;
+  computeField(p, uvScreen, h, attr, nGrad);
+
+  float eps = 0.04;
+  float hX, tmpA, tmpN;
+  computeField(p + vec2(eps, 0.0), uvScreen, hX, tmpA, tmpN);
+
+  float hY;
+  computeField(p + vec2(0.0, eps), uvScreen, hY, tmpA, tmpN);
+
+  vec3 normal = normalize(vec3(hX - h, hY - h, 0.09));
+  vec3 lightDir = normalize(vec3(0.4, 0.7, 0.8));
+  float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
+
+  vec3 deep  = vec3(0.08, 0.12, 0.19);
+  vec3 beige = vec3(0.90, 0.83, 0.75);
+  vec3 teal  = vec3(0.48, 0.77, 0.88);
+
+  vec3 col = mix(deep, beige, 0.5 + 0.5 * h);
+  col = mix(col, teal, attr * 0.9);
+  col -= nGrad * uNoise * 0.3;
+
+  float lightFactor = 0.35 + 0.65 * diff;
+  col *= lightFactor;
+
+  float g = noise(gl_FragCoord.xy * 0.8);
+  col *= 0.96 + 0.04 * (g - 0.5);
+
+  float radius = length(uv);
+  float vig = smoothstep(1.4, 0.65, radius);
+  col *= vig;
+
+  // inverted look
+  col = 1.0 - col;
+
+  // micro-noise tint
+  if (uNoiseExtra > 0.0) {
+      float microMask = smoothstep(0.08, 0.35, nGrad * uNoise);
+
+      vec3 microTint = vec3(0.80, 0.86, 1.00);
+      float tintAmt = 0.20 * uNoiseExtra;
+      col = mix(col, microTint, tintAmt * microMask);
+
+      vec3 fadeBase = vec3(0.5);
+      float fadeAmt = 0.25 * uNoiseExtra;
+      vec3 washed = mix(col, fadeBase, 0.5);
+
+      col = mix(col, washed, fadeAmt * microMask);
+  }
+
+  float dampBright = mix(-0.08, 0.10, uDamping);
+  col += vec3(dampBright);
+  col = clamp(col, 0.0, 1.0);
+
+  float pulse = 0.5 + 0.5 * sin(uTime * 0.7);
+  float rAmt  = (uRhythm - 0.5) * 0.14;
+  vec3 rTint  = vec3(0.03, -0.02, 0.0) * rAmt * pulse;
+  col += rTint;
+  col = clamp(col, 0.0, 1.0);
+
+  gl_FragColor = vec4(col, 1.0);
+}
 `;
 
 // ------------------ COMPILATION HELPERS ------------------
