@@ -1074,14 +1074,13 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
       }
     }
 
-    // ------------------ PRESET HANDLERS ------------------
-        function applyPreset(key) {
+    /// ------------------ PRESET HANDLERS ------------------
+function applyPreset(key) {
   const preset = PRESETS[key];
   if (!preset) return;
 
   const p = preset.params;
 
-  // apply sliders
   sliders.damping.value   = p.damping;
   sliders.coupling.value  = p.coupling;
   sliders.noise.value     = p.noise;
@@ -1089,7 +1088,6 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
   sliders.gradient.value  = p.gradient;
   sliders.attractor.value = p.attractor;
 
-  // apply values to EVF state immediately
   evf.damping   = p.damping;
   evf.coupling  = p.coupling;
   evf.noise     = p.noise;
@@ -1097,20 +1095,24 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
   evf.gradient  = p.gradient;
   evf.attractor = p.attractor;
 
-  // APPLY CONTAINMENT MODE
   if (preset.containment) {
     cMode = preset.containment;
     containmentSelect.value = preset.containment;
   }
 
-  // update active button state
   presetButtons.forEach(btn => {
     btn.classList.toggle('active', btn.dataset.preset === key);
   });
 
-  // update description
   presetDescEl.textContent = preset.description;
 }
+
+// ATTACH CLICK EVENTS  ← you were missing this block
+presetButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyPreset(btn.dataset.preset);
+  });
+});
     // ------------------ MAIN LOOP ------------------
     const t0 = performance.now();
     function render() {
