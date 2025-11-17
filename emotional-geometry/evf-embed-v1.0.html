@@ -559,63 +559,54 @@ if (uNoiseExtra > 0.0) {
 
     // ------------------ PRESETS ------------------
     const PRESETS = {
-      A: {
-        name: 'A – regulated / steady',
-        params: {
-          damping: 0.8,
-          coupling: 0.4,
-          noise: 0.2,
-          rhythm: 0.7,
-          gradient: 0.5,
-          attractor: 0.4,
-          
-        },
-        description:
-          'Preset A loads a relatively regulated field: emotions settle quickly, noise is low, daily rhythm is stable, and the system is mostly coherent with only mild external pull.'
-      },
-      B: {
-        name: 'B – over-coupled / noisy',
-        params: {
-          damping: 0.3,
-          coupling: 0.9,
-          noise: 0.8,
-          rhythm: 0.4,
-          gradient: 0.5,
-          attractor: 0.6,
-          
-        },
-        description:
-          'Preset B represents a field that picks up a lot from others, with high internal noise and weaker rhythm. The state is sensitive to the environment and harder to stabilise.'
-      },
-      C: {
-        name: 'C – flat / low drive',
-        params: {
-          damping: 0.6,
-          coupling: 0.3,
-          noise: 0.3,
-          rhythm: 0.3,
-          gradient: 0.2,
-          attractor: 0.2,
-          
-        },
-        description:
-          'Preset C is a low-drive field: relatively calm but with weak gradient and attractor. Emotions are not extreme, but there is limited directional pull or momentum.'
-      },
-      D: {
-        name: 'D – driven / focused',
-        params: {
-          damping: 0.4,
-          coupling: 0.5,
-          noise: 0.4,
-          rhythm: 0.6,
-          gradient: 0.9,
-          attractor: 0.9,
-          
-        },
-        description:
-          'Preset D models a strongly driven field with a clear pull and dominant focus. There is noticeable activation around one theme, with enough structure to hold it together.'
-      }
-    };
+  A: {
+    name: "A – still basin / settled",
+    containment: "balanced",
+    params: { damping:0.85, coupling:0.35, noise:0.15, rhythm:0.45, gradient:0.22, attractor:0.28 },
+    description:
+      "A gently settled field with low noise and modest containment. Motion is slow and distributed, with no strong pull. Represents groundedness without urgency or pressure."
+  },
+
+  B: {
+    name: "B – diffuse scatter / reactive",
+    containment: "porous",
+    params: { damping:0.32, coupling:0.82, noise:0.78, rhythm:0.38, gradient:0.45, attractor:0.35 },
+    description:
+      "An over-coupled, high-noise field highly sensitive to external signals. Geometry becomes reactive and scattered, demonstrating turbulence and low coherence."
+  },
+
+  C: {
+    name: "C – flatline drift / low activation",
+    containment: "balanced",
+    params: { damping:0.78, coupling:0.28, noise:0.22, rhythm:0.30, gradient:0.16, attractor:0.10 },
+    description:
+      "A low-activation field with minimal drive and weak structural pull. Motion becomes shallow and drifting—representing emotional flatness or under-engagement."
+  },
+
+  D: {
+    name: "D – coherent pull / focused",
+    containment: "tight",
+    params: { damping:0.52, coupling:0.48, noise:0.32, rhythm:0.65, gradient:0.82, attractor:0.88 },
+    description:
+      "A strongly driven field with a stable attractor and high coherence. Motion converges toward a single theme, representing determined focus and structured activation."
+  },
+
+  E: {
+    name: "E – freefall / drive without destination",
+    containment: "porous",
+    params: { damping:0.40, coupling:0.20, noise:0.30, rhythm:0.55, gradient:1.00, attractor:0.00 },
+    description:
+      "A pure-gradient state with no center. The field slopes and particles slide along its incline, reflecting urgency without clarity—a compulsion to move without direction."
+  },
+
+  F: {
+    name: "F – chaotic compression / overloaded",
+    containment: "tight",
+    params: { damping:0.25, coupling:0.65, noise:0.90, rhythm:0.25, gradient:0.75, attractor:0.95 },
+    description:
+      "A compressed, overloaded field where strong internal pull collides with high noise. Geometry becomes unstable and collapsing, expressing overwhelm and internal tension."
+  }
+};
 
     const presetButtons = Array.from(document.querySelectorAll('.preset-btn'));
     const presetDescEl = document.getElementById('presetDescription');
@@ -1109,31 +1100,41 @@ if (cMode === "porous" && tuning.noiseExtra > 0 && evf.noise > 0.5) {
 
     // ------------------ PRESET HANDLERS ------------------
         function applyPreset(key) {
-      const preset = PRESETS[key];
-      if (!preset) return;
+  const preset = PRESETS[key];
+  if (!preset) return;
 
-      const p = preset.params;
-      sliders.damping.value   = p.damping;
-      sliders.coupling.value  = p.coupling;
-      sliders.noise.value     = p.noise;
-      sliders.rhythm.value    = p.rhythm;
-      sliders.gradient.value  = p.gradient;
-      sliders.attractor.value = p.attractor;
+  const p = preset.params;
 
-      evf.damping   = p.damping;
-      evf.coupling  = p.coupling;
-      evf.noise     = p.noise;
-      evf.rhythm    = p.rhythm;
-      evf.gradient  = p.gradient;
-      evf.attractor = p.attractor;
-      // coherence will be derived, so don't set it directly
+  // apply sliders
+  sliders.damping.value   = p.damping;
+  sliders.coupling.value  = p.coupling;
+  sliders.noise.value     = p.noise;
+  sliders.rhythm.value    = p.rhythm;
+  sliders.gradient.value  = p.gradient;
+  sliders.attractor.value = p.attractor;
 
-      presetButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.preset === key);
-      });
+  // apply values to EVF state immediately
+  evf.damping   = p.damping;
+  evf.coupling  = p.coupling;
+  evf.noise     = p.noise;
+  evf.rhythm    = p.rhythm;
+  evf.gradient  = p.gradient;
+  evf.attractor = p.attractor;
 
-      presetDescEl.textContent = preset.description;
-    }
+  // APPLY CONTAINMENT MODE
+  if (preset.containment) {
+    cMode = preset.containment;
+    containmentSelect.value = preset.containment;
+  }
+
+  // update active button state
+  presetButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.preset === key);
+  });
+
+  // update description
+  presetDescEl.textContent = preset.description;
+}
     // ------------------ MAIN LOOP ------------------
     const t0 = performance.now();
     function render() {
