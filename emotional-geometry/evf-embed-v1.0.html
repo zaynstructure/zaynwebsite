@@ -920,8 +920,7 @@ for (let p of particles) {
   p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
 
   // --- PURE GRADIENT-DRIVEN FALL (NO ATTRACTOR) ---
-  if (evf.gradient > 0.9 && evf.attractor < 0.1) {
-    // clear downward drive
+  if (gValRaw > 0.9 && aVal < 0.1) {
     p.vy += 0.006 * evf.gradient;
 
     // kill sideways drift (optional)
