@@ -877,17 +877,6 @@ const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
       const aimless = 1.0 - drive;
 
 // PURE GRADIENT-DRIVEN FALL (strong drive, no destination)
-if (evf.gradient > 0.9 && evf.attractor < 0.1) {
-    // strong downward force
-    p.vy += 0.004 * evf.gradient;
-
-    // kill horizontal drift (optional)
-    p.vx *= 0.2;
-
-    // or even:
-    // p.vx = 0;
-}
-
 
       
 
@@ -923,10 +912,51 @@ if (evf.gradient > 0.9 && evf.attractor < 0.1) {
         clusters.push({ x: cx, y: cy });
       }
 
-      for (let p of particles) {
-        p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
-        p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+      
 
+for (let p of particles) {
+  // base random drift
+  p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
+  p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+
+  // --- PURE GRADIENT-DRIVEN FALL (NO ATTRACTOR) ---
+  if (evf.gradient > 0.9 && evf.attractor < 0.1) {
+    // clear downward drive
+    p.vy += 0.006 * evf.gradient;
+
+    // kill sideways drift (optional)
+    p.vx *= 0.2;
+
+    // If you want perfect vertical drift:
+    // p.vx = 0;
+
+    // Skip all attractor & cluster logic below.
+    // Only apply damping + update position.
+    p.vx *= DAMP;
+    p.vy *= DAMP;
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // wrap
+    if (p.x < 0) p.x += w;
+    if (p.x > w) p.x -= w;
+    if (p.y < 0) p.y += h;
+    if (p.y > h) p.y -= h;
+
+    p.life += 0.02;
+    if (p.life > p.maxLife) {
+      p.x = Math.random() * w;
+      p.y = Math.random() * h;
+      p.vx = 0; p.vy = 0; p.life = 0;
+    }
+
+    continue; // <<< THIS IS IMPORTANT
+  }
+  // --- END PURE GRADIENT FALL LOGIC ---
+
+
+        
         if (drive < 0.12) {
           p.vx *= 0.97;
           p.vy *= 0.97;
