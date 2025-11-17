@@ -1,329 +1,321 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>EVF Shader Demo · Inverted + Particles</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-  * { box-sizing: border-box; }
+<meta charset="utf-8" />
+<title>EVF Shader Demo · Inverted + Particles</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #020617;
-    color: #e5e7eb;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  }
+<style>
+* { box-sizing: border-box; }
 
-  body {
-  display: flex;
-  flex-direction: column;
-  /* removed the clipping that broke clicks */
-  /* max-height: 520px; */
-  /* overflow: hidden; */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #020617;
+  color: #e5e7eb;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-  /* visual area */
-  #glWrap {
-    position: relative;
-    height: 320px;
-  }
+body {
+  display: flex;
+  flex-direction: column;
+}
 
-  /* field canvas */
-  #glCanvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
+/* visual area */
+#glWrap {
+  position: relative;
+  height: 320px;
+}
 
-  /* particle overlay */
-  #particles {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    display: block;
-  }
+/* field canvas */
+#glCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
-  /* slider bar */
-  #controls {
-    background: #000;
-    padding: 8px 10px;
-    border-top: 1px solid #222;
-
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    font-size: 11px;
-    color: #d4d4d4;
-  }
-
-  /* left presets column */
-  .presets {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 170px;
-  }
-
-  .presets-title {
-    font-size: 10px;
-    text-transform: lowercase;
-    color: #6b7280;
-  }
-
-  /* 2×2 grid for preset buttons */
-  .preset-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px;
-  }
-
-  .preset-btn {
-    border: 1px solid #374151;
-    background: #000;
-    color: #d1d5db;
-    font-size: 10px;
-    padding: 3px 0;
-    border-radius: 4px;
-    cursor: pointer;
-    text-align: center;
-  }
-
-  .preset-btn.active {
-    border-color: #38bdf8;
-    color: #e5f3ff;
-  }
-
-  /* right slider column */
-  .controls-main {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 14px;
-    align-items: center;
-  }
-
-  .label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .label .name {
-    width: 68px;
-    text-transform: lowercase;
-    color: #9ca3af;
-    font-size: 10px;
-  }
-
-  .label input[type="range"] {
-    width: 110px;
-  }
-
-  .label select {
-    font-size: 10px;
-    padding: 1px 4px;
-    background: #020617;
-    color: #e5e7eb;
-    border-radius: 4px;
-    border: 1px solid #374151;
-  }
-
-  .preset-description {
-    margin-top: 4px;
-    font-size: 10px;
-    line-height: 1.3;
-    color: #9ca3af;
-  }
+/* particle overlay */
 #particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+  display: block;
   z-index: 1;
 }
 
+/* controls */
 #controls {
+  background: #000;
+  padding: 8px 10px;
+  border-top: 1px solid #222;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 11px;
+  color: #d4d4d4;
   pointer-events: auto;
   z-index: 9999;
 }
 
-    
-  /* dev panel */
-  .dev-panel {
-    position: relative;
-    width: 100%;
-    padding: 10px 14px;
-    background: #0a0a0a;
-    border-top: 1px solid #333;
-    color: #ddd;
-    font-size: 11px;
-  }
-  .dev-panel.hidden {
-    display: none;
-  }
+/* presets column */
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 170px;
+}
 
-  .dev-title {
-    font-size: 10px;
-    text-transform: lowercase;
-    letter-spacing: 0.03em;
-    color: #9ca3af;
-    margin-bottom: 4px;
-  }
+.presets-title {
+  font-size: 10px;
+  text-transform: lowercase;
+  color: #6b7280;
+}
 
-  .dev-row {
-    margin-bottom: 4px;
-  }
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
 
-  .dev-row label {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
+.preset-btn {
+  border: 1px solid #374151;
+  background: #000;
+  color: #d1d5db;
+  font-size: 10px;
+  padding: 3px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
 
-  .dev-row input[type="range"] {
-    width: 100%;
-  }
+.preset-btn.active {
+  border-color: #38bdf8;
+  color: #e5f3ff;
+}
 
-  .dev-val {
-    font-size: 9px;
-    color: #6b7280;
-  }
+.preset-description {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #9ca3af;
+}
 
-  .dev-footer {
-    margin-top: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 4px;
-  }
+/* sliders */
+.controls-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+}
 
-  #devCopyBtn {
-    border: 1px solid #374151;
-    background: #020617;
-    color: #e5e7eb;
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
+.label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 
-  #devCopyBtn:hover {
-    border-color: #38bdf8;
-  }
+.label .name {
+  width: 68px;
+  text-transform: lowercase;
+  color: #9ca3af;
+  font-size: 10px;
+}
 
-  .dev-hint {
-    font-size: 8px;
-    color: #6b7280;
-  }
-  </style>
+.label input[type="range"] {
+  width: 110px;
+}
+
+.label select {
+  font-size: 10px;
+  padding: 1px 4px;
+  background: #020617;
+  color: #e5e7eb;
+  border-radius: 4px;
+  border: 1px solid #374151;
+}
+
+/* dev panel */
+.dev-panel {
+  position: relative;
+  width: 100%;
+  padding: 10px 14px;
+  background: #0a0a0a;
+  border-top: 1px solid #333;
+  color: #ddd;
+  font-size: 11px;
+}
+
+.dev-panel.hidden { display: none; }
+
+.dev-title {
+  font-size: 10px;
+  text-transform: lowercase;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.dev-row { margin-bottom: 4px; }
+
+.dev-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dev-row input[type="range"] {
+  width: 100%;
+}
+
+.dev-val {
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.dev-footer {
+  margin-top: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+#devCopyBtn {
+  border: 1px solid #374151;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#devCopyBtn:hover { border-color: #38bdf8; }
+
+.dev-hint {
+  font-size: 8px;
+  color: #6b7280;
+}
+</style>
 </head>
+
 <body>
-  <div id="glWrap">
-    <canvas id="glCanvas"></canvas>
-    <canvas id="particles"></canvas>
-  </div>
 
-  <div id="controls">
-    <!-- left: presets + inline description -->
-    <div class="presets">
-      <div class="presets-title">presets</div>
-      <div class="preset-grid">
-        <button class="preset-btn" data-preset="A">A</button>
-        <button class="preset-btn" data-preset="B">B</button>
-        <button class="preset-btn" data-preset="C">C</button>
-        <button class="preset-btn" data-preset="D">D</button>
-        <button class="preset-btn" data-preset="E">E</button>
-<button class="preset-btn" data-preset="F">F</button>
-      </div>
-      <div id="presetDescription" class="preset-description">
-        Select a preset (A–D) to load a typical field pattern and see a short description.
-      </div>
-</div> <!-- CLOSE .presets -->
-  </div>
-    <!-- right: sliders + containment -->
-    <div class="controls-main">
-      <label class="label">
-        <span class="name">damping</span>
-        <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
-      </label>
+<div id="glWrap">
+  <canvas id="glCanvas"></canvas>
+  <canvas id="particles"></canvas>
+</div>
 
-      <label class="label">
-        <span class="name">coupling</span>
-        <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.7">
-      </label>
+<!-- CONTROL PANEL -->
+<div id="controls">
 
-      <label class="label">
-        <span class="name">noise</span>
-        <input id="noise" type="range" min="0" max="1" step="0.01" value="0.5">
-      </label>
+  <!-- LEFT: PRESETS -->
+  <div class="presets">
+    <div class="presets-title">presets</div>
 
-      <label class="label">
-        <span class="name">rhythm</span>
-        <input id="rhythm" type="range" min="0" max="1" step="0.01" value="0.6">
-      </label>
-
-      <label class="label">
-        <span class="name">gradient</span>
-        <input id="gradient" type="range" min="0" max="1" step="0.01" value="0.6">
-      </label>
-
-      <label class="label">
-        <span class="name">attractor</span>
-        <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
-      </label>
-
-            <label class="label">
-        <span class="name">coherence</span>
-        <span id="coherenceDisplay">—</span>
-      </label>
-      <label class="label">
-        <span class="name">contain</span>
-        <select id="containmentMode">
-          <option value="porous">porous</option>
-          <option value="balanced" selected>balanced</option>
-          <option value="tight">tight</option>
-        </select>
-      </label>
-    </div>
-  </div>
-
-  <div id="devPanel" class="dev-panel">
-    <div class="dev-title">particles</div>
-
-    <div class="dev-row">
-      <label>
-        density
-        <input id="pDensity" type="range" min="1" max="12" step="0.5">
-        <span id="pDensityVal" class="dev-val"></span>
-      </label>
+    <div class="preset-grid">
+      <button class="preset-btn" data-preset="A">A</button>
+      <button class="preset-btn" data-preset="B">B</button>
+      <button class="preset-btn" data-preset="C">C</button>
+      <button class="preset-btn" data-preset="D">D</button>
+      <button class="preset-btn" data-preset="E">E</button>
+      <button class="preset-btn" data-preset="F">F</button>
     </div>
 
-    <div class="dev-row">
-      <label>
-        size min
-        <input id="pSizeMin" type="range" min="0.1" max="3" step="0.05">
-        <span id="pSizeMinVal" class="dev-val"></span>
-      </label>
+    <div id="presetDescription" class="preset-description">
+      Select a preset to load a field pattern and see a short description.
     </div>
+  </div> <!-- ← FIXED closing tag -->
 
-    <label class="dev-row">
-      <span>extra noise</span>
-      <input id="dev-noise-extra" type="checkbox">
+  <!-- RIGHT: SLIDERS -->
+  <div class="controls-main">
+
+    <label class="label">
+      <span class="name">damping</span>
+      <input id="damping" type="range" min="0" max="1" step="0.01" value="0.4">
     </label>
 
-    <div class="dev-row">
-      <label>
-        size max
-        <input id="pSizeMax" type="range" min="0.2" max="4" step="0.05">
-        <span id="pSizeMaxVal" class="dev-val"></span>
-      </label>
-    </div>
+    <label class="label">
+      <span class="name">coupling</span>
+      <input id="coupling" type="range" min="0" max="1" step="0.01" value="0.7">
+    </label>
 
-    <div class="dev-footer">
-      <button id="devCopyBtn" type="button">copy tuning</button>
-      <span class="dev-hint">press “p” to toggle panel</span>
-    </div>
+    <label class="label">
+      <span class="name">noise</span>
+      <input id="noise" type="range" min="0" max="1" step="0.01" value="0.5">
+    </label>
+
+    <label class="label">
+      <span class="name">rhythm</span>
+      <input id="rhythm" type="range" min="0" max="1" step="0.01" value="0.6">
+    </label>
+
+    <label class="label">
+      <span class="name">gradient</span>
+      <input id="gradient" type="range" min="0" max="1" step="0.01" value="0.6">
+    </label>
+
+    <label class="label">
+      <span class="name">attractor</span>
+      <input id="attractor" type="range" min="0" max="1" step="0.01" value="0.7">
+    </label>
+
+    <label class="label">
+      <span class="name">coherence</span>
+      <span id="coherenceDisplay">—</span>
+    </label>
+
+    <label class="label">
+      <span class="name">contain</span>
+      <select id="containmentMode">
+        <option value="porous">porous</option>
+        <option value="balanced" selected>balanced</option>
+        <option value="tight">tight</option>
+      </select>
+    </label>
+
+  </div>
+</div>
+
+<!-- DEV PANEL (hidden by default) -->
+<div id="devPanel" class="dev-panel hidden">
+  <div class="dev-title">particles</div>
+
+  <div class="dev-row">
+    <label>density
+      <input id="pDensity" type="range" min="1" max="12" step="0.5">
+      <span id="pDensityVal" class="dev-val"></span>
+    </label>
   </div>
 
+  <div class="dev-row">
+    <label>size min
+      <input id="pSizeMin" type="range" min="0.1" max="3" step="0.05">
+      <span id="pSizeMinVal" class="dev-val"></span>
+    </label>
+  </div>
+
+  <label class="dev-row">
+    <span>extra noise</span>
+    <input id="dev-noise-extra" type="checkbox">
+  </label>
+
+  <div class="dev-row">
+    <label>size max
+      <input id="pSizeMax" type="range" min="0.2" max="4" step="0.05">
+      <span id="pSizeMaxVal" class="dev-val"></span>
+    </label>
+  </div>
+
+  <div class="dev-footer">
+    <button id="devCopyBtn">copy tuning</button>
+    <span class="dev-hint">press “p” to toggle panel</span>
+  </div>
+</div>
+
+<script src="evf-core.js"></script>
+<script>
+// JS GOES HERE (I’ll paste only if you want the cleaned JS too
   <script src="evf-core.js"></script>
 
   <script>
