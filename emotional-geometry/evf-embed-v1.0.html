@@ -862,82 +862,196 @@ function deriveCoherence(evf, cMode) {
     }
 
     function updateParticles() {
-      const rect = pCanvas.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
+  const rect = pCanvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
 
-      // slider → effective gradient (never fully zero)
-const GRAD_EPS = 0.03;
-const gValRaw  = evf.gradient;            // slider 0..1
-const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
-      const aVal = evf.attractor;
-      const cVal = evf.coupling;
+  // slider → effective gradient (never fully zero)
+  const GRAD_EPS = 0.03;
+  const gValRaw  = evf.gradient; // slider 0..1 (TRUE gradient magnitude)
+  const gVal     = GRAD_EPS + (1 - GRAD_EPS) * gValRaw;
 
-      const drive   = Math.max(gVal, aVal);
-      const aimless = 1.0 - drive;
+  const aVal = evf.attractor;
+  const cVal = evf.coupling;
 
-// PURE GRADIENT-DRIVEN FALL (strong drive, no destination)
+  const drive   = Math.max(gVal, aVal);
+  const aimless = 1.0 - drive;
 
-      
+  const GRAD_STRENGTH  = 0.025 * gVal;
+  const ATTR_STRENGTH  = 0.05 * aVal;
+  const NOISE_STRENGTH = 0.02 + 0.06 * evf.noise;
+  const DRIFT_STRENGTH = 0.02 + 0.06 * aimless;
 
-      
+  const ax = w * 0.72;
+  const ay = h * 0.65;
 
-      const GRAD_STRENGTH  = 0.025 * gVal;
-      const ATTR_STRENGTH  = 0.05 * aVal;
-      const NOISE_STRENGTH = 0.02 + 0.06 * evf.noise;
-      const DRIFT_STRENGTH = 0.02 + 0.06 * aimless;
+  const innerRadius = Math.min(w, h) * 0.06;
 
-      const ax = w * 0.72;
-      const ay = h * 0.65;
+  const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
+  const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
 
-      const innerRadius = Math.min(w, h) * 0.06;
+  const t = performance.now() * 0.00005;
+  const clusterCount = 1 + Math.floor(cVal * 4);
+  const clusters = [];
+  const baseRadius = 0.12 + 0.10 * cVal;
 
-      const DAMP_MIN = 0.60, DAMP_MAX = 0.97;
-      const DAMP = DAMP_MAX - evf.damping * (DAMP_MAX - DAMP_MIN);
+  for (let i = 0; i < clusterCount; i++) {
+    const angle = (Math.PI * 2 * i) / clusterCount;
+    let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.6));
+    let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.5));
 
-      const t = performance.now() * 0.00005;
-      const clusterCount = 1 + Math.floor(cVal * 4);
-      const clusters = [];
-      const baseRadius = 0.12 + 0.10 * cVal;
+    const clusterBias = 0.0 + 0.35 * aVal;
+    cx = cx * (1.0 - clusterBias) + ax * clusterBias;
+    cy = cy * (1.0 - clusterBias) + ay * clusterBias;
 
-      for (let i = 0; i < clusterCount; i++) {
-        const angle = (Math.PI * 2 * i) / clusterCount;
-        let cx = w * (0.5 + baseRadius * Math.cos(angle + t * 0.6));
-        let cy = h * (0.5 + baseRadius * Math.sin(angle - t * 0.5));
+    clusters.push({ x: cx, y: cy });
+  }
 
-        const clusterBias = 0.0 + 0.35 * aVal;
-        cx = cx * (1.0 - clusterBias) + ax * clusterBias;
-        cy = cy * (1.0 - clusterBias) + ay * clusterBias;
+  // -------------------------------------------
+  // TRUE GRADIENT VECTOR (field slope direction)
+  // from top-center → attractor axis
+  // -------------------------------------------
+  const gx0 = w * 0.5;
+  const gy0 = 0;
 
-        clusters.push({ x: cx, y: cy });
+  let gdx = ax - gx0;
+  let gdy = ay - gy0;
+
+  const glen = Math.sqrt(gdx*gdx + gdy*gdy) + 0.00001;
+  gdx /= glen;
+  gdy /= glen;
+
+  // -------------------------------------------
+  // PARTICLE LOOP
+  // -------------------------------------------
+  for (let p of particles) {
+
+    // baseline aimless drift
+    p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
+    p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+
+    // ============================================================
+    // PURE GRADIENT-ONLY STATE (EVF: drive without destination)
+    // ============================================================
+    if (gValRaw > 0.9 && aVal < 0.1) {
+
+      // push particle along true gradient vector
+      const GRAD_PUSH = 0.009 * gValRaw;
+      p.vx += gdx * GRAD_PUSH;
+      p.vy += gdy * GRAD_PUSH;
+
+      // suppress sideways noise
+      p.vx *= 0.5;
+
+      // apply damping
+      p.vx *= DAMP;
+      p.vy *= DAMP;
+
+      // update position
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // wrap edges
+      if (p.x < 0) p.x += w;
+      if (p.x > w) p.x -= w;
+      if (p.y < 0) p.y += h;
+      if (p.y > h) p.y -= h;
+
+      p.life += 0.02;
+      if (p.life > p.maxLife) {
+        p.x = Math.random() * w;
+        p.y = Math.random() * h;
+        p.vx = 0; p.vy = 0; p.life = 0;
       }
 
-      
+      continue; // <<< absolutely critical!
+    }
 
-for (let p of particles) {
-  // base random drift
-  p.vx += (Math.random() - 0.5) * DRIFT_STRENGTH;
-  p.vy += (Math.random() - 0.5) * DRIFT_STRENGTH;
+    // ===========================================
+    // NORMAL MODE (NOT pure gradient)
+    // ===========================================
 
-  // --- PURE GRADIENT-DRIVEN FALL (NO ATTRACTOR) ---
-  if (gValRaw > 0.9 && aVal < 0.1) {
-    p.vy += 0.006 * evf.gradient;
+    if (drive < 0.12) {
+      p.vx *= 0.97;
+      p.vy *= 0.97;
 
-    // kill sideways drift (optional)
-    p.vx *= 0.2;
+      p.x += p.vx;
+      p.y += p.vy;
 
-    // If you want perfect vertical drift:
-    // p.vx = 0;
+      if (p.x < 0) p.x += w;
+      if (p.x > w) p.x -= w;
+      if (p.y < 0) p.y += h;
+      if (p.y > h) p.y -= h;
 
-    // Skip all attractor & cluster logic below.
-    // Only apply damping + update position.
+      p.life += 0.02;
+      if (p.life > p.maxLife) {
+        p.x = Math.random() * w; p.y = Math.random() * h;
+        p.vx = 0; p.vy = 0; p.life = 0;
+      }
+      continue;
+    }
+
+    // attractor logic
+    const dxA = ax - p.x;
+    const dyA = ay - p.y;
+    const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
+
+    const vanishRadius = innerRadius * 0.6;
+    if (distA < vanishRadius && aVal > 0.15) {
+      p.x = Math.random() * w;
+      p.y = Math.random() * h;
+      p.vx = 0;
+      p.vy = 0;
+      p.life = 0;
+      continue;
+    }
+
+    if (distA < innerRadius) {
+      const tInner = 1.0 - distA / innerRadius;
+      const repel = 0.04 * (0.4 + aVal) * tInner * tInner;
+      p.vx -= (dxA / distA) * repel;
+      p.vy -= (dyA / distA) * repel;
+    }
+
+    p.vx += (dxA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
+    p.vy += (dyA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
+
+    // cluster attraction
+    if (clusters.length > 0 && cVal > 0.05) {
+      let closest = clusters[0];
+      let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
+      for (let k = 1; k < clusters.length; k++) {
+        const cx = clusters[k].x, cy = clusters[k].y;
+        const d2 = (p.x - cx)**2 + (p.y - cy)**2;
+        if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
+      }
+      const dxC = closest.x - p.x, dyC = closest.y - p.y;
+      const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
+      const CLUSTER_PULL = 0.05 + 0.18 * cVal;
+      p.vx += (dxC / distC) * CLUSTER_PULL;
+      p.vy += (dyC / distC) * CLUSTER_PULL;
+    }
+
+    // noise
+    p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
+    p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
+
+    // damping
     p.vx *= DAMP;
     p.vy *= DAMP;
 
+    // update position
     p.x += p.vx;
     p.y += p.vy;
 
-    // wrap
+    // soft bias toward attractor (state-dependent)
+    const destBias = 0.008 * (aVal * aVal);
+    if (destBias > 0.0) {
+      p.x += (ax - p.x) * destBias;
+      p.y += (ay - p.y) * destBias;
+    }
+
+    // wrap edges
     if (p.x < 0) p.x += w;
     if (p.x > w) p.x -= w;
     if (p.y < 0) p.y += h;
@@ -945,104 +1059,11 @@ for (let p of particles) {
 
     p.life += 0.02;
     if (p.life > p.maxLife) {
-      p.x = Math.random() * w;
-      p.y = Math.random() * h;
+      p.x = Math.random() * w; p.y = Math.random() * h;
       p.vx = 0; p.vy = 0; p.life = 0;
     }
-
-    continue; // <<< THIS IS IMPORTANT
   }
-  // --- END PURE GRADIENT FALL LOGIC ---
-
-
-        
-        if (drive < 0.12) {
-          p.vx *= 0.97;
-          p.vy *= 0.97;
-
-          p.x += p.vx;
-          p.y += p.vy;
-
-          if (p.x < 0) p.x += w;
-          if (p.x > w) p.x -= w;
-          if (p.y < 0) p.y += h;
-          if (p.y > h) p.y -= h;
-
-          p.life += 0.02;
-          if (p.life > p.maxLife) {
-            p.x = Math.random() * w; p.y = Math.random() * h;
-            p.vx = 0; p.vy = 0; p.life = 0;
-          }
-          continue;
-        }
-
-        const dxA = ax - p.x;
-        const dyA = ay - p.y;
-        const distA = Math.sqrt(dxA*dxA + dyA*dyA) + 0.001;
-
-        const vanishRadius = innerRadius * 0.6;
-        if (distA < vanishRadius && aVal > 0.15) {
-          p.x = Math.random() * w;
-          p.y = Math.random() * h;
-          p.vx = 0;
-          p.vy = 0;
-          p.life = 0;
-          continue;
-        }
-
-        if (distA < innerRadius) {
-          const tInner = 1.0 - distA / innerRadius;
-          const repel = 0.04 * (0.4 + aVal) * tInner * tInner;
-          p.vx -= (dxA / distA) * repel;
-          p.vy -= (dyA / distA) * repel;
-        }
-
-        p.vx += (dxA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
-        p.vy += (dyA / distA) * ATTR_STRENGTH * (0.3 + 0.5 * drive);
-
-        if (clusters.length > 0 && cVal > 0.05) {
-          let closest = clusters[0];
-          let minD2 = (p.x - closest.x)**2 + (p.y - closest.y)**2;
-          for (let k = 1; k < clusters.length; k++) {
-            const cx = clusters[k].x, cy = clusters[k].y;
-            const d2 = (p.x - cx)**2 + (p.y - cy)**2;
-            if (d2 < minD2) { minD2 = d2; closest = clusters[k]; }
-          }
-          const dxC = closest.x - p.x, dyC = closest.y - p.y;
-          const distC = Math.sqrt(dxC*dxC + dyC*dyC) + 0.001;
-          const CLUSTER_PULL = 0.05 + 0.18 * cVal;
-          p.vx += (dxC / distC) * CLUSTER_PULL;
-          p.vy += (dyC / distC) * CLUSTER_PULL;
-        }
-
-        p.vx += (Math.random() - 0.5) * NOISE_STRENGTH;
-        p.vy += (Math.random() - 0.5) * NOISE_STRENGTH;
-
-        p.vx *= DAMP;
-        p.vy *= DAMP;
-
-        p.x += p.vx;
-        p.y += p.vy;
-
-        const destBias = 0.008 * (aVal * aVal);
-        if (destBias > 0.0) {
-          p.x += (ax - p.x) * destBias;
-          p.y += (ay - p.y) * destBias;
-        }
-
-        if (p.x < 0) p.x += w;
-        if (p.x > w) p.x -= w;
-        if (p.y < 0) p.y += h;
-        if (p.y > h) p.y -= h;
-
-        p.life += 0.02;
-        if (p.life > p.maxLife) {
-          p.x = Math.random() * w; p.y = Math.random() * h;
-          p.vx = 0; p.vy = 0; p.life = 0;
-        }
-      }
-    }
-
+}
     function drawParticles() {
       const rect = pCanvas.getBoundingClientRect();
       const w = rect.width;
