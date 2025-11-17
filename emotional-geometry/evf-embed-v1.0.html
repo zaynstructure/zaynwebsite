@@ -658,13 +658,10 @@ if (uNoiseExtra > 0.0) {
 };
 
 const coherenceDisplay = document.getElementById("coherenceDisplay");
-const saveTuningBtn    = document.getElementById("saveTuningBtn");
-const tuningSnapshotEl = document.getElementById("tuningSnapshot");
+
     const containmentSelect = document.getElementById("containmentMode");
     let cMode = "balanced";
-if (saveTuningBtn) {
-  saveTuningBtn.addEventListener("click", () => {
-    // raw slider inputs (what the user is “trying” to set)
+
     const inputs = {
       damping:   parseFloat(sliders.damping.value),
       coupling:  parseFloat(sliders.coupling.value),
