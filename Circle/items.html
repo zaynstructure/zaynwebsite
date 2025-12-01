@@ -18,38 +18,23 @@
 
 <main class="page">
 
-  <!-- Item Name -->
-  <h1 class="section-title" style="margin-bottom:0.4rem;">
-    DSLR Camera (Canon EOS)
-  </h1>
+  <!-- Dynamic fields -->
+  <h1 id="item-name" class="section-title"></h1>
+  <p id="item-subtitle" style="font-size:0.92rem; color:#555;"></p>
 
-  <p style="font-size:0.92rem; color:#555; margin-bottom:1rem;">
-    Photography • North Park
-  </p>
-
-  <!-- Image Placeholder -->
-  <div style="background:#e9e9e9; height:220px; border-radius:8px; margin-bottom:1rem;"></div>
-
-  <!-- Basic Info -->
-  <div class="card" style="margin-top:0;">
-    <p><strong>Condition:</strong> Excellent • lightly used</p>
-    <p><strong>Available:</strong> Now</p>
-    <p><strong>Pick-up:</strong> Vic High area (exact address after approval)</p>
+  <div id="item-image" 
+       style="background:#e9e9e9; height:220px; border-radius:8px; margin-bottom:1rem;">
   </div>
 
-  <!-- Circle Requirement -->
-  <div class="card" style="border-left:4px solid #1a1a1a;">
-    <h3 style="margin:0 0 0.4rem;">Requires Photography Circle</h3>
-    <p style="margin:0 0 1rem; color:#555;">
-      This item belongs to a circle with simple care basics  
-      (lens cleaning, safe carrying, and storage).
-    </p>
-
-    <a class="btn btn-primary" href="signup.html">Join circle to borrow</a>
+  <div class="card">
+    <p><strong>Condition:</strong> <span id="item-condition"></span></p>
+    <p><strong>Available:</strong> <span id="item-availability"></span></p>
+    <p><strong>Pick-up:</strong> <span id="item-location"></span> area</p>
   </div>
 
-  <!-- First 3 borrows info -->
-  <div class="card" style="background:#f7f7f7;">
+  <div id="circle-card"></div>
+
+  <div class="card" style="background:#f7f7f7;" id="first-borrows">
     <h3 style="margin:0 0 0.4rem;">Your first 3 borrows</h3>
     <p style="margin:0; color:#555;">
       New borrowers choose one quick accountability step  
@@ -58,25 +43,19 @@
     </p>
   </div>
 
-  <!-- About the Item -->
-  <h2 style="font-size:1.1rem; margin-top:1.6rem; margin-bottom:0.4rem;">About this item</h2>
+  <h2 style="font-size:1.1rem; margin-top:1.6rem; margin-bottom:0.4rem;">
+    About this item
+  </h2>
 
-  <p style="font-size:0.9rem; color:#444; margin-bottom:1.4rem; line-height:1.45;">
-    Great for portraits, events, and travel photography.  
-    Includes 18–55mm lens, battery, and charger.  
-    Please keep the lens cap on when not in use and avoid moisture.
-  </p>
+  <p id="item-description" style="font-size:0.9rem; color:#444; margin-bottom:1.4rem;"></p>
 
-  <!-- Lender Info -->
   <h2 style="font-size:1.1rem; margin-bottom:0.4rem;">Shared by</h2>
-
   <div class="card">
-    <p><strong>Alex (North Park)</strong></p>
-    <p style="color:#777;">5 successful lends • Photography Circle</p>
+    <p><strong id="item-owner"></strong></p>
+    <p id="item-owner-info" style="color:#777;"></p>
   </div>
 
-  <!-- Call to Action -->
-  <a class="btn btn-primary" href="signup.html" style="margin-top:1.6rem;">
+  <a id="cta-button" class="btn btn-primary" href="signup.html" style="margin-top:1.6rem;">
     Sign up to borrow this item
   </a>
 
@@ -91,6 +70,64 @@
     <a href="info.html">Info</a>
   </div>
 </footer>
+
+<script>
+/* ================================
+   DYNAMIC ITEM LOADER
+================================ */
+
+async function loadItem() {
+  // 1. get ?id=3 from URL
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+
+  if (!id) {
+    document.getElementById("item-name").innerText = "Item not found";
+    return;
+  }
+
+  // 2. fetch item data
+  const data = await fetch("items.json").then(r => r.json());
+  const item = data[id];
+
+  if (!item) {
+    document.getElementById("item-name").innerText = "Item not found";
+    return;
+  }
+
+  // 3. populate page
+  document.getElementById("item-name").innerText = item.name;
+  document.getElementById("item-subtitle").innerText =
+    `${item.category} • ${item.location}`;
+  document.getElementById("item-condition").innerText = item.condition;
+  document.getElementById("item-availability").innerText = item.availability;
+  document.getElementById("item-location").innerText = item.location;
+  document.getElementById("item-description").innerText = item.description;
+  document.getElementById("item-owner").innerText = item.owner;
+  document.getElementById("item-owner-info").innerText = item.owner_info;
+
+  document.getElementById("item-image").style.backgroundImage =
+    `url(${item.image})`;
+  document.getElementById("item-image").style.backgroundSize = "cover";
+  document.getElementById("item-image").style.backgroundPosition = "center";
+
+  // 4. circle requirement block
+  const circleCard = document.getElementById("circle-card");
+
+  if (item.circle) {
+    circleCard.innerHTML = `
+      <div class="card" style="border-left:4px solid #1a1a1a; margin-top:1rem;">
+        <h3 style="margin:0 0 0.4rem;">Requires ${item.circle} Circle</h3>
+        <p style="margin:0 0 1rem; color:#555;">
+          This item belongs to a circle with simple care basics.
+        </p>
+        <a class="btn btn-primary" href="signup.html">Join circle to borrow</a>
+      </div>`;
+  }
+}
+
+loadItem();
+</script>
 
 </body>
 </html>
