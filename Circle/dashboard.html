@@ -1,145 +1,91 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dashboard · CircleShare</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-<!-- First-time welcome redirect -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  if (localStorage.getItem("first_time") === "true") {
-    window.location.href = "welcome.html";
-  }
-});
-</script>
-
-<header class="main-header">
-  <div class="header-inner">
-    <div class="logo">CircleShare</div>
-
-    <!-- Right side navigation -->
-    <nav class="header-nav">
-      <a href="dashboard.html" class="header-link">Dashboard</a>
-      <a href="profile.html" class="header-link">Profile</a>
-      <a href="#" class="header-link" id="logoutBtn">Logout</a>
-    </nav>
-  </div>
-</header>
+<!-- TOP RIGHT LOGOUT -->
+<a href="#" id="logoutBtn" class="corner-auth">Logout</a>
 
 <style>
-.main-header {
-  background:#fff;
-  border-bottom:1px solid #ddd;
-}
-
-.header-inner {
-  max-width:600px;
-  margin:0 auto;
-  padding:0.8rem 1rem;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-.header-nav {
-  display:flex;
-  gap:1rem;
-}
-
-.header-link {
-  color:#333;
+.corner-auth {
+  position:absolute;
+  top:0.9rem;
+  right:1rem;
+  font-size:0.85rem;
   text-decoration:none;
-  font-size:0.9rem;
-}
-
-.header-link:hover {
-  text-decoration:underline;
+  color:#333;
 }
 </style>
 
 <script>
-document.getElementById("logoutBtn")?.addEventListener("click", () => {
+document.getElementById("logoutBtn").onclick = () => {
   localStorage.removeItem("logged_in");
   window.location.href = "index.html";
-});
+};
 </script>
 
-<main class="page" style="padding-top:1rem;">
+<main class="page" style="padding-top:4rem;">
 
-  <h1 class="section-title" style="margin-bottom:1rem;">
+  <h1 class="section-title" style="margin-bottom:1.4rem;">
     Welcome back
   </h1>
 
-  <!-- Main Actions -->
-  <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:2rem;">
+  <!-- MAIN ACTION BUTTONS -->
+  <div style="display:flex; flex-direction:column; gap:1rem; max-width:350px; margin:0 auto 2rem;">
     <a class="btn btn-primary btn-large" href="library.html">Borrow / Lend</a>
     <a class="btn btn-primary btn-large" href="free.html">Give / Receive</a>
     <a class="btn btn-primary btn-large" href="circles.html">Circles</a>
   </div>
 
-  <!-- Activity Snapshot -->
+  <!-- RECENT ACTIVITY -->
   <h2 style="font-size:1rem; margin-bottom:0.6rem;">Your Activity</h2>
 
-  <div class="card" id="activity-card" style="margin-bottom:1.6rem;">
+  <div class="card" id="activity-card" style="margin-bottom:2rem;">
     <p id="activity-empty" style="font-size:0.9rem; color:#777;">
-      No recent activity yet. Borrow something, share something, or join a circle!
+      No recent activity yet.
     </p>
-
-    <ul id="activity-list" style="display:none; padding-left:1rem; font-size:0.88rem; color:#555;">
-      <!-- dynamic items appear here -->
+    <ul id="activity-list" style="display:none; padding-left:1rem; font-size:0.88rem;">
+      <!-- Dynamic -->
     </ul>
   </div>
 
-  <!-- Soft Pool Note -->
-  <div class="card" style="background:#f7f7f7; margin-bottom:2rem;">
+  <!-- POOL -->
+  <div class="card" style="background:#f7f7f7;">
     <h3 style="margin:0 0 0.4rem;">Community Pool</h3>
     <p style="font-size:0.86rem; color:#555;">
-      Helps cover repairs, replacements, and deposits for people who need it.
-      Completely optional.
+      Optional contributions help cover repairs, replacements, and deposits.
     </p>
-    <a class="btn btn-ghost" href="pool.html" style="margin-top:0.4rem;">Learn more</a>
+    <a class="btn btn-ghost" href="pool.html">Learn more</a>
   </div>
 
 </main>
 
-<footer>
-  <div class="footer-nav">
-    <a href="dashboard.html">Home</a>
-    <a href="circles.html">Circles</a>
-    <a href="library.html">Borrow/Lend</a>
-    <a href="free.html">Give/Receive</a>
-    <a href="info.html">Info</a>
-  </div>
-</footer>
+<!-- BOTTOM NAV (injected if logged in) -->
+<div id="bottomNavContainer"></div>
+<script src="bottom-nav.js"></script>
 
 <script>
-/* =======================================
-   LOAD USER ACTIVITY FROM LOCALSTORAGE
-   ======================================= */
-
+/* Load user activity */
 document.addEventListener("DOMContentLoaded", () => {
-  const list = document.getElementById("activity-list");
+  const list  = document.getElementById("activity-list");
   const empty = document.getElementById("activity-empty");
 
   const activity = JSON.parse(localStorage.getItem("user_activity") || "[]");
 
-  if (activity.length === 0) {
-    empty.style.display = "block";
-    list.style.display = "none";
-    return;
-  }
+  if (activity.length === 0) return;
 
   empty.style.display = "none";
   list.style.display = "block";
 
-  activity.slice(-5).reverse().forEach(a => {
+  activity.slice(-5).reverse().forEach(msg => {
     const li = document.createElement("li");
-    li.textContent = a;
+    li.textContent = msg;
     list.appendChild(li);
   });
 });
