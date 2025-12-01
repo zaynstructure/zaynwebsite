@@ -8,6 +8,7 @@
     "circle": null,
     "image": "assets/drill.jpg",
     "description": "Reliable cordless drill. Comes with one battery and bit set.",
+    "requirement": "open"
     "owner": "Sam",
     "owner_info": "4 successful lends"
   },
@@ -21,6 +22,7 @@
     "circle": null,
     "image": "assets/stove.jpg",
     "description": "Compact backpacking stove. Great for overnight trips.",
+    "requirement": "open"
     "owner": "Jess",
     "owner_info": "2 successful lends"
   },
@@ -34,6 +36,7 @@
     "circle": "Photography",
     "image": "assets/camera.jpg",
     "description": "Includes 18–55mm lens, battery, and charger. Great for portraits and events.",
+    "requirement": "open"
     "owner": "Alex",
     "owner_info": "5 successful lends"
   }
