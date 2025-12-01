@@ -38,15 +38,14 @@
 
   <!-- ACCOUNT ACCESS -->
   <div style="display:flex; flex-direction:column; gap:0.5rem; max-width:18rem; margin:0 auto;">
-    <a class="btn btn-ghost" href="#">Sign up</a>
-    <a class="btn btn-ghost" href="#">Log in</a>
+    <a class="btn btn-ghost" href="signup.html">Sign up</a>
+    <a class="btn btn-ghost" href="login.html">Log in</a>
   </div>
 
   <!-- INFO LINKS -->
   <p style="margin-top:2.2rem; font-size:0.82rem; color:#6a6a6a;">
-    <a href="about.html" style="color:#6a6a6a; text-decoration:none;">About</a> · 
-    <a href="how.html" style="color:#6a6a6a; text-decoration:none;">How it works</a> · 
-    <a href="how.html#faq" style="color:#6a6a6a; text-decoration:none;">FAQ</a>
+    <a href="info.html" style="color:#6a6a6a; text-decoration:none;">How it works</a> · 
+    <a href="info.html#faq" style="color:#6a6a6a; text-decoration:none;">FAQ</a>
   </p>
 
 </main>
@@ -57,32 +56,9 @@
     <a href="circles.html">Circles</a>
     <a href="library.html">Library</a>
     <a href="free.html">Free</a>
-    <a href="how.html">Info</a>
+    <a href="info.html">Info</a>
   </div>
 </footer>
-
-<!-- slide menu js -->
-<script>
-  const menuBtn = document.querySelector('.header-inner div:last-child');
-  const mobileMenu = document.getElementById('mobileMenu');
-  const menuOverlay = document.getElementById('menuOverlay');
-  const menuClose = document.getElementById('menuClose');
-
-  if (menuBtn) menuBtn.addEventListener('click', () => {
-    mobileMenu.classList.add('active');
-    menuOverlay.classList.add('active');
-  });
-
-  if (menuClose) menuClose.addEventListener('click', () => {
-    mobileMenu.classList.remove('active');
-    menuOverlay.classList.remove('active');
-  });
-
-  if (menuOverlay) menuOverlay.addEventListener('click', () => {
-    mobileMenu.classList.remove('active');
-    menuOverlay.classList.remove('active');
-  });
-</script>
 
 </body>
 </html>
