@@ -18,14 +18,56 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 
-<header>
+<header class="main-header">
   <div class="header-inner">
     <div class="logo">CircleShare</div>
-    <a href="profile.html" class="btn btn-ghost" style="padding:0.35rem 0.75rem;">
-      Profile
-    </a>
+
+    <!-- Right side navigation -->
+    <nav class="header-nav">
+      <a href="dashboard.html" class="header-link">Dashboard</a>
+      <a href="profile.html" class="header-link">Profile</a>
+      <a href="#" class="header-link" id="logoutBtn">Logout</a>
+    </nav>
   </div>
 </header>
+
+<style>
+.main-header {
+  background:#fff;
+  border-bottom:1px solid #ddd;
+}
+
+.header-inner {
+  max-width:600px;
+  margin:0 auto;
+  padding:0.8rem 1rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.header-nav {
+  display:flex;
+  gap:1rem;
+}
+
+.header-link {
+  color:#333;
+  text-decoration:none;
+  font-size:0.9rem;
+}
+
+.header-link:hover {
+  text-decoration:underline;
+}
+</style>
+
+<script>
+document.getElementById("logoutBtn")?.addEventListener("click", () => {
+  localStorage.removeItem("logged_in");
+  window.location.href = "index.html";
+});
+</script>
 
 <main class="page" style="padding-top:1rem;">
 
