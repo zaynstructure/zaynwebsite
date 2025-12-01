@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Settings · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="profile.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Settings</h1>
+
+  <!-- Display Name -->
+  <div class="card" style="padding:1rem; margin-bottom:1rem;">
+    <h3 style="margin:0 0 .4rem;">Display Name</h3>
+    <input id="name-input" class="input" type="text" style="margin-bottom:.6rem;">
+    <button id="save-name" class="btn btn-primary">Save Name</button>
+  </div>
+
+  <!-- Notifications -->
+  <div class="card" style="padding:1rem; margin-bottom:1rem;">
+    <h3 style="margin:0 0 .4rem;">Notifications</h3>
+    <label style="display:flex; align-items:center; gap:.6rem;">
+      <input id="notif-toggle" type="checkbox" />
+      Enable notifications
+    </label>
+  </div>
+
+  <!-- Clear History -->
+  <div class="card" style="padding:1rem; margin-bottom:1rem;">
+    <h3 style="margin:0 0 .4rem;">Borrow History</h3>
+    <p style="font-size:0.88rem; color:#666;">Clears locally saved borrowing history.</p>
+    <button id="clear-history" class="btn" style="background:#ddd; color:#333;">
+      Clear History
+    </button>
+  </div>
+
+  <!-- Logout -->
+  <div class="card" style="padding:1rem; margin-bottom:3rem;">
+    <h3 style="margin:0 0 .4rem;">Session</h3>
+    <button id="logout-btn" class="btn" style="background:#ddd; color:#333;">
+      Log Out
+    </button>
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+// Redirect if not logged in
+if (localStorage.getItem('user_logged_in') !== 'true') {
+  window.location.href = "login.html";
+}
+
+// Load saved values
+document.getElementById('name-input').value =
+  localStorage.getItem('user_name') || "";
+
+document.getElementById('notif-toggle').checked =
+  localStorage.getItem('user_notifs') === 'true';
+
+// Save name
+document.getElementById('save-name').addEventListener('click', () => {
+  const newName = document.getElementById('name-input').value.trim();
+  if (!newName) return alert("Enter a name.");
+  localStorage.setItem('user_name', newName);
+  alert("Saved.");
+});
+
+// Toggle notifications
+document.getElementById('notif-toggle').addEventListener('change', e => {
+  localStorage.setItem('user_notifs', e.target.checked ? 'true' : 'false');
+});
+
+// Clear History
+document.getElementById('clear-history').addEventListener('click', () => {
+  localStorage.removeItem('borrow_history');
+  alert("Borrow history cleared.");
+});
+
+// Logout
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.setItem('user_logged_in', 'false');
+  window.location.href = "index.html";
+});
+</script>
+
+</body>
+</html>
