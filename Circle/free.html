@@ -12,126 +12,71 @@
 <header>
   <div class="header-inner">
     <div class="logo">CircleShare</div>
-    <a href="index.html" style="text-decoration:none;">←</a>
+    <a href="dashboard.html" style="text-decoration:none;">←</a>
   </div>
 </header>
 
 <main class="page">
 
-  <h1 class="section-title">Free Food & Clothing</h1>
+  <h1 class="section-title">Free Items</h1>
 
-<p style="font-size:0.9rem; color:#555; margin-bottom:1.2rem;">
-  No borrowing process. No requirements.  
-  Just take what you need or share what you can.
-</p>
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1.2rem;">
+    No borrowing process, no requirements.<br>
+    Share what you can, take what you need.
+  </p>
 
-<a class="btn btn-primary" href="signup.html">Claim</a>
-<a class="btn btn-ghost" href="add_free.html" style="margin-left:0.6rem;">
-  Add something
-</a>
+  <a class="btn btn-primary" href="add_free.html" style="margin-bottom:1.4rem;">
+    Add a Free Item
+  </a>
 
-<!-- Container where dynamic cards will go -->
-<div id="free-list"></div>
+  <!-- Container -->
+  <div id="free-list"></div>
+
 </main>
 
 <footer>
   <div class="footer-nav">
-    <a href="index.html">Home</a>
+    <a href="dashboard.html">Home</a>
     <a href="circles.html">Circles</a>
     <a href="library.html">Library</a>
     <a href="free.html">Free</a>
+    <a href="pool.html">Pool</a>
     <a href="info.html">Info</a>
   </div>
 </footer>
 
 <script>
-/* ===========================================================
-   DYNAMIC FREE ITEMS LOADER
-   - Loads free.json (default items)
-   - Loads localStorage items (user submissions)
-   - Displays both in one list
-=========================================================== */
-
 async function loadFreeItems() {
   const container = document.getElementById("free-list");
+  const data = await fetch("free.json").then(r => r.json());
 
-  /* -----------------------------
-     1. Load built-in items
-  ------------------------------ */
-  let jsonData = {};
-  try {
-    jsonData = await fetch("free.json").then(r => r.json());
-  } catch (err) {
-    console.warn("Could not load free.json", err);
-  }
-
-  /* -----------------------------
-     2. Load user-submitted items
-  ------------------------------ */
-  const storageRaw = localStorage.getItem("free_items");
-  let storedItems = {};
-  if (storageRaw) {
-    try {
-      storedItems = JSON.parse(storageRaw);
-    } catch (err) {
-      console.warn("Error parsing localStorage free_items", err);
-    }
-  }
-
-  /* -----------------------------
-     3. Merge item dictionaries
-        jsonData keys: "1", "2", "3", ...
-        storedItem keys: timestamps
-  ------------------------------ */
-  const merged = { ...jsonData, ...storedItems };
-
-  /* -----------------------------
-     4. Render each item
-  ------------------------------ */
-  Object.keys(merged).forEach(id => {
-    const item = merged[id];
+  Object.keys(data).forEach(id => {
+    const item = data[id];
 
     const card = document.createElement("div");
     card.className = "card";
     card.style.marginBottom = "1.2rem";
 
-    /* Image block — handles null or missing images */
-    let imageBlock = "";
-    if (item.image) {
-      imageBlock = `
-        <div style="
-          background:url('${item.image}') center/cover no-repeat;
-          width:100%; height:160px; border-radius:6px;
-          margin:0.7rem 0 1rem;
-        "></div>
-      `;
-    }
-
     card.innerHTML = `
       <h3>${item.title}</h3>
-      <p>${item.category || "Item"} • ${item.location || "Unknown"}</p>
-      <p style="color:#777;">${item.condition || ""}</p>
+      <p>${item.category} • ${item.location}</p>
+      <p style="color:#777;">${item.condition}</p>
 
-      ${imageBlock}
+      <div style="
+        background:url('${item.image}') center/cover no-repeat;
+        width:100%; height:160px; border-radius:6px;
+        margin:0.7rem 0 1rem;
+      "></div>
 
       <p style="font-size:0.88rem; color:#555; margin-bottom:1rem;">
-        ${item.notes || ""}
+        ${item.notes}
       </p>
 
-      <a class="btn btn-primary" href="signup.html">Claim</a>
+      <a class="btn btn-primary" href="#">Claim</a>
     `;
 
     container.appendChild(card);
   });
-
-  /* If no items exist */
-  if (Object.keys(merged).length === 0) {
-    container.innerHTML = `
-      <p style="color:#777; font-size:0.9rem;">
-        No items have been added yet.
-      </p>
-    `;
-  }
 }
 
 loadFreeItems();
