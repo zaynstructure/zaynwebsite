@@ -148,7 +148,112 @@ if (!item.circle) {
   }
 }
 
+function userParticipationScore() {
+  const lends = JSON.parse(localStorage.getItem("user_lent_items") || "[]");
+  const circles = JSON.parse(localStorage.getItem("user_circle_training") || "[]");
+  const pool = localStorage.getItem("user_pool_contrib") === "true";
+  const returns = Number(localStorage.getItem("user_successful_returns") || 0);
+  const repairHelp = localStorage.getItem("user_repair_help") === "true";
+
+  let score = 0;
+  if (lends.length > 0) score++;
+  if (circles.length > 0) score++;
+  if (pool) score++;
+  if (returns >= 1) score++;    // returns are strong reliability indicators
+  if (repairHelp) score++;
+
+  return score;
+}
+
+function checkLendingRequirement(item) {
+  const score = userParticipationScore();
+  const loggedIn = localStorage.getItem("logged_in") === "true";
+
+  // Not logged in
+  if (!loggedIn) {
+    return { allowed: false, reason: "login", needed: null };
+  }
+
+  // Requirements
+  if (item.requirement === "open") {
+    return { allowed: true };
+  }
+
+  if (item.requirement === "participating") {
+    if (score >= 1) return { allowed: true };
+    return { allowed: false, reason: "participating", needed: 1 };
+  }
+
+  if (item.requirement === "trusted") {
+    if (score >= 2) return { allowed: true };
+    return { allowed: false, reason: "trusted", needed: 2 };
+  }
+
+  return { allowed: true };
+}
+
+// After item loads:
+async function applyRequirementUI(item) {
+  const result = checkLendingRequirement(item);
+  const btn = document.getElementById("cta-button");
+
+  if (result.allowed) {
+    btn.href = "borrow.html?id=" + item.id;
+    btn.innerText = "Borrow this item";
+    return;
+  }
+
+  // Not logged in
+  if (result.reason === "login") {
+    btn.href = "signup.html";
+    btn.innerText = "Sign up to borrow";
+    return;
+  }
+
+  // Participating only
+  if (result.reason === "participating") {
+    btn.href = "participation_guide.html";
+    btn.innerText = "Unlock borrowing";
+    document.getElementById("first-borrows").innerHTML = `
+      <h3>Participation Needed</h3>
+      <p style="color:#555;">
+        This lender allows borrowing after a small contribution step.<br>
+        Complete any ONE of these:
+      </p>
+      <ul style="padding-left:1rem; color:#444;">
+        <li>Return your first borrowed item</li>
+        <li>Join any Circle + complete basics</li>
+        <li>Share any item in the library</li>
+        <li>Contribute $1+ to the pool</li>
+      </ul>
+    `;
+    return;
+  }
+
+  // Trusted borrowers only
+  if (result.reason === "trusted") {
+    btn.href = "participation_guide.html";
+    btn.innerText = "Unlock borrowing";
+    document.getElementById("first-borrows").innerHTML = `
+      <h3>Trusted Borrowers Needed</h3>
+      <p style="color:#555;">
+        This item requires two signs of participation.<br>
+        Complete ANY TWO:
+      </p>
+      <ul style="padding-left:1rem; color:#444;">
+        <li>Return items reliably</li>
+        <li>Join a Circle + basics</li>
+        <li>Share an item</li>
+        <li>Contribute to the pool</li>
+        <li>Help with repair or moderation</li>
+      </ul>
+    `;
+  }
+}
+
+
 loadItem();
+  applyRequirementUI(item);
 </script>
 
 </body>
