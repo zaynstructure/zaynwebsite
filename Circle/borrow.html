@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Borrow Item · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <style>
+    /* Calendar styling (inline so page is self-contained) */
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 0.5rem;
+    }
+
+    .calendar-day {
+      padding: 0.6rem 0;
+      background: #f1f1f1;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .calendar-day.unavailable {
+      background: #ddd;
+      color: #777;
+      cursor: not-allowed;
+    }
+
+    .calendar-day.selected {
+      background: #111;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="item.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Borrow This Item</h1>
+
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1rem;">
+    Select a pickup day. Unavailable days are greyed out.
+  </p>
+
+  <div class="card" style="padding:1rem;">
+    <h2 style="margin:0 0 0.8rem;">Pickup Date</h2>
+
+    <div id="calendar"></div>
+
+    <button id="confirmBorrow"
+            class="btn btn-primary"
+            style="margin-top:1.4rem;"
+            disabled>
+      Confirm Borrow
+    </button>
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+/* =======================================================
+   SIMPLE BORROWING CALENDAR
+======================================================= */
+
+function buildCalendar() {
+  const calendar = document.getElementById("calendar");
+  const today = new Date();
+  const month = today.getMonth();
+  const year  = today.getFullYear();
+
+  // Example: unavailable days
+  const unavailable = [3, 7, 11, 12, 18, 25];
+
+  /* Calendar Header */
+  const header = document.createElement("div");
+  header.style.fontWeight = "bold";
+  header.style.marginBottom = "0.4rem";
+  header.innerText = today.toLocaleString("default", {
+    month: "long",
+    year: "numeric"
+  });
+  calendar.appendChild(header);
+
+  /* Weekday Labels */
+  const labels = document.createElement("div");
+  labels.className = "calendar-grid";
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => {
+    const el = document.createElement("div");
+    el.style.fontSize = "0.65rem";
+    el.style.color = "#666";
+    el.innerText = d;
+    labels.appendChild(el);
+  });
+  calendar.appendChild(labels);
+
+  /* Calendar Days */
+  const grid = document.createElement("div");
+  grid.className = "calendar-grid";
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const numDays  = new Date(year, month + 1, 0).getDate();
+
+  // blank squares before month begins
+  for (let i = 0; i < firstDay; i++) {
+    const blank = document.createElement("div");
+    grid.appendChild(blank);
+  }
+
+  let selectedDay = null;
+
+  // days of the month
+  for (let day = 1; day <= numDays; day++) {
+    const cell = document.createElement("div");
+    cell.className = "calendar-day";
+    cell.innerText = day;
+
+    if (unavailable.includes(day)) {
+      cell.classList.add("unavailable");
+    } else {
+      cell.addEventListener
