@@ -20,14 +20,30 @@
 
   <h1 class="section-title">Free Items</h1>
 
-  <p style="font-size:0.9rem; color:#555; margin-bottom:1.2rem;">
-    No borrowing process, no requirements.<br>
-    Share what you can, take what you need.
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1rem;">
+    Share what you can, take what you need.  
+    No borrowing steps.
   </p>
 
-  <a class="btn btn-primary" href="add_free.html" style="margin-bottom:1.4rem;">
-    Add a Free Item
+  <a class="btn btn-primary" href="add_free.html" style="margin-bottom:1rem;">
+    Add Free Item
   </a>
+
+  <!-- FILTER -->
+  <div class="card" style="padding:0.8rem; margin-bottom:1rem;">
+    <label style="font-size:0.9rem; color:#555;">
+      Filter by category:
+    </label>
+    <select id="filter-select" class="input" style="margin-top:0.4rem;">
+      <option value="all">All</option>
+      <option value="Clothing">Clothing</option>
+      <option value="Food">Food</option>
+      <option value="Books">Books</option>
+      <option value="Household">Household</option>
+      <option value="Toys">Toys</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
 
   <!-- Container -->
   <div id="free-list"></div>
@@ -46,12 +62,23 @@
 </footer>
 
 <script>
+let freeData = {};
+
 async function loadFreeItems() {
   const container = document.getElementById("free-list");
-  const data = await fetch("free.json").then(r => r.json());
 
-  Object.keys(data).forEach(id => {
-    const item = data[id];
+  freeData = await fetch("free.json").then(r => r.json());
+  renderItems("all");
+}
+
+function renderItems(category) {
+  const container = document.getElementById("free-list");
+  container.innerHTML = "";
+
+  Object.keys(freeData).forEach(id => {
+    const item = freeData[id];
+
+    if (category !== "all" && item.category !== category) return;
 
     const card = document.createElement("div");
     card.className = "card";
@@ -72,12 +99,18 @@ async function loadFreeItems() {
         ${item.notes}
       </p>
 
-      <a class="btn btn-primary" href="#">Claim</a>
+      <a class="btn btn-secondary" href="free_item.html?id=${id}">
+        View
+      </a>
     `;
 
     container.appendChild(card);
   });
 }
+
+document.getElementById("filter-select").addEventListener("change", (e) => {
+  renderItems(e.target.value);
+});
 
 loadFreeItems();
 </script>
