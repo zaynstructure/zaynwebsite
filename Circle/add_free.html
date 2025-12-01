@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Add Free Item · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="free.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Share Something</h1>
+
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1.4rem;">
+    Add clothing, food, or basic items for others to pick up freely.  
+    Your post will appear immediately in the Free section.
+  </p>
+
+  <form id="freeForm" class="card" style="padding:1rem;">
+
+    <label class="form-label">Title</label>
+    <input type="text" id="title" class="input" placeholder="e.g. Men's Jacket (L)" required />
+
+    <label class="form-label">Category</label>
+    <select id="category" class="input" required>
+      <option value="">Choose a category</option>
+      <option>Clothing</option>
+      <option>Food</option>
+      <option>Household</option>
+      <option>Kids</option>
+      <option>Other</option>
+    </select>
+
+    <label class="form-label">Neighbourhood</label>
+    <input type="text" id="location" class="input" placeholder="e.g. Quadra Village" required />
+
+    <label class="form-label">Condition</label>
+    <select id="condition" class="input" required>
+      <option value="">Select</option>
+      <option>New</option>
+      <option>Fresh</option>
+      <option>Good</option>
+      <option>Fair</option>
+      <option>Needs Repair</option>
+    </select>
+
+    <label class="form-label">Notes</label>
+    <textarea id="notes" class="input" placeholder="Short description" rows="3"></textarea>
+
+    <label class="form-label">Photo (optional)</label>
+    <input type="file" id="image" accept="image/*" class="input" />
+
+    <div id="preview" style="display:none; margin:0.8rem 0;"></div>
+
+    <button type="submit" class="btn btn-primary" style="margin-top:1rem;">
+      Add Item
+    </button>
+
+  </form>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+/* =======================================
+   ADD FREE ITEM — LOCAL STORAGE VERSION
+   (No backend required)
+======================================= */
+
+// Preview uploaded image
+document.getElementById("image").addEventListener("change", function(evt) {
+  const file = evt.target.files[0];
+  const preview = document.getElementById("preview");
+
+  if (!file) {
+    preview.style.display = "none";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    preview.innerHTML = `
+      <div style="
+        background:url('${e.target.result}') center/cover no-repeat;
+        width:100%; height:160px; border-radius:6px;
+      "></div>`;
+    preview.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+});
+
+// Handle submission
+document.getElementById("freeForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  // get stored items or fallback to empty object
+  const stored = JSON.parse(localStorage.getItem("free_items") || "{}");
+
+  // create new entry
+  const id = Date.now().toString(); // unique key
+  stored[id] = {
+    title: document.getElementById("title").value,
+    category: document.getElementById("category").value,
+    location: document.getElementById("location").value,
+    condition: document.getElementById("condition").value,
+    notes: document.getElementById("notes").value,
+    image: document.getElementById("preview").querySelector("div")
+             ? document.getElementById("preview").querySelector("div").style.backgroundImage.slice(5, -2)
+             : null
+  };
+
+  // save back to localStorage
+  localStorage.setItem("free_items", JSON.stringify(stored));
+
+  // redirect to free.html
+  window.location.href = "free.html";
+});
+</script>
+
+</body>
+</html>
