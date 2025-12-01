@@ -110,6 +110,28 @@ async function loadItem() {
     `url(${item.image})`;
   document.getElementById("item-image").style.backgroundSize = "cover";
   document.getElementById("item-image").style.backgroundPosition = "center";
+  const cta = document.getElementById("cta-button");
+
+// 1. check if item belongs to a circle
+if (!item.circle) {
+  // no circle → borrow normally
+  cta.href = `borrow.html?id=${id}`;
+  cta.innerText = "Borrow this item";
+} else {
+  // 2. item requires a circle → check membership
+  const userCircles = JSON.parse(localStorage.getItem("user_circles") || "[]");
+  const isMember = userCircles.includes(item.circle);
+
+  if (isMember) {
+    // 3. user is in circle → allow borrowing
+    cta.href = `borrow.html?id=${id}`;
+    cta.innerText = `Borrow this item (✓ ${item.circle})`;
+  } else {
+    // 4. user not in circle → redirect to join page
+    cta.href = `join_circle.html?circle=${encodeURIComponent(item.circle)}`;
+    cta.innerText = `Join ${item.circle} to borrow`;
+  }
+}
 
   // 4. circle requirement block
   const circleCard = document.getElementById("circle-card");
