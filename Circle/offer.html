@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Offer an Item</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">Offer an item</div>
+    <div>☰</div>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1>Offer an item</h1>
+  <p>Share something you own but don't use all the time.</p>
+
+  <form>
+
+    <div class="card">
+      <div class="card-title">Circle</div>
+      <p class="card-sub">Choose where this item belongs.</p>
+      <select style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
+        <option>Photography</option>
+        <option>Sewing &amp; Textiles</option>
+        <option>Tools &amp; Repair</option>
+        <option>Kitchen</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Item details</div>
+      <input type="text" placeholder="Title (e.g., DSLR camera kit)" 
+             style="width:100%; padding:0.5rem; margin-bottom:0.4rem; border-radius:6px; border:1px solid #ccc;" />
+      <textarea placeholder="Short description, brand, any quirks..." 
+                style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc; min-height:80px;"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Condition</div>
+      <select style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
+        <option>Good</option>
+        <option>Very good</option>
+        <option>Well used (still functional)</option>
+      </select>
+      <p class="card-sub" style="margin-top:0.4rem;">
+        Add any safety notes or missing parts in the description above.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Pickup</div>
+      <input type="text" placeholder="Nearest intersection (e.g., Quadra & Balmoral)" 
+             style="width:100%; padding:0.5rem; margin-bottom:0.4rem; border-radius:6px; border:1px solid #ccc;" />
+      <select style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
+        <option>Porch pickup (bin or box)</option>
+        <option>Meet in public place</option>
+        <option>Other (specify in description)</option>
+      </select>
+    </div>
+
+    <div style="margin-top:0.8rem;">
+      <button type="submit" class="btn btn-primary">Post item</button>
+    </div>
+
+  </form>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="#">Profile</a>
+  </div>
+</footer>
+
+</body>
+</html>
