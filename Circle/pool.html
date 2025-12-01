@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>The Pool · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="index.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">The Pool</h1>
+
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1.2rem;">
+    The Community Pool is a shared fund and item reserve that helps cover small costs,
+    replace lost or broken items, and support members who can’t afford deposits.
+    Everyone can contribute. Everyone can benefit.
+  </p>
+
+  <div class="card" style="margin-bottom:1.2rem;">
+    <h2 style="font-size:1.05rem; margin:0 0 0.5rem;">How it Works</h2>
+    <ul style="padding-left:1.2rem; color:#444; font-size:0.88rem;">
+      <li>A shared pot of small contributions from members.</li>
+      <li>Used to subsidize deposits, repairs, or replacements.</li>
+      <li>Transparent and capped — the pool is not for profit.</li>
+      <li>Decisions follow simple rules, not voting or drama.</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-bottom:1.2rem;">
+    <h2 style="font-size:1.05rem; margin:0 0 0.5rem;">Why It Exists</h2>
+    <ul style="padding-left:1.2rem; color:#444; font-size:0.88rem;">
+      <li>To make borrowing easier for people with fewer resources.</li>
+      <li>To protect lenders from occasional losses.</li>
+      <li>To prevent the system from needing strict deposits or ID checks.</li>
+      <li>To build trust without demanding perfection from anyone.</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-bottom:1.2rem;">
+    <h2 style="font-size:1.05rem; margin:0 0 0.5rem;">Pool Balance</h2>
+    <p id="pool-balance" style="font-size:0.95rem; margin:0.4rem 0; color:#111;">
+      $0
+    </p>
+  </div>
+
+  <div class="card" style="margin-bottom:1.2rem;">
+    <h2 style="font-size:1.05rem; margin:0 0 0.5rem;">Contribute to the Pool</h2>
+    <p style="color:#555; font-size:0.88rem; margin:0 0 0.8rem;">
+      Small voluntary contributions keep the system running and accessible.
+    </p>
+
+    <input
+      type="number"
+      id="contribute-amount"
+      class="input"
+      placeholder="Amount ($)"
+      min="1"
+      style="margin-bottom:0.6rem;"
+    />
+
+    <button class="btn btn-primary" id="contribute-btn">Add to Pool</button>
+  </div>
+
+  <div class="card" style="margin-bottom:1.2rem;">
+    <h2 style="font-size:1.05rem; margin:0 0 0.5rem;">Request Support</h2>
+    <p style="color:#555; font-size:0.88rem; margin-bottom:0.8rem;">
+      If the deposit or cost of borrowing is a barrier,
+      you can request support from the pool.
+    </p>
+
+    <textarea
+      id="support-reason"
+      class="input"
+      rows="3"
+      placeholder="Why do you need support?"
+      style="margin-bottom:0.6rem;"
+    ></textarea>
+
+    <button class="btn btn-primary" id="request-btn">Submit Request</button>
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+/* ==========================================================
+   COMMUNITY POOL (LOCAL STORAGE SIMULATION)
+   - Stores a simple balance
+   - Lets users "contribute"
+   - Lets users submit support requests
+========================================================== */
+
+function updateBalance() {
+  const balance = Number(localStorage.getItem("pool_balance") || 0);
+  document.getElementById("pool-balance").innerText = `$${balance}`;
+}
+
+updateBalance();
+
+/* Add contribution */
+document.getElementById("contribute-btn").addEventListener("click", () => {
+  const amount = Number(document.getElementById("contribute-amount").value);
+  if (!amount || amount <= 0) return alert("Enter a valid amount.");
+
+  const current = Number(localStorage.getItem("pool_balance") || 0);
+  const newBalance = current + amount;
+
+  localStorage.setItem("pool_balance", newBalance);
+  updateBalance();
+
+  document.getElementById("contribute-amount").value = "";
+  alert("Thank you for contributing!");
+});
+
+/* Submit support request */
+document.getElementById("request-btn").addEventListener("click", () => {
+  const reason = document.getElementById("support-reason").value.trim();
+  if (!reason) return alert("Please enter a brief reason.");
+
+  // Save as a pending request
+  const requests = JSON.parse(localStorage.getItem("pool_requests") || "[]");
+  requests.push({
+    reason,
+    time: new Date().toISOString()
+  });
+  localStorage.setItem("pool_requests", JSON.stringify(requests));
+
+  document.getElementById("support-reason").value = "";
+  alert("Your request
