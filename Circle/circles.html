@@ -9,57 +9,132 @@
 
 <body>
 
-<header>
-  <div class="header-inner">
-    <div class="logo">CircleShare</div>
-    <a href="index.html" style="text-decoration:none;">←</a>
-  </div>
-</header>
+<!-- TOP RIGHT: LOGOUT + DASHBOARD ARROW -->
+<div class="corner-auth-wrap">
+  <a href="#" id="logoutBtn" class="corner-auth">Logout</a>
+  <a href="dashboard.html" class="corner-arrow">→</a>
+</div>
 
-<main class="page">
+<style>
+.corner-auth-wrap {
+  position:absolute;
+  top:0.9rem;
+  right:1rem;
+  display:flex;
+  align-items:center;
+  gap:0.45rem;
+}
+.corner-auth {
+  font-size:0.85rem;
+  text-decoration:none;
+  color:#333;
+}
+.corner-arrow {
+  font-size:1.05rem;
+  text-decoration:none;
+  color:#666;
+  padding:0.1rem 0.25rem;
+}
+.corner-arrow:hover {
+  color:#000;
+}
+</style>
+
+<script>
+document.getElementById("logoutBtn").onclick = () => {
+  localStorage.removeItem("logged_in");
+  window.location.href = "index.html";
+};
+</script>
+
+<main class="page" style="padding-top:4rem;">
 
   <h1 class="section-title">Circles</h1>
 
-  <p style="font-size:0.9rem; color:#555; margin-bottom:1.4rem;">
-    Circles are small trust-based groups that make sharing easier.
-    You can join neighbours near you or create a private group with people you know.
+  <p class="subtitle" style="margin-bottom:1.6rem;">
+    Connect with neighbours or create a private sharing circle with friends.
   </p>
 
-  <!-- Neighbourhood Circles -->
-  <div class="card" style="margin-bottom:1.3rem;">
-    <h3 style="margin:0 0 0.4rem;">Neighbourhood Circles</h3>
-    <p style="font-size:0.88rem; color:#555; margin-bottom:0.8rem;">
-      Local sharing circles based on rough proximity (postal code or area).
-      Connect with nearby neighbours and share everyday items easily.
-    </p>
-    <a class="btn btn-primary" href="signup.html">Find my neighbourhood</a>
+  <!-- NEIGHBOURHOOD CIRCLES -->
+  <h2 style="font-size:1rem; margin-bottom:0.6rem;">Neighbour Circles</h2>
+  <div id="neighbour-circles" style="margin-bottom:1.8rem;">
+    <!-- Dynamic JS content will load here -->
   </div>
 
-  <!-- Private Circles -->
-  <div class="card" style="margin-bottom:1.3rem;">
-    <h3 style="margin:0 0 0.4rem;">Private Circles</h3>
-    <p style="font-size:0.88rem; color:#555; margin-bottom:0.8rem;">
-      Create an invite-only circle for friends, roommates, coworkers, or 
-      your apartment building. Items stay visible only to your group.
-    </p>
-    <a class="btn btn-primary" href="signup.html">Create a private circle</a>
-  </div>
+  <!-- PRIVATE CIRCLES -->
+  <h2 style="font-size:1rem; margin-bottom:0.6rem;">Private Circles</h2>
 
-  <p style="font-size:0.85rem; color:#666; text-align:center; margin-top:1rem;">
-    You can also list items publicly in the general library if you prefer.
-  </p>
+  <a class="btn btn-primary" href="create_circle.html" style="margin-bottom:1rem; display:inline-block;">
+    + Create a Private Circle
+  </a>
+
+  <div id="private-circles" style="margin-bottom:2rem;">
+    <!-- dynamic -->
+  </div>
 
 </main>
 
-<footer>
-  <div class="footer-nav">
-    <a href="index.html">Home</a>
-    <a href="circles.html">Circles</a>
-    <a href="library.html">Borrow/Lend</a>
-    <a href="free.html">Give/Receive</a>
-    <a href="info.html">Info</a>
-  </div>
-</footer>
+<!-- BOTTOM NAV -->
+<div id="bottomNavContainer"></div>
+<script src="bottom-nav.js"></script>
+
+<!-- CIRCLE LOADING LOGIC -->
+<script>
+// Example static dataset — replace with your JSON later
+const neighbourhoodData = [
+  { name: "Quadra Village Circle", members: 12 },
+  { name: "Fernwood Circle", members: 18 },
+  { name: "North Park Circle", members: 9 }
+];
+
+const privateCircleData = JSON.parse(localStorage.getItem("privateCircles") || "[]");
+
+function loadNeighbourCircles() {
+  const container = document.getElementById("neighbour-circles");
+  container.innerHTML = "";
+
+  neighbourhoodData.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.marginBottom = "1rem";
+    card.innerHTML = `
+      <h3>${c.name}</h3>
+      <p style="color:#777; font-size:0.88rem;">${c.members} members</p>
+      <a class="btn btn-primary" href="join_circle.html?name=${encodeURIComponent(c.name)}">
+        View Circle
+      </a>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function loadPrivateCircles() {
+  const container = document.getElementById("private-circles");
+  container.innerHTML = "";
+
+  if (privateCircleData.length === 0) {
+    container.innerHTML = `<p style="color:#777; font-size:0.88rem;">No private circles yet.</p>`;
+    return;
+  }
+
+  privateCircleData.forEach(name => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.marginBottom = "1rem";
+    card.innerHTML = `
+      <h3>${name}</h3>
+      <p style="color:#777;">Private group</p>
+      <a class="btn btn-primary" href="circle_view.html?name=${encodeURIComponent(name)}">
+        Open
+      </a>
+    `;
+    container.appendChild(card);
+  });
+}
+
+loadNeighbourCircles();
+loadPrivateCircles();
+</script>
 
 </body>
 </html>
