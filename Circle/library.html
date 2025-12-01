@@ -9,40 +9,130 @@
 
 <body>
 
-<div data-include="header.html"></div>
+<!-- AUTH LINK (top right corner) -->
+<a href="#" id="authCorner" class="corner-auth"></a>
 
-<main class="page">
+<style>
+.corner-auth {
+  position:absolute;
+  top:0.9rem;
+  right:1rem;
+  font-size:0.85rem;
+  text-decoration:none;
+  color:#333;
+}
+</style>
+
+<script>
+// Set corner link text based on login state
+const auth = document.getElementById("authCorner");
+
+if (localStorage.getItem("logged_in") === "true") {
+  auth.textContent = "Logout";
+  auth.onclick = () => {
+    localStorage.removeItem("logged_in");
+    window.location.href = "index.html";
+  };
+} else {
+  auth.textContent = "Login / Signup";
+  auth.href = "login.html";
+}
+</script>
+
+<main class="page" style="padding-top:4rem;">
 
   <h1 class="section-title">Community Library</h1>
 
-  <input type="text" placeholder="Search items…" class="input">
+  <!-- SEARCH + FILTERS -->
+  <input type="text" id="searchInput" placeholder="Search items…" class="input" style="margin-bottom:1rem;">
 
-  <div style="display:flex; gap:0.6rem; margin-bottom:1.2rem;">
-    <select class="input">
-      <option>All categories</option>
-      <option>Tools</option>
-      <option>Kitchen</option>
-      <option>Outdoors</option>
+  <div style="display:flex; gap:0.6rem; margin-bottom:1.4rem;">
+    <select id="categoryFilter" class="input">
+      <option value="">All categories</option>
+      <option value="Tools">Tools</option>
+      <option value="Kitchen">Kitchen</option>
+      <option value="Outdoors">Outdoors</option>
+      <option value="Photography">Photography</option>
     </select>
 
-    <select class="input">
-      <option>Any distance</option>
+    <select id="distanceFilter" class="input">
+      <option value="">Any distance</option>
       <option>Within 1 km</option>
       <option>Within 3 km</option>
+      <option>Within 5 km</option>
     </select>
   </div>
 
-  <a class="btn btn-primary" href="add_item.html" style="margin-bottom:1.4rem;">
+  <!-- ADD ITEM -->
+  <a class="btn btn-primary" href="add_item.html" style="margin-bottom:1.4rem; display:inline-block;">
     + Add an Item
   </a>
 
+  <!-- ITEMS -->
   <div id="library-list"></div>
 
 </main>
 
-<div data-include="footer.html"></div>
-<script src="component-loader.js"></script>
-<script src="library-loader.js"></script>
+<!-- BOTTOM NAV -->
+<div id="bottomNavContainer"></div>
+<script src="bottom-nav.js"></script>
+
+<!-- LOAD DATA -->
+<script>
+async function loadLibrary() {
+  const container = document.getElementById("library-list");
+  container.innerHTML = "";
+
+  const searchValue   = document.getElementById("searchInput").value.toLowerCase();
+  const categoryValue = document.getElementById("categoryFilter").value;
+
+  // Load items.json
+  const items = await fetch("items.json").then(r => r.json());
+
+  Object.keys(items).forEach(id => {
+    const item = items[id];
+
+    // SEARCH FILTER
+    if (searchValue && !item.name.toLowerCase().includes(searchValue)) {
+      return;
+    }
+
+    // CATEGORY FILTER
+    if (categoryValue && item.category !== categoryValue) {
+      return;
+    }
+
+    // CARD
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.marginBottom = "1.2rem";
+
+    card.innerHTML = `
+      <h3>${item.name}</h3>
+      <p>${item.category} • ${item.location}</p>
+      <p style="color:#777; font-size:0.9rem;">${item.availability}</p>
+
+      <div style="
+        background:url('${item.image}') center/cover no-repeat;
+        width:100%; height:160px;
+        border-radius:6px;
+        margin:0.7rem 0 1rem;
+      "></div>
+
+      <a class="btn btn-primary" href="item.html?id=${id}">View</a>
+    `;
+
+    container.appendChild(card);
+  });
+}
+
+// RELOAD ON SEARCH OR FILTER
+document.getElementById("searchInput").addEventListener("input", loadLibrary);
+document.getElementById("categoryFilter").addEventListener("change", loadLibrary);
+
+// INITIAL LOAD
+loadLibrary();
+</script>
 
 </body>
 </html>
