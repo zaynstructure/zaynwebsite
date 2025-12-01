@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Building Hub · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="clusters.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 id="cluster-title" class="section-title">Building Hub</h1>
+
+  <p style="font-size:.9rem; color:#555; margin-bottom:1rem;">
+    This circle is just for the people in your building or block.  
+    Share small things, ask for help, and keep it simple.
+  </p>
+
+  <!-- Simple tabs -->
+  <div style="display:flex; gap:.4rem; margin-bottom:1rem;">
+    <button class="btn btn-secondary" id="tab-items">Shared items</button>
+    <button class="btn btn-ghost" id="tab-free">Free corner</button>
+    <button class="btn btn-ghost" id="tab-help">Help & favors</button>
+  </div>
+
+  <!-- SHARED ITEMS -->
+  <section id="panel-items">
+    <div class="card">
+      <h3>Shared Kettle</h3>
+      <p>Kitchen · 4th floor hallway</p>
+      <p style="color:#777;">Available now · Quick boils, please return same day.</p>
+      <button class="btn btn-primary" style="margin-top:.4rem;">Borrow</button>
+    </div>
+
+    <div class="card">
+      <h3>Small Tool Kit</h3>
+      <p>Tools · 3rd floor</p>
+      <p style="color:#777;">Screwdrivers, tape measure, small hammer.</p>
+      <button class="btn btn-primary" style="margin-top:.4rem;">Borrow</button>
+    </div>
+
+    <a href="#" class="btn btn-ghost" style="margin-top:1rem; display:block; text-align:center;">
+      + Add an item to this building
+    </a>
+  </section>
+
+  <!-- FREE CORNER -->
+  <section id="panel-free" style="display:none;">
+    <div class="card">
+      <h3>Free Shelf · Lobby</h3>
+      <p style="color:#777;">Leave clean, usable items only. No dumping.</p>
+    </div>
+
+    <div class="card">
+      <h3>Cookbooks bundle</h3>
+      <p>On the free shelf near the mailboxes.</p>
+      <p style="color:#777;">Take any you like, no need to list.</p>
+    </div>
+
+    <div class="card">
+      <h3>Spare plant cuttings</h3>
+      <p>Snake plant & pothos in the laundry room.</p>
+      <p style="color:#777;">Free to anyone in the building.</p>
+    </div>
+
+    <a href="#" class="btn btn-ghost" style="margin-top:1rem; display:block; text-align:center;">
+      + Add something to the free corner
+    </a>
+  </section>
+
+  <!-- HELP & FAVORS -->
+  <section id="panel-help" style="display:none;">
+    <div class="card">
+      <h3>Need help moving a shelf</h3>
+      <p>Unit 307 · Saturday afternoon</p>
+      <p style="color:#777;">Just need one person for 10 minutes.</p>
+      <button class="btn btn-primary" style="margin-top:.4rem;">I can help</button>
+    </div>
+
+    <div class="card">
+      <h3>Looking for pet-sitting swap</h3>
+      <p>Short trips / weekends · small dog.</p>
+      <p style="color:#777;">Happy to trade for plant-watering or mail pickup.</p>
+      <button class="btn btn-primary" style="margin-top:.4rem;">Message neighbor</button>
+    </div>
+
+    <a href="#" class="btn btn-ghost" style="margin-top:1rem; display:block; text-align:center;">
+      + Post a help request
+    </a>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="clusters.html">Building circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+  // Set cluster name from URL or localStorage
+  const params = new URLSearchParams(window.location.search);
+  const clusterParam = params.get("cluster");
+  const savedCluster = localStorage.getItem("my_cluster_name");
+
+  const clusterName = clusterParam || savedCluster || "Your Building Circle";
+  document.getElementById("cluster-title").innerText = clusterName;
+
+  // Simple tab logic
+  const tabItems = document.getElementById("tab-items");
+  const tabFree  = document.getElementById("tab-free");
+  const tabHelp  = document.getElementById("tab-help");
+
+  const panelItems = document.getElementById("panel-items");
+  const panelFree  = document.getElementById("panel-free");
+  const panelHelp  = document.getElementById("panel-help");
+
+  function setTab(active) {
+    // reset all
+    tabItems.className = "btn btn-ghost";
+    tabFree.className  = "btn btn-ghost";
+    tabHelp.className  = "btn btn-ghost";
+
+    panelItems.style.display = "none";
+    panelFree.style.display  = "none";
+    panelHelp.style.display  = "none";
+
+    if (active === "items") {
+      tabItems.className = "btn btn-secondary";
+      panelItems.style.display = "block";
+    } else if (active === "free") {
+      tabFree.className = "btn btn-secondary";
+      panelFree.style.display = "block";
+    } else if (active === "help") {
+      tabHelp.className = "btn btn-secondary";
+      panelHelp.style.display = "block";
+    }
+  }
+
+  tabItems.addEventListener("click", () => setTab("items"));
+  tabFree.addEventListener("click", () => setTab("free"));
+  tabHelp.addEventListener("click", () => setTab("help"));
+
+  // Default tab
+  setTab("items");
+</script>
+
+</body>
+</html>
