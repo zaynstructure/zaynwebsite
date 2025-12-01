@@ -159,9 +159,16 @@ function loadCircles() {
   });
 }
 
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.setItem('user_logged_in', 'false');
+  window.location.href = "index.html";
+});
+  
 loadUser();
 loadPool();
 loadCircles();
+
+  
 </script>
 
 </body>
