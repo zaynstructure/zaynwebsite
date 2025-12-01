@@ -1,0 +1,31 @@
+{
+  "1": {
+    "title": "Men’s Winter Jacket (L)",
+    "category": "Clothing",
+    "location": "Quadra Village",
+    "condition": "Good",
+    "notes": "Warm insulated jacket, gently worn.",
+    "image": "assets/jacket.jpg",
+    "type": "clothing"
+  },
+
+  "2": {
+    "title": "Fresh Garden Produce",
+    "category": "Food",
+    "location": "Burnside",
+    "condition": "Fresh",
+    "notes": "Mixed greens and root vegetables from a local garden.",
+    "image": "assets/produce.jpg",
+    "type": "food"
+  },
+
+  "3": {
+    "title": "Kid’s Shoes (size 3)",
+    "category": "Clothing",
+    "location": "Downtown",
+    "condition": "Fair",
+    "notes": "A little scuffed, but clean and wearable.",
+    "image": "assets/shoes.jpg",
+    "type": "clothing"
+  }
+}
