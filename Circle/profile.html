@@ -155,6 +155,61 @@
   
 </footer>
 
+  <script>
+function calculateTier() {
+  // These flags come from the rest of your system
+  const lends = JSON.parse(localStorage.getItem("user_lent_items") || "[]");
+  const circles = JSON.parse(localStorage.getItem("user_circles") || "[]");
+  const pool = localStorage.getItem("user_pool_contrib") === "true";
+  const returns = Number(localStorage.getItem("user_successful_returns") || 0);
+  const repairHelp = localStorage.getItem("user_repair_help") === "true";
+
+  let score = 0;
+
+  if (lends.length > 0) score++;
+  if (circles.length > 0) score++;
+  if (pool) score++;
+  if (returns > 2) score++;
+  if (repairHelp) score++;
+
+  // Assign tiers
+  if (score >= 3) return "Community Member";
+  if (score >= 1) return "Active Member";
+  return "New Member";
+}
+
+function renderTier() {
+  const tier = calculateTier();
+
+  const tierEl = document.getElementById("borrow-tier");
+  const itemLimit = document.getElementById("tier-item-limit");
+  const risk = document.getElementById("tier-risk");
+  const deposit = document.getElementById("tier-deposit");
+
+  tierEl.innerText = tier;
+
+  if (tier === "New Member") {
+    itemLimit.innerText = "Borrow limit: 1 item at a time";
+    risk.innerText = "Risk access: Low-risk items only";
+    deposit.innerText = "Deposit support: Requires steps";
+  }
+
+  if (tier === "Active Member") {
+    itemLimit.innerText = "Borrow limit: 2 items at a time";
+    risk.innerText = "Risk access: Medium-risk items unlocked";
+    deposit.innerText = "Deposit support: Usually waived";
+  }
+
+  if (tier === "Community Member") {
+    itemLimit.innerText = "Borrow limit: 3 items at a time";
+    risk.innerText = "Risk access: All items unlocked";
+    deposit.innerText = "Deposit support: Always waived";
+  }
+}
+
+renderTier();
+</script>
+
 <script>
 /* =======================================================
    PROFILE PAGE LOGIC
