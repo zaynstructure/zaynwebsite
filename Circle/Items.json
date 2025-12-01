@@ -1,0 +1,40 @@
+{
+  "1": {
+    "name": "Drill (Makita)",
+    "category": "Tools",
+    "location": "Fernwood",
+    "condition": "Good",
+    "availability": "Now",
+    "circle": null,
+    "image": "assets/drill.jpg",
+    "description": "Reliable cordless drill. Comes with one battery and bit set.",
+    "owner": "Sam",
+    "owner_info": "4 successful lends"
+  },
+
+  "2": {
+    "name": "Camping Stove",
+    "category": "Outdoors",
+    "location": "Quadra Village",
+    "condition": "Used",
+    "availability": "In 2 days",
+    "circle": null,
+    "image": "assets/stove.jpg",
+    "description": "Compact backpacking stove. Great for overnight trips.",
+    "owner": "Jess",
+    "owner_info": "2 successful lends"
+  },
+
+  "3": {
+    "name": "DSLR Camera (Canon EOS)",
+    "category": "Photography",
+    "location": "North Park",
+    "condition": "Excellent",
+    "availability": "Now",
+    "circle": "Photography",
+    "image": "assets/camera.jpg",
+    "description": "Includes 18–55mm lens, battery, and charger. Great for portraits and events.",
+    "owner": "Alex",
+    "owner_info": "5 successful lends"
+  }
+}
