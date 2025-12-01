@@ -1,140 +1,116 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Circles · CircleShare</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
 
-<!-- TOP RIGHT: LOGOUT + DASHBOARD ARROW -->
-<div class="corner-auth-wrap">
-  <a href="#" id="logoutBtn" class="corner-auth">Logout</a>
-  <a href="dashboard.html" class="corner-arrow">→</a>
-</div>
+<!-- HEADER -->
+<header class="top-header">
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+
+    <div class="header-right">
+      <a href="dashboard.html" class="small-arrow">→</a>
+      <a id="logoutBtn" class="logout-link">Logout</a>
+    </div>
+  </div>
+</header>
 
 <style>
-.corner-auth-wrap {
-  position:absolute;
-  top:0.9rem;
-  right:1rem;
+.top-header {
+  background:#fff;
+  border-bottom:1px solid #ddd;
+}
+.header-inner {
+  max-width:600px;
+  margin:0 auto;
+  padding:0.8rem 1rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.small-arrow, .logout-link {
+  font-size:0.85rem;
+  color:#333;
+  text-decoration:none;
+  margin-left:0.6rem;
+}
+.small-arrow:hover, .logout-link:hover {
+  text-decoration:underline;
+}
+.header-right {
   display:flex;
   align-items:center;
-  gap:0.45rem;
-}
-.corner-auth {
-  font-size:0.85rem;
-  text-decoration:none;
-  color:#333;
-}
-.corner-arrow {
-  font-size:1.05rem;
-  text-decoration:none;
-  color:#666;
-  padding:0.1rem 0.25rem;
-}
-.corner-arrow:hover {
-  color:#000;
 }
 </style>
 
 <script>
-document.getElementById("logoutBtn").onclick = () => {
+document.getElementById("logoutBtn")?.addEventListener("click", () => {
   localStorage.removeItem("logged_in");
   window.location.href = "index.html";
-};
+});
 </script>
 
-<main class="page" style="padding-top:4rem;">
+<main class="page" style="padding-top:1rem;">
 
   <h1 class="section-title">Circles</h1>
 
-  <p class="subtitle" style="margin-bottom:1.6rem;">
-    Connect with neighbours or create a private sharing circle with friends.
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1.4rem;">
+    Circles help people coordinate borrowing with trust, care guidelines, and 
+    shared goals. You can join neighbourhood circles, interest-based groups, 
+    or create a private circle for your own community.
   </p>
 
-  <!-- NEIGHBOURHOOD CIRCLES -->
-  <h2 style="font-size:1rem; margin-bottom:0.6rem;">Neighbour Circles</h2>
-  <div id="neighbour-circles" style="margin-bottom:1.8rem;">
-    <!-- Dynamic JS content will load here -->
+  <!-- MAIN BUTTONS -->
+  <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:2rem;">
+
+    <a class="btn btn-primary btn-large" href="circles_neighbour.html">
+      Neighbourhood Circles
+    </a>
+
+    <a class="btn btn-primary btn-large" href="circles_interest.html">
+      Interest Circles
+    </a>
+
+    <a class="btn btn-primary btn-large" href="circles_private.html">
+      Private Circles
+    </a>
   </div>
 
-  <!-- PRIVATE CIRCLES -->
-  <h2 style="font-size:1rem; margin-bottom:0.6rem;">Private Circles</h2>
+  <!-- How circles work -->
+  <h2 style="font-size:1rem; margin-bottom:0.6rem;">How circles work</h2>
 
-  <a class="btn btn-primary" href="create_circle.html" style="margin-bottom:1rem; display:inline-block;">
-    + Create a Private Circle
-  </a>
+  <div class="card" style="font-size:0.86rem; color:#444;">
+    <p><strong>Neighbourhood Circles</strong>  
+      Connect people who live nearby. Ideal for sharing tools, kitchen items, 
+      and everyday borrowing.</p>
 
-  <div id="private-circles" style="margin-bottom:2rem;">
-    <!-- dynamic -->
+    <p><strong>Interest Circles</strong>  
+      Group people by hobbies or skill areas (e.g., photography, cycling, 
+      repair). Items may require basic care guidelines.</p>
+
+    <p><strong>Private Circles</strong>  
+      Create a small, closed group—friends, an apartment building, a cohort of 
+      coworkers. Fully self-organized.</p>
   </div>
 
 </main>
 
-<!-- BOTTOM NAV -->
-<div id="bottomNavContainer"></div>
-<script src="bottom-nav.js"></script>
-
-<!-- CIRCLE LOADING LOGIC -->
-<script>
-// Example static dataset — replace with your JSON later
-const neighbourhoodData = [
-  { name: "Quadra Village Circle", members: 12 },
-  { name: "Fernwood Circle", members: 18 },
-  { name: "North Park Circle", members: 9 }
-];
-
-const privateCircleData = JSON.parse(localStorage.getItem("privateCircles") || "[]");
-
-function loadNeighbourCircles() {
-  const container = document.getElementById("neighbour-circles");
-  container.innerHTML = "";
-
-  neighbourhoodData.forEach(c => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.style.marginBottom = "1rem";
-    card.innerHTML = `
-      <h3>${c.name}</h3>
-      <p style="color:#777; font-size:0.88rem;">${c.members} members</p>
-      <a class="btn btn-primary" href="join_circle.html?name=${encodeURIComponent(c.name)}">
-        View Circle
-      </a>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function loadPrivateCircles() {
-  const container = document.getElementById("private-circles");
-  container.innerHTML = "";
-
-  if (privateCircleData.length === 0) {
-    container.innerHTML = `<p style="color:#777; font-size:0.88rem;">No private circles yet.</p>`;
-    return;
-  }
-
-  privateCircleData.forEach(name => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.style.marginBottom = "1rem";
-    card.innerHTML = `
-      <h3>${name}</h3>
-      <p style="color:#777;">Private group</p>
-      <a class="btn btn-primary" href="circle_view.html?name=${encodeURIComponent(name)}">
-        Open
-      </a>
-    `;
-    container.appendChild(card);
-  });
-}
-
-loadNeighbourCircles();
-loadPrivateCircles();
-</script>
+<!-- FOOTER NAV -->
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
 
 </body>
 </html>
