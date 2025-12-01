@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CircleShare</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -10,66 +10,86 @@
 <body>
 
 <header>
-  <div class="header-inner">
-    <div class="logo">CircleShare</div>
-    <div>☰</div>
+  <div class="header-inner" style="justify-content:center;">
+    <div class="logo" style="font-size:1.4rem; font-weight:600;">CircleShare</div>
   </div>
 </header>
 
-<main class="page" style="text-align:center; padding-top:2.8rem;">
+<main class="page" style="text-align:center;">
 
-  <!-- PRIMARY MESSAGE -->
-  <h1 style="font-size:1.55rem; margin-bottom:0.7rem;">
-    Share what you have.<br/>
-    Borrow what you need.
+  <!-- Hero -->
+  <h1 style="font-size:1.6rem; margin-bottom:0.6rem; margin-top:1.2rem;">
+    Share locally, borrow easily.
   </h1>
 
-  <p style="font-size:0.95rem; color:#5c5c5c; max-width:22rem; margin:0 auto 1.6rem;">
-    A simple, neighbourhood sharing network built  
-    through small, self-organized circles.
+  <p style="font-size:0.95rem; color:#555; max-width:300px; margin:0 auto 1.6rem;">
+    A simple community library for neighbours, skills, and small trusted groups.
   </p>
 
-  <!-- PRIMARY ACTIONS -->
-  <div class="landing-buttons">
+  <!-- Primary CTA -->
+  <a class="btn btn-primary" href="library.html" style="width:100%; max-width:320px; margin:0 auto 1rem;">
+    Browse Library
+  </a>
 
-  <a class="btn btn-ghost" href="library.html">Browse Library</a>
+  <!-- Free Items -->
+  <a class="btn btn-secondary" href="free.html" style="width:100%; max-width:320px; margin:0 auto 1.2rem;">
+    Free Food & Clothing
+  </a>
 
-  <a class="btn btn-ghost" href="free.html">Free Items</a>
+  <!-- Circles section -->
+  <div style="max-width:320px; margin:0 auto 1.4rem;">
+    <div style="display:flex; flex-direction:column; gap:0.6rem;">
 
-  <div style="display:flex; gap:0.6rem; width:100%;">
-    <a class="btn btn-ghost" href="circles.html" style="flex:1;">
-      Interest Circles
-    </a>
-    <a class="btn btn-ghost" href="clusters.html" style="flex:1;">
-      Building Circles
-    </a>
+      <a class="btn btn-ghost" href="clusters.html" style="width:100%;">
+        Building Circles
+        <span style="display:block; font-size:0.75rem; color:#777; margin-top:2px;">
+          Connect with your building
+        </span>
+      </a>
+
+      <a class="btn btn-ghost" href="circles.html" style="width:100%;">
+        Interest Circles
+        <span style="display:block; font-size:0.75rem; color:#777; margin-top:2px;">
+          Skill-based sharing
+        </span>
+      </a>
+
+      <a class="btn btn-ghost" href="private_circles.html" style="width:100%;">
+        Private Circles
+        <span style="display:block; font-size:0.75rem; color:#777; margin-top:2px;">
+          For small invite-only groups
+        </span>
+      </a>
+
+    </div>
   </div>
 
+  <!-- Info -->
+  <a class="btn btn-ghost" href="info.html" style="width:100%; max-width:320px; margin:0 auto;">
+    How CircleShare Works
+  </a>
 
-  <!-- ACCOUNT ACCESS -->
-  <div style="display:flex; flex-direction:column; gap:0.5rem; max-width:18rem; margin:0 auto;">
-    <a class="btn btn-ghost" href="signup.html">Sign up</a>
-    <a class="btn btn-ghost" href="login.html">Log in</a>
+  <!-- Auth -->
+  <div style="margin-top:2rem;">
+    <a href="signup.html" style="font-size:0.9rem; margin-right:1rem; text-decoration:none;">
+      Sign up
+    </a>
+    <a href="login.html" style="font-size:0.9rem; text-decoration:none;">
+      Log in
+    </a>
   </div>
-
-  <!-- INFO LINKS -->
-  <p style="margin-top:2.2rem; font-size:0.82rem; color:#6a6a6a;">
-    <a href="info.html" style="color:#6a6a6a; text-decoration:none;">How it works</a> · 
-    <a href="info.html#faq" style="color:#6a6a6a; text-decoration:none;">FAQ</a>
-  </p>
 
 </main>
 
 <footer>
   <div class="footer-nav">
-    <a href="dashboard.html">Home</a>
+    <a href="index.html">Home</a>
     <a href="circles.html">Circles</a>
     <a href="library.html">Library</a>
     <a href="free.html">Free</a>
-    <a href="pool.html">Pool</a>
-    <a href="support.html">Support</a>
     <a href="info.html">Info</a>
   </div>
 </footer>
+
 </body>
 </html>
