@@ -1,85 +1,102 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Free Items · CircleShare</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-<header>
-  <div class="header-inner">
-    <div class="logo">CircleShare</div>
-    <a href="dashboard.html" style="text-decoration:none;">←</a>
-  </div>
-</header>
+<!-- TOP RIGHT LOGIN / LOGOUT -->
+<a href="#" id="authCorner" class="corner-auth"></a>
 
-<main class="page">
+<style>
+.corner-auth {
+  position:absolute;
+  top:0.9rem;
+  right:1rem;
+  font-size:0.85rem;
+  text-decoration:none;
+  color:#333;
+}
+</style>
 
-  <h1 class="section-title">Free Items</h1>
+<script>
+const auth = document.getElementById("authCorner");
 
-  <p style="font-size:0.9rem; color:#555; margin-bottom:1rem;">
-    Share what you can, take what you need.  
-    No borrowing steps.
+if (localStorage.getItem("logged_in") === "true") {
+  auth.textContent = "Logout";
+  auth.onclick = () => {
+    localStorage.removeItem("logged_in");
+    window.location.href = "index.html";
+  };
+} else {
+  auth.textContent = "Login / Signup";
+  auth.href = "login.html";
+}
+</script>
+
+<main class="page" style="padding-top:4rem;">
+
+  <h1 class="section-title">Free Food & Clothing</h1>
+
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1.5rem;">
+    No borrowing steps — take what you need, or share what you can.
   </p>
 
-  <a class="btn btn-primary" href="add_free.html" style="margin-bottom:1rem;">
-    Add Free Item
+  <!-- ADD FREE ITEM -->
+  <a class="btn btn-primary" href="add_free.html" style="margin-bottom:1.4rem; display:inline-block;">
+    + Add Free Item
   </a>
 
-  <!-- FILTER -->
-  <div class="card" style="padding:0.8rem; margin-bottom:1rem;">
-    <label style="font-size:0.9rem; color:#555;">
-      Filter by category:
-    </label>
-    <select id="filter-select" class="input" style="margin-top:0.4rem;">
-      <option value="all">All</option>
-      <option value="Clothing">Clothing</option>
-      <option value="Food">Food</option>
-      <option value="Books">Books</option>
-      <option value="Household">Household</option>
-      <option value="Toys">Toys</option>
-      <option value="Other">Other</option>
+  <!-- FILTERS -->
+  <div style="display:flex; gap:0.6rem; margin-bottom:1.4rem;">
+    <select id="freeCategory" class="input">
+      <option value="">All types</option>
+      <option value="clothing">Clothing</option>
+      <option value="food">Food</option>
+    </select>
+
+    <select id="freeArea" class="input">
+      <option value="">Any area</option>
+      <option>Quadra Village</option>
+      <option>Fernwood</option>
+      <option>Burnside</option>
+      <option>Downtown</option>
     </select>
   </div>
 
-  <!-- Container -->
+  <!-- CONTAINER FOR FREE ITEMS -->
   <div id="free-list"></div>
 
 </main>
 
-<footer>
-  <div class="footer-nav">
-    <a href="dashboard.html">Home</a>
-    <a href="circles.html">Circles</a>
-    <a href="library.html">Library</a>
-    <a href="free.html">Free</a>
-    <a href="pool.html">Pool</a>
-    <a href="info.html">Info</a>
-  </div>
-</footer>
+<!-- BOTTOM NAV -->
+<div id="bottomNavContainer"></div>
+<script src="bottom-nav.js"></script>
 
 <script>
-let freeData = {};
-
 async function loadFreeItems() {
-  const container = document.getElementById("free-list");
-
-  freeData = await fetch("free.json").then(r => r.json());
-  renderItems("all");
-}
-
-function renderItems(category) {
   const container = document.getElementById("free-list");
   container.innerHTML = "";
 
-  Object.keys(freeData).forEach(id => {
-    const item = freeData[id];
+  const categoryFilter = document.getElementById("freeCategory").value;
+  const areaFilter     = document.getElementById("freeArea").value;
 
-    if (category !== "all" && item.category !== category) return;
+  const data = await fetch("free.json").then(r => r.json());
 
+  Object.keys(data).forEach(id => {
+    const item = data[id];
+
+    // FILTER: category
+    if (categoryFilter && item.type !== categoryFilter) return;
+
+    // FILTER: area
+    if (areaFilter && item.location !== areaFilter) return;
+
+    // CARD
     const card = document.createElement("div");
     card.className = "card";
     card.style.marginBottom = "1.2rem";
@@ -91,7 +108,8 @@ function renderItems(category) {
 
       <div style="
         background:url('${item.image}') center/cover no-repeat;
-        width:100%; height:160px; border-radius:6px;
+        width:100%; height:160px;
+        border-radius:6px;
         margin:0.7rem 0 1rem;
       "></div>
 
@@ -99,19 +117,18 @@ function renderItems(category) {
         ${item.notes}
       </p>
 
-      <a class="btn btn-secondary" href="free_item.html?id=${id}">
-        View
-      </a>
+      <a class="btn btn-primary" href="free_item.html?id=${id}">View</a>
     `;
 
     container.appendChild(card);
   });
 }
 
-document.getElementById("filter-select").addEventListener("change", (e) => {
-  renderItems(e.target.value);
-});
+// Reload on filter change
+document.getElementById("freeCategory").addEventListener("change", loadFreeItems);
+document.getElementById("freeArea").addEventListener("change", loadFreeItems);
 
+// Initial load
 loadFreeItems();
 </script>
 
