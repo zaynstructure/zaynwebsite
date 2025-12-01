@@ -3,57 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Log In · CircleShare</title>
+  <title>Login · CircleShare</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-<header>
-  <div class="header-inner">
-    <div class="logo">CircleShare</div>
-    <a href="index.html">←</a>
-  </div>
-</header>
+<!-- TOP-RIGHT CORNER -->
+<a href="index.html" class="corner-auth">←</a>
 
-<main class="page">
+<style>
+.corner-auth {
+  position:absolute;
+  top:0.9rem;
+  right:1rem;
+  font-size:0.95rem;
+  text-decoration:none;
+  color:#333;
+}
+</style>
 
-  <h1 class="section-title">Log In</h1>
+<main class="page" style="padding-top:4rem;">
 
-  <p style="font-size:0.9rem; color:#555; margin-bottom:1.4rem;">
-    Log back into your CircleShare account.
-  </p>
+  <h1 class="section-title">Welcome</h1>
 
-  <div class="card" style="padding:1rem;">
-    <label class="form-label">Name</label>
-    <input id="login-name" class="input" type="text" placeholder="Your name">
+  <div class="card" style="max-width:350px; margin:0 auto;">
 
-    <button id="login-btn" class="btn btn-primary" style="margin-top:1rem;">
-      Log In
-    </button>
+    <input id="email" class="input" placeholder="Email">
+    <input id="password" class="input" type="password" placeholder="Password">
+
+    <button class="btn btn-primary" id="loginBtn">Login</button>
+    <button class="btn btn-primary" id="signupBtn">Create Account</button>
   </div>
 
 </main>
 
-<script>
-document.getElementById('login-btn').addEventListener('click', () => {
-  const name = document.getElementById('login-name').value.trim();
-  if (!name) return alert("Enter your name.");
-
-  const storedName = localStorage.getItem('user_name');
-
-  if (storedName && name === storedName) {
-    localStorage.setItem('user_logged_in', 'true');
-    window.location.href = "profile.html";
-  } else {
-    alert("No account found with that localStorage.setItem('user_logged_in', 'true');
-window.location.href = "dashboard.html";
-
-  
-});
-
-  
-</script>
+<script src="auth.js"></script>
 
 </body>
 </html>
