@@ -1,53 +1,64 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Community Share · Library</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Library · CircleShare</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
 <header>
   <div class="header-inner">
-    <div class="logo">Library</div>
-    <div>☰</div>
+    <div class="logo">CircleShare</div>
+    <a href="index.html" style="text-decoration:none;">←</a>
   </div>
 </header>
 
 <main class="page">
 
-  <h1>Item library</h1>
-  <p>Browse community-shared items across all circles.</p>
+  <h1 class="section-title">Community Library</h1>
 
-  <div style="margin:0.5rem 0 1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-    <a class="btn btn-ghost" href="#">All</a>
-    <a class="btn btn-ghost" href="circle-photo.html">Photography</a>
-    <a class="btn btn-ghost" href="#">Sewing</a>
-    <a class="btn btn-ghost" href="#">Tools</a>
+  <input type="text" placeholder="Search items…" style="margin-bottom:1rem;">
+
+  <div style="display:flex; gap:0.6rem; margin-bottom:1.2rem;">
+    <select>
+      <option>All categories</option>
+      <option>Tools</option>
+      <option>Kitchen</option>
+      <option>Photography</option>
+      <option>Outdoors</option>
+    </select>
+
+    <select>
+      <option>Any distance</option>
+      <option>Within 1 km</option>
+      <option>Within 3 km</option>
+      <option>Within 5 km</option>
+    </select>
+  </div>
+
+  <!-- Item Cards -->
+  <div class="card">
+    <h3>Drill (Makita)</h3>
+    <p>Tools • Fernwood</p>
+    <p>Available now</p>
+    <a class="btn btn-primary" href="#">Borrow</a>
   </div>
 
   <div class="card">
-    <div class="card-title">DSLR Camera Kit</div>
-    <div class="card-sub">📷 Photography Circle · good for beginners.</div>
-    <a href="item-50mm.html" class="btn btn-ghost" style="margin-top:0.5rem;">View</a>
+    <h3>Camping stove</h3>
+    <p>Outdoors • Quadra Village</p>
+    <p>Available in 2 days</p>
+    <a class="btn btn-ghost" href="#">View</a>
   </div>
 
   <div class="card">
-    <div class="card-title">50mm Prime Lens</div>
-    <div class="card-sub">📷 Photography Circle · portrait lens.</div>
-    <a href="item-50mm.html" class="btn btn-ghost" style="margin-top:0.5rem;">View</a>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Sewing Machine</div>
-    <div class="card-sub">🧵 Sewing Circle · basic functions, manual included.</div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Cordless Drill</div>
-    <div class="card-sub">🔧 Tools & Repair · with charger and bits.</div>
+    <h3>DSLR Camera (Canon)</h3>
+    <p>Photography • North Park</p>
+    <p>Circle required: Photography</p>
+    <a class="btn btn-ghost" href="#">View</a>
   </div>
 
 </main>
@@ -58,7 +69,7 @@
     <a href="circles.html">Circles</a>
     <a href="library.html">Library</a>
     <a href="free.html">Free</a>
-    <a href="#">Profile</a>
+    <a href="how.html">Info</a>
   </div>
 </footer>
 
