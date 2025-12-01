@@ -43,9 +43,10 @@ document.getElementById('signup-btn').addEventListener('click', () => {
   // Save user data
   localStorage.setItem('user_name', name);
   localStorage.setItem('user_logged_in', 'true');
-
+localStorage.setItem('user_logged_in', 'true');
+window.location.href = "dashboard.html";
   // Redirect to profile
-  window.location.href = "profile.html";
+  
 });
 </script>
 
