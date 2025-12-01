@@ -1,138 +1,132 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Library · CircleShare</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
 
-<!-- AUTH LINK (top right corner) -->
-<a href="#" id="authCorner" class="corner-auth"></a>
+<!-- LOGIN-GUARD -->
+<script>
+  if (localStorage.getItem("logged_in") !== "true") {
+    window.location.href = "login.html";
+  }
+</script>
+
+<!-- HEADER -->
+<header class="top-header">
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+
+    <div class="header-right">
+      <a href="dashboard.html" class="small-arrow">→</a>
+      <a id="logoutBtn" class="logout-link">Logout</a>
+    </div>
+  </div>
+</header>
 
 <style>
-.corner-auth {
-  position:absolute;
-  top:0.9rem;
-  right:1rem;
+.top-header {
+  background:#fff;
+  border-bottom:1px solid #ddd;
+}
+.header-inner {
+  max-width:600px;
+  margin:0 auto;
+  padding:0.8rem 1rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.logout-link, .small-arrow {
   font-size:0.85rem;
-  text-decoration:none;
   color:#333;
+  text-decoration:none;
+  margin-left:0.6rem;
+}
+.logout-link:hover, .small-arrow:hover {
+  text-decoration:underline;
+}
+.header-right {
+  display:flex;
+  align-items:center;
 }
 </style>
 
 <script>
-// Set corner link text based on login state
-const auth = document.getElementById("authCorner");
-
-if (localStorage.getItem("logged_in") === "true") {
-  auth.textContent = "Logout";
-  auth.onclick = () => {
-    localStorage.removeItem("logged_in");
-    window.location.href = "index.html";
-  };
-} else {
-  auth.textContent = "Login / Signup";
-  auth.href = "login.html";
-}
+document.getElementById("logoutBtn")?.addEventListener("click", () => {
+  localStorage.removeItem("logged_in");
+  window.location.href = "index.html";
+});
 </script>
 
-<main class="page" style="padding-top:4rem;">
+<main class="page" style="padding-top:1rem;">
 
   <h1 class="section-title">Community Library</h1>
 
-  <!-- SEARCH + FILTERS -->
-  <input type="text" id="searchInput" placeholder="Search items…" class="input" style="margin-bottom:1rem;">
+  <!-- Add Item Button -->
+  <a class="btn btn-primary" href="add_item.html" 
+     style="margin-bottom:1.2rem; display:inline-block;">
+    Add an Item
+  </a>
 
-  <div style="display:flex; gap:0.6rem; margin-bottom:1.4rem;">
-    <select id="categoryFilter" class="input">
-      <option value="">All categories</option>
-      <option value="Tools">Tools</option>
-      <option value="Kitchen">Kitchen</option>
-      <option value="Outdoors">Outdoors</option>
-      <option value="Photography">Photography</option>
+  <!-- Search + Filters -->
+  <input type="text" placeholder="Search items…" style="margin-bottom:1rem;">
+
+  <div style="display:flex; gap:0.6rem; margin-bottom:1.2rem;">
+    <select>
+      <option>All categories</option>
+      <option>Tools</option>
+      <option>Kitchen</option>
+      <option>Photography</option>
+      <option>Outdoors</option>
     </select>
 
-    <select id="distanceFilter" class="input">
-      <option value="">Any distance</option>
+    <select>
+      <option>Any distance</option>
       <option>Within 1 km</option>
       <option>Within 3 km</option>
       <option>Within 5 km</option>
     </select>
   </div>
 
-  <!-- ADD ITEM -->
-  <a class="btn btn-primary" href="add_item.html" style="margin-bottom:1.4rem; display:inline-block;">
-    + Add an Item
-  </a>
+  <!-- Example item cards (eventually dynamic) -->
+  <div class="card">
+    <h3>Drill (Makita)</h3>
+    <p>Tools • Fernwood</p>
+    <p>Available now</p>
+    <a class="btn btn-primary" href="item.html?id=1">View</a>
+  </div>
 
-  <!-- ITEMS -->
-  <div id="library-list"></div>
+  <div class="card">
+    <h3>Camping Stove</h3>
+    <p>Outdoors • Quadra Village</p>
+    <p>Available in 2 days</p>
+    <a class="btn btn-primary" href="item.html?id=2">View</a>
+  </div>
+
+  <div class="card">
+    <h3>DSLR Camera (Canon)</h3>
+    <p>Photography • North Park</p>
+    <p style="color:#a00;">Circle required: Photography</p>
+    <a class="btn btn-primary" href="item.html?id=3">View</a>
+  </div>
 
 </main>
 
 <!-- BOTTOM NAV -->
-<div id="bottomNavContainer"></div>
-<script src="bottom-nav.js"></script>
-
-<!-- LOAD DATA -->
-<script>
-async function loadLibrary() {
-  const container = document.getElementById("library-list");
-  container.innerHTML = "";
-
-  const searchValue   = document.getElementById("searchInput").value.toLowerCase();
-  const categoryValue = document.getElementById("categoryFilter").value;
-
-  // Load items.json
-  const items = await fetch("items.json").then(r => r.json());
-
-  Object.keys(items).forEach(id => {
-    const item = items[id];
-
-    // SEARCH FILTER
-    if (searchValue && !item.name.toLowerCase().includes(searchValue)) {
-      return;
-    }
-
-    // CATEGORY FILTER
-    if (categoryValue && item.category !== categoryValue) {
-      return;
-    }
-
-    // CARD
-    const card = document.createElement("div");
-    card.className = "card";
-    card.style.marginBottom = "1.2rem";
-
-    card.innerHTML = `
-      <h3>${item.name}</h3>
-      <p>${item.category} • ${item.location}</p>
-      <p style="color:#777; font-size:0.9rem;">${item.availability}</p>
-
-      <div style="
-        background:url('${item.image}') center/cover no-repeat;
-        width:100%; height:160px;
-        border-radius:6px;
-        margin:0.7rem 0 1rem;
-      "></div>
-
-      <a class="btn btn-primary" href="item.html?id=${id}">View</a>
-    `;
-
-    container.appendChild(card);
-  });
-}
-
-// RELOAD ON SEARCH OR FILTER
-document.getElementById("searchInput").addEventListener("input", loadLibrary);
-document.getElementById("categoryFilter").addEventListener("change", loadLibrary);
-
-// INITIAL LOAD
-loadLibrary();
-</script>
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
 
 </body>
 </html>
