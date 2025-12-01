@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Free Item · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="free.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 id="item-title" class="section-title"></h1>
+  <p id="item-subtitle" style="font-size:0.9rem; color:#555;"></p>
+
+  <div id="item-image" style="
+    background:#e9e9e9; 
+    height:220px; 
+    border-radius:8px; 
+    margin-bottom:1rem;">
+  </div>
+
+  <div class="card">
+    <p><strong>Condition:</strong> <span id="item-condition"></span></p>
+    <p><strong>Location:</strong> <span id="item-location"></span></p>
+  </div>
+
+  <h2 style="font-size:1.1rem; margin-top:1.4rem;">Notes</h2>
+  <p id="item-notes" style="font-size:0.9rem; color:#444;"></p>
+
+  <a id="claim-btn" class="btn btn-primary" href="#">
+    Claim this item
+  </a>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="pool.html">Pool</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+async function loadItem() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  const data = await fetch("free.json").then(r => r.json());
+  const item = data[id];
+
+  if (!item) {
+    document.getElementById("item-title").innerText = "Item not found";
+    return;
+  }
+
+  document.getElementById("item-title").innerText = item.title;
+  document.getElementById("item-subtitle").innerText =
+    `${item.category} • ${item.location}`;
+  document.getElementById("item-condition").innerText = item.condition;
+  document.getElementById("item-location").innerText = item.location;
+  document.getElementById("item-notes").innerText = item.notes;
+
+  document.getElementById("item-image").style.backgroundImage =
+    `url(${item.image})`;
+  document.getElementById("item-image").style.backgroundSize = "cover";
+  document.getElementById("item-image").style.backgroundPosition = "center";
+}
+
+loadItem();
+</script>
+
+</body>
+</html>
