@@ -1,102 +1,127 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Free Items · CircleShare</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
 
-<!-- TOP RIGHT LOGIN / LOGOUT -->
-<a href="#" id="authCorner" class="corner-auth"></a>
+<!-- HEADER -->
+<header class="top-header">
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+
+    <div class="header-right">
+      <a href="dashboard.html" class="small-arrow">→</a>
+      <a id="logoutBtn" class="logout-link">Logout</a>
+    </div>
+  </div>
+</header>
 
 <style>
-.corner-auth {
-  position:absolute;
-  top:0.9rem;
-  right:1rem;
+.top-header {
+  background:#fff;
+  border-bottom:1px solid #ddd;
+}
+.header-inner {
+  max-width:600px;
+  margin:0 auto;
+  padding:0.8rem 1rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.small-arrow, .logout-link {
   font-size:0.85rem;
-  text-decoration:none;
   color:#333;
+  text-decoration:none;
+  margin-left:0.6rem;
+}
+.small-arrow:hover, .logout-link:hover {
+  text-decoration:underline;
+}
+.header-right {
+  display:flex;
+  align-items:center;
 }
 </style>
 
 <script>
-const auth = document.getElementById("authCorner");
-
-if (localStorage.getItem("logged_in") === "true") {
-  auth.textContent = "Logout";
-  auth.onclick = () => {
-    localStorage.removeItem("logged_in");
-    window.location.href = "index.html";
-  };
-} else {
-  auth.textContent = "Login / Signup";
-  auth.href = "login.html";
-}
+document.getElementById("logoutBtn")?.addEventListener("click", () => {
+  localStorage.removeItem("logged_in");
+  window.location.href = "index.html";
+});
 </script>
 
-<main class="page" style="padding-top:4rem;">
+<main class="page" style="padding-top:1rem;">
 
   <h1 class="section-title">Free Food & Clothing</h1>
 
-  <p style="font-size:0.9rem; color:#555; margin-bottom:1.5rem;">
-    No borrowing steps — take what you need, or share what you can.
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1rem;">
+    No borrowing process. No requirements.<br>
+    Just take what you need or share what you can.
   </p>
 
-  <!-- ADD FREE ITEM -->
-  <a class="btn btn-primary" href="add_free.html" style="margin-bottom:1.4rem; display:inline-block;">
-    + Add Free Item
+  <a class="btn btn-primary" href="add_free.html" style="margin-bottom:1.2rem;">
+    Add something
   </a>
 
-  <!-- FILTERS -->
-  <div style="display:flex; gap:0.6rem; margin-bottom:1.4rem;">
-    <select id="freeCategory" class="input">
-      <option value="">All types</option>
-      <option value="clothing">Clothing</option>
-      <option value="food">Food</option>
+  <!-- Filter -->
+  <div style="display:flex; gap:0.6rem; margin-bottom:1.2rem;">
+    <select id="filter-category">
+      <option value="">All categories</option>
+      <option value="Food">Food</option>
+      <option value="Clothing">Clothing</option>
     </select>
 
-    <select id="freeArea" class="input">
-      <option value="">Any area</option>
-      <option>Quadra Village</option>
-      <option>Fernwood</option>
-      <option>Burnside</option>
-      <option>Downtown</option>
+    <select id="filter-area">
+      <option value="">All areas</option>
+      <option value="Quadra Village">Quadra Village</option>
+      <option value="Burnside">Burnside</option>
+      <option value="Downtown">Downtown</option>
+      <!-- Add more if needed -->
     </select>
   </div>
 
-  <!-- CONTAINER FOR FREE ITEMS -->
+  <!-- Container where dynamic cards will go -->
   <div id="free-list"></div>
 
 </main>
 
-<!-- BOTTOM NAV -->
-<div id="bottomNavContainer"></div>
-<script src="bottom-nav.js"></script>
+<!-- FOOTER NAV -->
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
 
 <script>
+/* ================================
+   DYNAMIC FREE ITEMS + FILTERS
+================================ */
+
+let fullData = {};
+
 async function loadFreeItems() {
   const container = document.getElementById("free-list");
   container.innerHTML = "";
 
-  const categoryFilter = document.getElementById("freeCategory").value;
-  const areaFilter     = document.getElementById("freeArea").value;
+  const category = document.getElementById("filter-category").value;
+  const area = document.getElementById("filter-area").value;
 
-  const data = await fetch("free.json").then(r => r.json());
+  Object.keys(fullData).forEach(id => {
+    const item = fullData[id];
 
-  Object.keys(data).forEach(id => {
-    const item = data[id];
+    if (category && item.category !== category) return;
+    if (area && item.location !== area) return;
 
-    // FILTER: category
-    if (categoryFilter && item.type !== categoryFilter) return;
-
-    // FILTER: area
-    if (areaFilter && item.location !== areaFilter) return;
-
-    // CARD
     const card = document.createElement("div");
     card.className = "card";
     card.style.marginBottom = "1.2rem";
@@ -108,8 +133,7 @@ async function loadFreeItems() {
 
       <div style="
         background:url('${item.image}') center/cover no-repeat;
-        width:100%; height:160px;
-        border-radius:6px;
+        width:100%; height:160px; border-radius:6px;
         margin:0.7rem 0 1rem;
       "></div>
 
@@ -117,19 +141,25 @@ async function loadFreeItems() {
         ${item.notes}
       </p>
 
-      <a class="btn btn-primary" href="free_item.html?id=${id}">View</a>
+      <a class="btn btn-ghost" href="free_item.html?id=${id}">
+        View
+      </a>
     `;
 
     container.appendChild(card);
   });
 }
 
-// Reload on filter change
-document.getElementById("freeCategory").addEventListener("change", loadFreeItems);
-document.getElementById("freeArea").addEventListener("change", loadFreeItems);
+// Fetch then render
+fetch("free.json")
+  .then(r => r.json())
+  .then(data => {
+    fullData = data;
+    loadFreeItems();
+  });
 
-// Initial load
-loadFreeItems();
+document.getElementById("filter-category").addEventListener("change", loadFreeItems);
+document.getElementById("filter-area").addEventListener("change", loadFreeItems);
 </script>
 
 </body>
