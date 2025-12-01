@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Building Circles · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="index.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Building & Block Circles</h1>
+
+  <p style="font-size:.9rem; color:#555; margin-bottom:1.2rem;">
+    Join a small circle just for your building, floor, or block.  
+    Borrow, share, and check in with the people closest to you.
+  </p>
+
+  <!-- If user already has a cluster saved, give quick entry -->
+  <div id="my-cluster-card" class="card" style="display:none; margin-bottom:1.2rem;">
+    <h3 style="margin:0 0 .3rem;">Your building circle</h3>
+    <p id="my-cluster-name" style="margin:0 0 .6rem; color:#555;"></p>
+    <a class="btn btn-primary" href="#" id="my-cluster-link">Go to building hub</a>
+  </div>
+
+  <!-- Find / create cluster -->
+  <div class="card" style="margin-bottom:1.2rem;">
+    <h3 style="margin:0 0 .6rem;">Find your building</h3>
+    <label class="field-label">Address or building name</label>
+    <input id="cluster-address" type="text" placeholder="e.g., 1320 Yates St" />
+    <button id="find-cluster-btn" class="btn btn-primary" style="width:100%; margin-top:.8rem;">
+      Continue
+    </button>
+    <p style="font-size:.8rem; color:#777; margin-top:.6rem;">
+      For now this is a simple demo. In a real version, this would search 
+      for existing circles or let you start one.
+    </p>
+  </div>
+
+  <!-- Code-based join UI (e.g. QR in lobby or noticeboard) -->
+  <div class="card">
+    <h3 style="margin:0 0 .6rem;">Have a building code?</h3>
+    <p style="font-size:.86rem; color:#555; margin:0 0 .6rem;">
+      Use a code from your building notice, landlord, or co-op.
+    </p>
+    <input id="cluster-code" type="text" placeholder="e.g., YATES-3F" />
+    <button id="code-btn" class="btn btn-secondary" style="width:100%; margin-top:.8rem;">
+      Join with code
+    </button>
+  </div>
+
+  <!-- Example nearby clusters (static demo) -->
+  <h2 style="font-size:1.05rem; margin-top:1.6rem; margin-bottom:.4rem;">
+    Sample nearby circles (demo)
+  </h2>
+  <div class="card">
+    <p style="margin:0 0 .4rem;"><strong>1320 Yates · 3rd Floor</strong></p>
+    <p style="margin:0 0 .6rem; color:#555;">Small tools, sewing, tea swaps.</p>
+    <a class="btn btn-ghost" href="cluster_dashboard.html?cluster=1320%20Yates%20·%203rd%20Floor">
+      View demo building hub
+    </a>
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+  // Check if user has an existing saved building cluster
+  const savedCluster = localStorage.getItem("my_cluster_name");
+  if (savedCluster) {
+    const card = document.getElementById("my-cluster-card");
+    const nameEl = document.getElementById("my-cluster-name");
+    const linkEl = document.getElementById("my-cluster-link");
+    card.style.display = "block";
+    nameEl.innerText = savedCluster;
+    linkEl.href = "cluster_dashboard.html?cluster=" + encodeURIComponent(savedCluster);
+  }
+
+  // "Find building" button: treat address as cluster name for now
+  document.getElementById("find-cluster-btn").addEventListener("click", () => {
+    const addr = document.getElementById("cluster-address").value.trim();
+    if (!addr) {
+      alert("Please enter an address or building name.");
+      return;
+    }
+    const clusterName = addr; // simple prototype
+    localStorage.setItem("my_cluster_name", clusterName);
+    window.location.href = "cluster_dashboard.html?cluster=" + encodeURIComponent(clusterName);
+  });
+
+  // Code join: treat code as cluster name in this prototype
+  document.getElementById("code-btn").addEventListener("click", () => {
+    const code = document.getElementById("cluster-code").value.trim();
+    if (!code) {
+      alert("Please enter a code.");
+      return;
+    }
+    const clusterName = "Building Circle · " + code;
+    localStorage.setItem("my_cluster_name", clusterName);
+    window.location.href = "cluster_dashboard.html?cluster=" + encodeURIComponent(clusterName);
+  });
+</script>
+
+</body>
+</html>
