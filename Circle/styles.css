@@ -150,3 +150,71 @@ footer {
   text-decoration: none;
   color: #4d4d4d;
 }
+/* ===== Mobile Slide Menu ===== */
+
+#menuOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 40;
+}
+
+#menuOverlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#mobileMenu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 78%;
+  max-width: 280px;
+  height: 100%;
+  background: #f7f4f1;
+  border-right: 1px solid rgba(0,0,0,0.08);
+  transform: translateX(-100%);
+  transition: transform 0.28s ease;
+  z-index: 50;
+  padding: 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+#mobileMenu.active {
+  transform: translateX(0);
+}
+
+#mobileMenu a {
+  font-size: 0.9rem;
+  color: #2a2a2a;
+  text-decoration: none;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.menu-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+#menuClose {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.6;
+}
+
