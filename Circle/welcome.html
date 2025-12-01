@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Welcome · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Welcome to CircleShare</h1>
+
+  <p id="welcome-name" style="font-size:0.95rem; color:#555; margin-top:-0.5rem;">
+    <!-- Filled by script -->
+  </p>
+
+  <p style="font-size:0.9rem; color:#666; margin-bottom:1.4rem;">
+    CircleShare is a community where people share items, skills, and support.  
+    You can explore the library, join circles, or check out the free section anytime.
+  </p>
+
+  <!-- MAIN ACTIONS -->
+  <div style="display:grid; gap:1rem; margin-bottom:2rem;">
+
+    <a class="btn btn-primary" href="library.html">Browse Library</a>
+
+    <a class="btn btn-secondary" href="free.html">Free Items</a>
+
+    <a class="btn btn-secondary" href="circles.html">Circles</a>
+
+  </div>
+
+  <!-- COMMUNITY POOL CARD -->
+  <div class="card" style="padding:1rem; background:#f7f7f7; margin-bottom:2rem;">
+    <h3 style="margin:0 0 .4rem;">Support the Community Pool</h3>
+
+    <p style="font-size:.88rem; color:#555; margin:0 0 1rem;">
+      The pool helps cover repairs, replacements, and deposit support  
+      so everyone can participate — especially those who need a hand.
+      Even small contributions strengthen the system.
+    </p>
+
+    <a class="btn btn-primary" href="pool.html">Contribute Now</a>
+
+    <p style="font-size:.75rem; color:#777; margin-top:.6rem;">
+      Optional — you can explore first and contribute anytime.
+    </p>
+  </div>
+
+  <!-- GO TO DASHBOARD -->
+  <a class="btn btn-secondary" href="dashboard.html">
+    Go to Dashboard
+  </a>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="pool.html">Pool</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+// Require login
+if (localStorage.getItem("user_logged_in") !== "true") {
+  window.location.href = "index.html";
+}
+
+// Insert personalized welcome
+const name = localStorage.getItem("user_name");
+document.getElementById("welcome-name").innerText =
+  name ? `Hello, ${name}.` : "";
+</script>
+
+</body>
+</html>
