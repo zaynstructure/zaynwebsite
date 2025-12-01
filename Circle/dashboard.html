@@ -9,71 +9,98 @@
 
 <body>
 
+<!-- First-time welcome redirect -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  if (localStorage.getItem("first_time") === "true") {
+    window.location.href = "welcome.html";
+  }
+});
+</script>
+
 <header>
   <div class="header-inner">
     <div class="logo">CircleShare</div>
-    <a href="settings.html" style="text-decoration:none;">⚙️</a>
+    <a href="profile.html" class="btn btn-ghost" style="padding:0.35rem 0.75rem;">
+      Profile
+    </a>
   </div>
 </header>
 
-<main class="page">
+<main class="page" style="padding-top:1rem;">
 
-  <h1 class="section-title">Welcome</h1>
-  <p id="user-welcome" style="font-size:0.9rem; color:#666; margin-top:-0.6rem; margin-bottom:1.4rem;"></p>
+  <h1 class="section-title" style="margin-bottom:1rem;">
+    Welcome back
+  </h1>
 
-  <!-- Quick Tiles -->
-  <div style="display:grid; gap:1rem; margin-bottom:1.6rem;">
-    <a class="card" href="library.html" style="padding:1rem;">
-      <h3 style="margin:0;">Library</h3>
-      <p style="margin:0; color:#555; font-size:.88rem;">Borrow & share items</p>
-    </a>
-
-    <a class="card" href="circles.html" style="padding:1rem;">
-      <h3 style="margin:0;">Circles</h3>
-      <p style="margin:0; color:#555; font-size:.88rem;">Join skills-based groups</p>
-    </a>
-
-    <a class="card" href="free.html" style="padding:1rem;">
-      <h3 style="margin:0;">Free Section</h3>
-      <p style="margin:0; color:#555; font-size:.88rem;">Food & clothing, no requirements</p>
-    </a>
+  <!-- Main Actions -->
+  <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:2rem;">
+    <a class="btn btn-primary btn-large" href="library.html">Borrow / Lend</a>
+    <a class="btn btn-primary btn-large" href="free.html">Give / Receive</a>
+    <a class="btn btn-primary btn-large" href="circles.html">Circles</a>
   </div>
 
-  <!-- Community Pool Teaser -->
-  <div class="card" style="padding:1rem; background:#f7f7f7;">
-    <h3 style="margin-top:0;">Community Pool</h3>
-    <p style="font-size:.88rem; color:#555;">
-      Optional shared fund for repairs, replacements, and accessibility support.
+  <!-- Activity Snapshot -->
+  <h2 style="font-size:1rem; margin-bottom:0.6rem;">Your Activity</h2>
+
+  <div class="card" id="activity-card" style="margin-bottom:1.6rem;">
+    <p id="activity-empty" style="font-size:0.9rem; color:#777;">
+      No recent activity yet. Borrow something, share something, or join a circle!
     </p>
-    <a class="btn btn-primary" href="pool.html">Learn More</a>
+
+    <ul id="activity-list" style="display:none; padding-left:1rem; font-size:0.88rem; color:#555;">
+      <!-- dynamic items appear here -->
+    </ul>
+  </div>
+
+  <!-- Soft Pool Note -->
+  <div class="card" style="background:#f7f7f7; margin-bottom:2rem;">
+    <h3 style="margin:0 0 0.4rem;">Community Pool</h3>
+    <p style="font-size:0.86rem; color:#555;">
+      Helps cover repairs, replacements, and deposits for people who need it.
+      Completely optional.
+    </p>
+    <a class="btn btn-ghost" href="pool.html" style="margin-top:0.4rem;">Learn more</a>
   </div>
 
 </main>
 
 <footer>
-  
   <div class="footer-nav">
     <a href="dashboard.html">Home</a>
     <a href="circles.html">Circles</a>
-    <a href="library.html">Library</a>
-    <a href="free.html">Free</a>
-    <a href="pool.html">Pool</a>
-    <a href="support.html">Support</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
     <a href="info.html">Info</a>
   </div>
 </footer>
 
-
 <script>
-// login enforcement
-if (localStorage.getItem("user_logged_in") !== "true") {
-  window.location.href = "index.html";
-}
+/* =======================================
+   LOAD USER ACTIVITY FROM LOCALSTORAGE
+   ======================================= */
 
-// personalized welcome
-const name = localStorage.getItem("user_name");
-document.getElementById("user-welcome").innerText =
-  name ? `Hello, ${name}.` : "Hello.";
+document.addEventListener("DOMContentLoaded", () => {
+  const list = document.getElementById("activity-list");
+  const empty = document.getElementById("activity-empty");
+
+  const activity = JSON.parse(localStorage.getItem("user_activity") || "[]");
+
+  if (activity.length === 0) {
+    empty.style.display = "block";
+    list.style.display = "none";
+    return;
+  }
+
+  empty.style.display = "none";
+  list.style.display = "block";
+
+  activity.slice(-5).reverse().forEach(a => {
+    const li = document.createElement("li");
+    li.textContent = a;
+    list.appendChild(li);
+  });
+});
 </script>
 
 </body>
