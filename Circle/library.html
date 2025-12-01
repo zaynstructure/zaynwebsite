@@ -9,73 +9,40 @@
 
 <body>
 
-<header>
-  <div class="header-inner">
-    <div class="logo">CircleShare</div>
-    <a href="index.html" style="text-decoration:none;">←</a>
-  </div>
-</header>
+<div data-include="header.html"></div>
 
 <main class="page">
 
   <h1 class="section-title">Community Library</h1>
-  <a href="add_item.html" class="btn btn-primary" 
-   style="margin-bottom:1.2rem; display:block; width:100%; text-align:center;">
-  + Add an Item
-</a>
 
-  <input type="text" placeholder="Search items…" style="margin-bottom:1rem;">
+  <input type="text" placeholder="Search items…" class="input">
 
   <div style="display:flex; gap:0.6rem; margin-bottom:1.2rem;">
-    <select>
+    <select class="input">
       <option>All categories</option>
       <option>Tools</option>
       <option>Kitchen</option>
-      <option>Photography</option>
       <option>Outdoors</option>
     </select>
 
-    <select>
+    <select class="input">
       <option>Any distance</option>
       <option>Within 1 km</option>
       <option>Within 3 km</option>
-      <option>Within 5 km</option>
     </select>
   </div>
 
-  <!-- Item Cards -->
-  <div class="card">
-    <h3>Drill (Makita)</h3>
-    <p>Tools • Fernwood</p>
-    <p>Available now</p>
-    <a class="btn btn-primary" href="item.html?id=1">View</a>
-  </div>
+  <a class="btn btn-primary" href="add_item.html" style="margin-bottom:1.4rem;">
+    + Add an Item
+  </a>
 
-  <div class="card">
-    <h3>Camping stove</h3>
-    <p>Outdoors • Quadra Village</p>
-    <p>Available in 2 days</p>
-    <a class="btn btn-primary" href="item.html?id=2">View</a>
-  </div>
-
-  <div class="card">
-    <h3>DSLR Camera (Canon)</h3>
-    <p>Photography • North Park</p>
-    <p>Circle required: Photography</p>
-    <a class="btn btn-primary" href="item.html?id=3">View</a>
-  </div>
+  <div id="library-list"></div>
 
 </main>
 
-<footer>
-  <div class="footer-nav">
-    <a href="index.html">Home</a>
-    <a href="circles.html">Circles</a>
-    <a href="library.html">Library</a>
-    <a href="free.html">Free</a>
-    <a href="how.html">Info</a>
-  </div>
-</footer>
+<div data-include="footer.html"></div>
+<script src="component-loader.js"></script>
+<script src="library-loader.js"></script>
 
 </body>
 </html>
