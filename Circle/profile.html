@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Your Profile · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <style>
+    .profile-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+    .profile-sub {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 1.4rem;
+    }
+
+    .tile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+      margin-bottom: 1.6rem;
+    }
+
+    .tile {
+      background: #f7f7f7;
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+      font-size: 0.95rem;
+      border: 1px solid #e5e5e5;
+      text-decoration: none;
+      color: #111;
+    }
+
+    .tile strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .divider {
+      height: 1px;
+      background: #ddd;
+      margin: 1.6rem 0;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="index.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- USER INFO -->
+  <h1 id="user-name" class="profile-title">Your Profile</h1>
+  <p class="profile-sub">Manage circles, borrowing, and your pool.</p>
+
+  <!-- DASHBOARD TILES -->
+  <div class="tile-grid">
+
+    <a href="history.html" class="tile">
+      <strong>Borrowing</strong>
+      History & returns
+    </a>
+
+    <a href="user_circles.html" class="tile">
+      <strong>Circles</strong>
+      Joined & basics
+    </a>
+
+    <a href="profile_pool.html" class="tile">
+      <strong>Pool</strong>
+      Balance & requests
+    </a>
+
+    <a href="settings.html" class="tile">
+      <strong>Settings</strong>
+      Account & login
+    </a>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- POOL PREVIEW -->
+  <h2 style="font-size:1.1rem; margin-bottom:0.5rem;">Pool Overview</h2>
+
+  <div class="card" style="margin-bottom:1.4rem;">
+    <p style="margin:0; font-size:0.9rem; color:#444;">
+      Current balance:
+      <span id="pool-balance" style="font-weight:600; color:#111;">$0</span>
+    </p>
+    <a href="profile_pool.html" class="btn btn-primary" style="margin-top:0.8rem;">
+      Open Pool
+    </a>
+  </div>
+
+  <!-- CIRCLES PREVIEW -->
+  <h2 style="font-size:1.1rem; margin-bottom:0.5rem;">Your Circles</h2>
+
+  <div id="circle-list" class="card" style="font-size:0.9rem; color:#444;"></div>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+/* =======================================================
+   PROFILE PAGE LOGIC
+   - Loads user data
+   - Loads circles from localStorage
+   - Loads pool balance preview
+======================================================= */
+
+/* Basic placeholder user until signup system exists */
+function loadUser() {
+  const name = localStorage.getItem("user_name") || "Member";
+  document.getElementById("user-name").innerText = name;
+}
+
+function loadPool() {
+  const balance = Number(localStorage.getItem("pool_balance") || 0);
+  document.getElementById("pool-balance").innerText = `$${balance}`;
+}
+
+function loadCircles() {
+  const container = document.getElementById("circle-list");
+  const circles = JSON.parse(localStorage.getItem("user_circles") || "[]");
+
+  if (circles.length === 0) {
+    container.innerHTML = `<p style="color:#777;">You haven’t joined any circles yet.</p>`;
+    return;
+  }
+
+  container.innerHTML = "";
+  circles.forEach(c => {
+    const el = document.createElement("p");
+    el.style.margin = "0.4rem 0";
+    el.innerText = `• ${c}`;
+    container.appendChild(el);
+  });
+}
+
+loadUser();
+loadPool();
+loadCircles();
+</script>
+
+</body>
+</html>
