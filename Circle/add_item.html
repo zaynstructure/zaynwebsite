@@ -1,24 +1,165 @@
-<div class="card" style="padding:1rem; margin-top:1rem;">
-  <h3 style="margin:0 0 .6rem;">Lending Requirements</h3>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Add Item · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
 
-  <label style="display:block; margin-bottom:.4rem;">
-    <input type="radio" name="req" value="open" checked />
-    Open to all members
-  </label>
+<body>
 
-  <label style="display:block; margin-bottom:.4rem;">
-    <input type="radio" name="req" value="participating" />
-    Participating members only
-  </label>
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="library.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
 
-  <label style="display:block; margin-bottom:.4rem;">
-    <input type="radio" name="req" value="trusted" />
-    Trusted borrowers only
-  </label>
+<main class="page">
 
-  <p style="font-size:.8rem; color:#777; margin-top:.4rem;">
-    Requirements are based on community participation  
-    (returns, circles, shared items, pool contributions).  
-    This ensures fair access while protecting lenders.
-  </p>
-</div>
+  <h1 class="section-title">Add an Item</h1>
+
+  <!-- ITEM NAME -->
+  <label class="field-label">Item Name</label>
+  <input id="item-name" type="text" placeholder="e.g., Makita Drill" />
+
+  <!-- CATEGORY -->
+  <label class="field-label">Category</label>
+  <select id="item-category">
+    <option value="">Select category</option>
+    <option>Tools</option>
+    <option>Kitchen</option>
+    <option>Photography</option>
+    <option>Outdoors</option>
+    <option>Electronics</option>
+    <option>Misc</option>
+  </select>
+
+  <!-- LOCATION -->
+  <label class="field-label">Location</label>
+  <input id="item-location" type="text" placeholder="Neighbourhood" />
+
+  <!-- CONDITION -->
+  <label class="field-label">Condition</label>
+  <select id="item-condition">
+    <option value="">Select condition</option>
+    <option>Excellent</option>
+    <option>Good</option>
+    <option>Fair</option>
+    <option>Well-loved</option>
+  </select>
+
+  <!-- IMAGE URL -->
+  <label class="field-label">Image URL</label>
+  <input id="item-image" type="text" placeholder="assets/drill.jpg" />
+
+  <!-- DESCRIPTION -->
+  <label class="field-label">Description</label>
+  <textarea id="item-description" rows="4" placeholder="Short description…"></textarea>
+
+  <!-- CIRCLE -->
+  <label class="field-label">Circle (optional)</label>
+  <select id="item-circle">
+    <option value="">None</option>
+    <option>Toolcare</option>
+    <option>Kitchen Collective</option>
+    <option>Photography</option>
+    <option>Camping</option>
+  </select>
+
+  <!-- REQUIREMENT -->
+  <div class="card" style="padding:1rem; margin-top:1rem;">
+    <h3 style="margin:0 0 .6rem;">Lending Requirements</h3>
+
+    <label style="display:block; margin-bottom:.4rem;">
+      <input type="radio" name="req" value="open" checked />
+      Open to all members
+    </label>
+
+    <label style="display:block; margin-bottom:.4rem;">
+      <input type="radio" name="req" value="participating" />
+      Participating members only
+    </label>
+
+    <label style="display:block;">
+      <input type="radio" name="req" value="trusted" />
+      Trusted borrowers only
+    </label>
+
+    <p style="font-size:.8rem; color:#777; margin-top:.6rem;">
+      Requirements are based on participation (returns, sharing, circles, pool).
+      These settings protect lenders while keeping access fair.
+    </p>
+  </div>
+
+  <!-- SUBMIT BUTTON -->
+  <button id="submit-btn" class="btn btn-primary" style="width:100%; margin-top:1.4rem;">
+    Add Item
+  </button>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="index.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   SAVE ITEM (Prototype: localStorage store)
+============================================================ */
+
+document.getElementById("submit-btn").addEventListener("click", function () {
+  // Validate fields
+  const name = document.getElementById("item-name").value.trim();
+  const category = document.getElementById("item-category").value;
+  const location = document.getElementById("item-location").value.trim();
+  const condition = document.getElementById("item-condition").value;
+  const image = document.getElementById("item-image").value.trim();
+  const description = document.getElementById("item-description").value.trim();
+  const circle = document.getElementById("item-circle").value || null;
+
+  const requirement = document.querySelector("input[name='req']:checked").value;
+
+  if (!name || !category || !location || !condition) {
+    alert("Please fill in all required fields.");
+    return;
+  }
+
+  // Load existing items from localStorage OR start a new object
+  let items = JSON.parse(localStorage.getItem("library_items") || "{}");
+
+  // Generate new ID
+  const newId = Date.now().toString();
+
+  // Build item object
+  items[newId] = {
+    name,
+    category,
+    location,
+    condition,
+    image,
+    description,
+    circle,
+    requirement,
+    availability: "Available",
+    owner: "You",
+    owner_info: "CircleShare member"
+  };
+
+  // Save back
+  localStorage.setItem("library_items", JSON.stringify(items));
+
+  // Redirect back to library
+  window.location.href = "library.html";
+});
+</script>
+
+</body>
+</html>
