@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="settings.html" style="text-decoration:none;">⚙️</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Welcome</h1>
+  <p id="user-welcome" style="font-size:0.9rem; color:#666; margin-top:-0.6rem; margin-bottom:1.4rem;"></p>
+
+  <!-- Quick Tiles -->
+  <div style="display:grid; gap:1rem; margin-bottom:1.6rem;">
+    <a class="card" href="library.html" style="padding:1rem;">
+      <h3 style="margin:0;">Library</h3>
+      <p style="margin:0; color:#555; font-size:.88rem;">Borrow & share items</p>
+    </a>
+
+    <a class="card" href="circles.html" style="padding:1rem;">
+      <h3 style="margin:0;">Circles</h3>
+      <p style="margin:0; color:#555; font-size:.88rem;">Join skills-based groups</p>
+    </a>
+
+    <a class="card" href="free.html" style="padding:1rem;">
+      <h3 style="margin:0;">Free Section</h3>
+      <p style="margin:0; color:#555; font-size:.88rem;">Food & clothing, no requirements</p>
+    </a>
+  </div>
+
+  <!-- Community Pool Teaser -->
+  <div class="card" style="padding:1rem; background:#f7f7f7;">
+    <h3 style="margin-top:0;">Community Pool</h3>
+    <p style="font-size:.88rem; color:#555;">
+      Optional shared fund for repairs, replacements, and accessibility support.
+    </p>
+    <a class="btn btn-primary" href="pool.html">Learn More</a>
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Library</a>
+    <a href="free.html">Free</a>
+    <a href="pool.html">Pool</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+// login enforcement
+if (localStorage.getItem("user_logged_in") !== "true") {
+  window.location.href = "index.html";
+}
+
+// personalized welcome
+const name = localStorage.getItem("user_name");
+document.getElementById("user-welcome").innerText =
+  name ? `Hello, ${name}.` : "Hello.";
+</script>
+
+</body>
+</html>
