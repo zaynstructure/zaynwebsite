@@ -72,30 +72,146 @@
 </footer>
 
 <script>
-/* ================================
-   DYNAMIC ITEM LOADER
-================================ */
+/* ============================================================
+   USER PARTICIPATION SCORE
+============================================================ */
+function userParticipationScore() {
+  const lends = JSON.parse(localStorage.getItem("user_lent_items") || "[]");
+  const circlesTrained = JSON.parse(localStorage.getItem("user_circle_training") || "[]");
+  const pool = localStorage.getItem("user_pool_contrib") === "true";
+  const returns = Number(localStorage.getItem("user_successful_returns") || 0);
+  const repairHelp = localStorage.getItem("user_repair_help") === "true";
 
+  let score = 0;
+  if (lends.length > 0) score++;
+  if (circlesTrained.length > 0) score++;
+  if (pool) score++;
+  if (returns >= 1) score++;
+  if (repairHelp) score++;
+
+  return score;
+}
+
+/* ============================================================
+   CHECK REQUIREMENT LEVEL (open, participating, trusted)
+============================================================ */
+function checkLendingRequirement(item) {
+  const score = userParticipationScore();
+  const loggedIn = localStorage.getItem("logged_in") === "true";
+
+  if (!loggedIn) return { allowed: false, reason: "login" };
+
+  if (item.requirement === "open") {
+    return { allowed: true };
+  }
+
+  if (item.requirement === "participating") {
+    return score >= 1
+      ? { allowed: true }
+      : { allowed: false, reason: "participating" };
+  }
+
+  if (item.requirement === "trusted") {
+    return score >= 2
+      ? { allowed: true }
+      : { allowed: false, reason: "trusted" };
+  }
+
+  return { allowed: true };
+}
+
+/* ============================================================
+   APPLY ALL RULES TO CTA BUTTON (circle + requirement)
+============================================================ */
+function applyAccessRules(item, id) {
+  const btn = document.getElementById("cta-button");
+  const loggedIn = localStorage.getItem("logged_in") === "true";
+
+  // 1) NOT LOGGED IN AT ALL
+  if (!loggedIn) {
+    btn.href = "signup.html";
+    btn.innerText = "Sign up to borrow";
+    return;
+  }
+
+  // 2) CIRCLE CHECK (item.circle is defined)
+  if (item.circle) {
+    const userCircles = JSON.parse(localStorage.getItem("user_circles") || "[]");
+
+    const inCircle = userCircles.includes(item.circle);
+
+    if (!inCircle) {
+      btn.href = `join_circle.html?circle=${encodeURIComponent(item.circle)}`;
+      btn.innerText = `Join ${item.circle} to borrow`;
+      return;
+    }
+  }
+
+  // 3) REQUIREMENT CHECK
+  const result = checkLendingRequirement(item);
+
+  if (result.allowed) {
+    btn.href = `borrow.html?id=${id}`;
+    btn.innerText = "Borrow this item";
+    return;
+  }
+
+  // REQUIREMENT FAIL CASES
+
+  if (result.reason === "participating") {
+    btn.href = "participation_guide.html";
+    btn.innerText = "Unlock borrowing";
+
+    document.getElementById("first-borrows").innerHTML = `
+      <h3>Participation Needed</h3>
+      <p style="color:#555;">
+        This lender allows borrowing after a small contribution step.<br>
+        Complete ANY ONE:
+      </p>
+      <ul style="padding-left:1rem; color:#444;">
+        <li>Return your first borrowed item</li>
+        <li>Join any Circle + basics</li>
+        <li>Share an item</li>
+        <li>Contribute $1+ to pool</li>
+      </ul>
+    `;
+    return;
+  }
+
+  if (result.reason === "trusted") {
+    btn.href = "participation_guide.html";
+    btn.innerText = "Unlock borrowing";
+
+    document.getElementById("first-borrows").innerHTML = `
+      <h3>Trusted Borrowers Needed</h3>
+      <p style="color:#555;">This item requires two signs of participation.<br>
+      Complete ANY TWO:</p>
+      <ul style="padding-left:1rem; color:#444;">
+        <li>Return items reliably</li>
+        <li>Join a Circle + basics</li>
+        <li>Share an item</li>
+        <li>Contribute to pool</li>
+        <li>Help repair or moderate</li>
+      </ul>
+    `;
+    return;
+  }
+}
+
+/* ============================================================
+   MAIN ITEM LOADER
+============================================================ */
 async function loadItem() {
-  // 1. get ?id=3 from URL
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
 
-  if (!id) {
-    document.getElementById("item-name").innerText = "Item not found";
-    return;
-  }
+  if (!id) return;
 
-  // 2. fetch item data
   const data = await fetch("items.json").then(r => r.json());
   const item = data[id];
+  if (!item) return;
 
-  if (!item) {
-    document.getElementById("item-name").innerText = "Item not found";
-    return;
-  }
-
-  // 3. populate page
+  // Basic rendering (unchanged)
   document.getElementById("item-name").innerText = item.name;
   document.getElementById("item-subtitle").innerText =
     `${item.category} • ${item.location}`;
@@ -106,49 +222,26 @@ async function loadItem() {
   document.getElementById("item-owner").innerText = item.owner;
   document.getElementById("item-owner-info").innerText = item.owner_info;
 
-  document.getElementById("item-image").style.backgroundImage =
-    `url(${item.image})`;
-  document.getElementById("item-image").style.backgroundSize = "cover";
-  document.getElementById("item-image").style.backgroundPosition = "center";
+  // Image
+  const img = document.getElementById("item-image");
+  img.style.backgroundImage = `url(${item.image})`;
+  img.style.backgroundSize = "cover";
+  img.style.backgroundPosition = "center";
 
-  const cta = document.getElementById("cta-button");
-
-  /* ========= YOUR ORIGINAL CIRCLE CHECK ========= */
-  if (!item.circle) {
-    cta.href = `borrow.html?id=${id}`;
-    cta.innerText = "Borrow this item";
-  } else {
-    const userCircles = JSON.parse(localStorage.getItem("user_circles") || "[]");
-    const isMember = userCircles.includes(item.circle);
-
-    if (isMember) {
-      cta.href = `borrow.html?id=${id}`;
-      cta.innerText = `Borrow this item (✓ ${item.circle})`;
-    } else {
-      cta.href = `join_circle.html?circle=${encodeURIComponent(item.circle)}`;
-      cta.innerText = `Join ${item.circle} to borrow`;
-    }
-  }
-
-  /* ========= INSERT REQUIREMENT LOGIC HERE ========= */
-  applyRequirementUI(item);
-
-  /* ========= BUILD CIRCLE CARD ========= */
-  const circleCard = document.getElementById("circle-card");
-
+  // Circle info card
   if (item.circle) {
-    circleCard.innerHTML = `
+    document.getElementById("circle-card").innerHTML = `
       <div class="card" style="border-left:4px solid #1a1a1a; margin-top:1rem;">
-        <h3 style="margin:0 0 0.4rem;">Requires ${item.circle} Circle</h3>
-        <p style="margin:0 0 1rem; color:#555;">
-          This item belongs to a circle with simple care basics.
-        </p>
-        <a class="btn btn-primary" href="signup.html">Join circle to borrow</a>
-      </div>`;
+        <h3 style="margin:0 0 .4rem;">Requires ${item.circle} Circle</h3>
+        <p style="color:#555;">This item is shared within a circle with simple care basics.</p>
+      </div>
+    `;
   }
+
+  // UNIFIED ACCESS LOGIC
+  applyAccessRules(item, id);
 }
 
-/* NOW call loadItem (and nothing else) */
 loadItem();
 </script>
 
