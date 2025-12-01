@@ -43,7 +43,10 @@ document.getElementById('signup-btn').addEventListener('click', () => {
   // Save user data
   localStorage.setItem('user_name', name);
   localStorage.setItem('user_logged_in', 'true');
-localStorage.setItem('user_logged_in', 'true');
+// after successful signup:
+
+localStorage.setItem("first_time", "true");
+
 window.location.href = "welcome.html";
   // Redirect to profile
   
