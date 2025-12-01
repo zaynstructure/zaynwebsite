@@ -16,23 +16,38 @@
   </div>
 </header>
 
-<main class="page" style="text-align:center; padding-top:2.5rem;">
+<main class="page" style="text-align:center; padding-top:2.8rem;">
 
+  <!-- PRIMARY MESSAGE -->
   <h1 style="font-size:1.55rem; margin-bottom:0.7rem;">
     Share what you have.<br/>
     Borrow what you need.
   </h1>
 
-  <p style="font-size:0.95rem; color:#5c5c5c; max-width:22rem; margin:0 auto 1.4rem;">
-    A simple, neighbourhood-based sharing network  
-    built through small, self-organized circles.
+  <p style="font-size:0.95rem; color:#5c5c5c; max-width:22rem; margin:0 auto 1.6rem;">
+    A simple, neighbourhood sharing network built  
+    through small, self-organized circles.
   </p>
 
-  <div style="display:flex; flex-direction:column; gap:0.7rem; max-width:18rem; margin:0 auto;">
-    <a class="btn btn-primary" href="circles.html">Browse circles</a>
+  <!-- PRIMARY ACTIONS -->
+  <div style="display:flex; flex-direction:column; gap:0.7rem; max-width:18rem; margin:0 auto 2rem;">
+    <a class="btn btn-primary" href="library.html">Browse items</a>
     <a class="btn btn-ghost" href="free.html">Free food & clothing</a>
-    <a class="btn btn-ghost" href="how.html">How it works</a>
+    <a class="btn btn-ghost" href="circles.html">Explore circles</a>
   </div>
+
+  <!-- ACCOUNT ACCESS -->
+  <div style="display:flex; flex-direction:column; gap:0.5rem; max-width:18rem; margin:0 auto;">
+    <a class="btn btn-ghost" href="#">Sign up</a>
+    <a class="btn btn-ghost" href="#">Log in</a>
+  </div>
+
+  <!-- INFO LINKS -->
+  <p style="margin-top:2.2rem; font-size:0.82rem; color:#6a6a6a;">
+    <a href="about.html" style="color:#6a6a6a; text-decoration:none;">About</a> · 
+    <a href="how.html" style="color:#6a6a6a; text-decoration:none;">How it works</a> · 
+    <a href="how.html#faq" style="color:#6a6a6a; text-decoration:none;">FAQ</a>
+  </p>
 
 </main>
 
@@ -45,6 +60,29 @@
     <a href="how.html">Info</a>
   </div>
 </footer>
+
+<!-- slide menu js -->
+<script>
+  const menuBtn = document.querySelector('.header-inner div:last-child');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const menuOverlay = document.getElementById('menuOverlay');
+  const menuClose = document.getElementById('menuClose');
+
+  if (menuBtn) menuBtn.addEventListener('click', () => {
+    mobileMenu.classList.add('active');
+    menuOverlay.classList.add('active');
+  });
+
+  if (menuClose) menuClose.addEventListener('click', () => {
+    mobileMenu.classList.remove('active');
+    menuOverlay.classList.remove('active');
+  });
+
+  if (menuOverlay) menuOverlay.addEventListener('click', () => {
+    mobileMenu.classList.remove('active');
+    menuOverlay.classList.remove('active');
+  });
+</script>
 
 </body>
 </html>
