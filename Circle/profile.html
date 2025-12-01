@@ -134,7 +134,9 @@
    - Loads circles from localStorage
    - Loads pool balance preview
 ======================================================= */
-
+if (localStorage.getItem('user_logged_in') !== 'true') {
+  window.location.href = "login.html";
+}
 /* Basic placeholder user until signup system exists */
 function loadUser() {
   const name = localStorage.getItem("user_name") || "Member";
