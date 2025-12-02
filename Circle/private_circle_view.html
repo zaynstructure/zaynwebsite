@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Private Circle · CircleShare</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<!-- Header -->
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+
+    <div style="display:flex; align-items:center; gap:0.8rem;">
+      <a href="dashboard.html" style="font-size:1.3rem; text-decoration:none;">↺</a>
+      <a id="logoutBtn"
+         style="text-decoration:none; font-size:0.9rem; color:#333;"
+         href="#">Logout</a>
+    </div>
+  </div>
+</header>
+
+<script>
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  localStorage.removeItem("logged_in");
+  window.location.href = "index.html";
+});
+</script>
+
+<main class="page">
+
+  <!-- Dynamic -->
+  <h1 id="circle-name" class="section-title"></h1>
+
+  <p id="circle-desc"
+     style="font-size:0.92rem; color:#555; margin-bottom:1rem;"></p>
+
+  <!-- Join Box -->
+  <div id="join-box" class="card" style="margin-bottom:1.4rem; display:none;">
+    <h3 style="margin-top:0;">Join this private circle</h3>
+    <p style="font-size:0.85rem; color:#444;">
+      Enter the invite code shared by one of the members.
+    </p>
+
+    <input id="invite-input"
+           type="text"
+           placeholder="Invite code"
+           style="width:100%; margin-bottom:0.6rem;">
+
+    <button id="join-btn"
+            class="btn btn-primary"
+            style="width:100%;">Join Circle</button>
+
+    <p id="join-error"
+       style="color:#b00; font-size:0.85rem; margin-top:0.5rem; display:none;">
+       Incorrect code.
+    </p>
+  </div>
+
+  <!-- Leave Circle -->
+  <a id="leave-btn"
+     class="btn btn-ghost"
+     style="margin-bottom:1.4rem; display:none;"
+     href="#">Leave Circle</a>
+
+  <!-- Members -->
+  <h3 style="margin:1rem 0 0.4rem;">Members</h3>
+  <div class="card" id="member-list">
+    <p style="color:#777; margin:0;">Loading members…</p>
+  </div>
+
+  <!-- Shared Items -->
+  <h3 style="margin:1.2rem 0 0.4rem;">Shared Items</h3>
+  <div class="card" id="shared-items">
+    <p style="color:#777; margin:0;">No items yet.</p>
+  </div>
+
+  <!-- Circle Fund (optional) -->
+  <h3 style="margin:1.2rem 0 0.4rem;">Circle Fund</h3>
+  <div class="card" id="fund-box">
+    <p id="fund-amount"
+       style="margin:0 0 0.6rem; color:#444;">
+       Balance: $0
+    </p>
+    <button id="fund-add" class="btn btn-ghost">Add $1</button>
+  </div>
+
+</main>
+
+<!-- Footer Nav -->
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+/* ================================
+   DUMMY PRIVATE CIRCLE DATA (client side only)
+================================ */
+const privateCircleData = {
+  "My-Close-Friends": {
+    desc: "A small private circle for shared tools, help, and household items.",
+    invite: "FREESHARE4",
+    members: ["Zayn", "Mila", "Jon"],
+    items: ["Pressure Washer", "Ladder", "Food Dehydrator"],
+    fundKey: "fund-My-Close-Friends"
+  },
+
+  "Roommates-Unit-3": {
+    desc: "Private circle for splitting and sharing household resources.",
+    invite: "UNIT3-OK",
+    members: ["Sam", "Tara"],
+    items: ["Vacuum", "Tool Kit"],
+    fundKey: "fund-Roommates-Unit-3"
+  }
+};
+
+/* ================================
+   LOAD CIRCLE
+================================ */
+function loadCircle() {
+  const params = new URLSearchParams(window.location.search);
+  const circle = params.get("circle");
+
+  if (!circle || !privateCircleData[circle]) {
+    document.getElementById("circle-name").innerText = "Circle Not Found";
+    return;
+  }
+
+  const data = privateCircleData[circle];
+
+  // Fill text
+  document.getElementById("circle-name").innerText = circle;
+  document.getElementById("circle-desc").innerText = data.desc;
+
+  // Check membership
+  const joined = JSON.parse(localStorage.getItem("user_private_circles") || "[]");
+  const isMember = joined.includes(circle);
+
+  // UI state
+  document.getElementById("join-box").style.display = isMember ? "none" : "block";
+  document.getElementById("leave-btn").style.display = isMember ? "block" : "none";
+
+  /* Members */
+  const memberBox = document.getElementById("member-list");
+  memberBox.innerHTML = "";
+  data.members.forEach(m => {
+    const p = document.createElement("p");
+    p.style.margin = "0";
+    p.style.padding = "0.2rem 0";
+    p.textContent = m;
+    memberBox.appendChild(p);
+  });
+
+  /* Items */
+  const itemsBox = document.getElementById("shared-items");
+  if (data.items.length === 0) {
+    itemsBox.innerHTML = `<p style="color:#777; margin:0;">No items yet.</p>`;
+  } else {
+    itemsBox.innerHTML = "";
+    data.items.forEach(i => {
+      const p = document.createElement("p");
+      p.style.margin = "0";
+      p.style.padding = "0.2rem 0";
+      p.textContent = i;
+      itemsBox.appendChild(p);
+    });
+  }
+
+  /* Fund */
+  const fundKey = data.fundKey;
+  const amount = Number(localStorage.getItem(fundKey) || 0);
+  document.getElementById("fund-amount").innerText = `Balance: $${amount}`;
+}
+
+loadCircle();
+
+/* ================================
+   JOIN LOGIC
+================================ */
+document.getElementById("join-btn").addEventListener("click", () => {
+  const params = new URLSearchParams(window.location.search);
+  const circle = params.get("circle");
+
+  const data = privateCircleData[circle];
+  const code = document.getElementById("invite-input").value.trim();
+  const error = document.getElementById("join-error");
+
+  if (code !== data.invite) {
+    error.style.display = "block";
+    return;
+  }
+
+  error.style.display = "none";
+
+  const circles = JSON.parse(localStorage.getItem("user_private_circles") || "[]");
+  circles.push(circle);
+  localStorage.setItem("user_private_circles", JSON.stringify(circles));
+
+  loadCircle();
+});
+
+/* ================================
+   LEAVE LOGIC
+================================ */
+document.getElementById("leave-btn").addEventListener("click", () => {
+  const params = new URLSearchParams(window.location.search);
+  const circle = params.get("circle");
+
+  const circles = JSON.parse(localStorage.getItem("user_private_circles") || "[]");
+  const updated = circles.filter(c => c !== circle);
+
+  localStorage.setItem("user_private_circles", JSON.stringify(updated));
+  loadCircle();
+});
+
+/* ================================
+   FUND BUTTON
+================================ */
+document.getElementById("fund-add").addEventListener("click", () => {
+  const params = new URLSearchParams(window.location.search);
+  const circle = params.get("circle");
+  const fundKey = privateCircleData[circle].fundKey;
+
+  const oldAmount = Number(localStorage.getItem(fundKey) || 0);
+  const newAmount = oldAmount + 1;
+
+  localStorage.setItem(fundKey, String(newAmount));
+  document.getElementById("fund-amount").innerText = `Balance: $${newAmount}`;
+});
+</script>
+
+</body>
+</html>
