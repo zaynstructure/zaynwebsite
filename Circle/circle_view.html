@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Circle · CircleShare</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<!-- Dashboard arrow + logout -->
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+
+    <div style="display:flex; align-items:center; gap:0.8rem;">
+      <a href="dashboard.html" style="font-size:1.3rem; text-decoration:none;">↺</a>
+      <a id="logoutBtn" 
+         style="text-decoration:none; font-size:0.9rem; color:#333;" 
+         href="#">Logout</a>
+    </div>
+  </div>
+</header>
+
+<script>
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  localStorage.removeItem("logged_in");
+  window.location.href = "index.html";
+});
+</script>
+
+<main class="page">
+
+  <!-- Dynamic -->
+  <h1 id="circle-name" class="section-title"></h1>
+
+  <p id="circle-desc" style="font-size:0.92rem; color:#555; margin-bottom:1rem;"></p>
+
+  <!-- Join/Leave button -->
+  <a id="join-btn" class="btn btn-primary" href="#" 
+     style="margin-bottom:1.4rem;">Join Circle</a>
+
+  <!-- Members -->
+  <h3 style="margin:1rem 0 0.4rem;">Members</h3>
+  <div class="card" id="member-list">
+    <p style="color:#777; margin:0;">Loading members…</p>
+  </div>
+
+  <!-- Shared Items -->
+  <h3 style="margin:1.2rem 0 0.4rem;">Shared Items</h3>
+  <div class="card" id="shared-items">
+    <p style="color:#777; margin:0;">No shared items yet.</p>
+  </div>
+
+  <!-- Circle Goals -->
+  <h3 style="margin:1.2rem 0 0.4rem;">Circle Goals</h3>
+  <div class="card" id="circle-goals">
+    <ul style="padding-left:1.1rem; color:#555; font-size:0.88rem;">
+      <li>Help neighbours borrow items safely.</li>
+      <li>Share resources to reduce waste.</li>
+      <li>Build small, local trust through shared care.</li>
+    </ul>
+  </div>
+
+</main>
+
+<!-- Footer navigation -->
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+/* ================================
+   DYNAMIC CIRCLE LOADER
+================================ */
+
+const circleData = {
+  "Fernwood": {
+    desc: "A hyper-local sharing circle focused on tools, kitchen gear, and community care in Fernwood.",
+    members: ["Alex R.", "Jamie K.", "Tyler S.", "Priya M."],
+    items: ["Electric Drill", "Crockpot", "Shovel"]
+  },
+
+  "Quadra Village": {
+    desc: "Neighbours sharing small appliances, outdoor gear, and seasonal items.",
+    members: ["Nadia", "Chris", "Rory"],
+    items: ["Tent", "Hand Saw"]
+  },
+
+  "North Park": {
+    desc: "Tight-knit block supporting shared childcare items, bikes, and repairs.",
+    members: ["Liam", "Maya", "Dan"],
+    items: ["Bike Pump", "Kids' Carrier Pack"]
+  }
+};
+
+function loadCircle() {
+  const params = new URLSearchParams(window.location.search);
+  const circle = params.get("circle");
+
+  if (!circle || !circleData[circle]) {
+    document.getElementById("circle-name").innerText = "Circle Not Found";
+    return;
+  }
+
+  const data = circleData[circle];
+
+  document.getElementById("circle-name").innerText = circle;
+  document.getElementById("circle-desc").innerText = data.desc;
+
+  /* Members */
+  const memberBox = document.getElementById("member-list");
+  memberBox.innerHTML = "";
+  data.members.forEach(m => {
+    const p = document.createElement("p");
+    p.style.margin = "0";
+    p.style.padding = "0.2rem 0";
+    p.textContent = m;
+    memberBox.appendChild(p);
+  });
+
+  /* Shared Items */
+  const itemsBox = document.getElementById("shared-items");
+  if (data.items.length === 0) {
+    itemsBox.innerHTML = `<p style="color:#777; margin:0;">No items yet.</p>`;
+  } else {
+    itemsBox.innerHTML = "";
+    data.items.forEach(i => {
+      const p = document.createElement("p");
+      p.style.margin = "0";
+      p.style.padding = "0.2rem 0";
+      p.textContent = i;
+      itemsBox.appendChild(p);
+    });
+  }
+
+  /* Join/Leave Button */
+  const joined = JSON.parse(localStorage.getItem("user_circles") || "[]");
+  const isMember = joined.includes(circle);
+
+  const btn = document.getElementById("join-btn");
+  btn.innerText = isMember ? "Leave Circle" : "Join Circle";
+
+  btn.addEventListener("click", () => {
+    const circles = JSON.parse(localStorage.getItem("user_circles") || "[]");
+
+    if (isMember) {
+      // leave
+      const updated = circles.filter(c => c !== circle);
+      localStorage.setItem("user_circles", JSON.stringify(updated));
+    } else {
+      // join
+      circles.push(circle);
+      localStorage.setItem("user_circles", JSON.stringify(circles));
+    }
+
+    // refresh
+    loadCircle();
+  });
+}
+
+loadCircle();
+</script>
+
+</body>
+</html>
