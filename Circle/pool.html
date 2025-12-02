@@ -12,59 +12,87 @@
 <header>
   <div class="header-inner">
     <div class="logo">CircleShare</div>
-    <a href="index.html" style="text-decoration:none;">←</a>
+    <a href="dashboard.html" style="text-decoration:none;">←</a>
   </div>
 </header>
 
 <main class="page">
 
-  <h1 class="section-title">Community Pool</h1>
+  <h1 class="section-title">Community Pools</h1>
 
-  <p style="font-size:.9rem; color:#555; margin-bottom:1.2rem;">
-    A shared community fund used for:
-    <ul style="margin:0 0 1rem 1rem; padding:0;">
-      <li>• Repairing shared items</li>
-      <li>• Replacing lost/damaged items</li>
-      <li>• Covering borrowing deposits for members who need support</li>
-      <li>• Supporting small mutual-aid requests</li>
-    </ul>
+  <p style="font-size:0.92rem; color:#555; margin-bottom:1.4rem;">
+    Optional small contributions that help keep the system fair, accessible, 
+    and stable — and support neighbours when things go wrong.
   </p>
 
-  <div class="card" style="padding:1rem;">
-    <h3 style="margin-top:0;">How it Works</h3>
-
-    <p style="font-size:.88rem; color:#555; margin-bottom:.8rem;">
-      Participation is optional. Contributions are pooled together and
-      used only for shared community benefit. All spending and monthly
-      usage summaries are posted transparently.
+  <!-- GENERAL POOL -->
+  <div class="card" style="margin-bottom:1.6rem;">
+    <h2 style="margin:0 0 0.4rem;">General Pool</h2>
+    <p style="font-size:0.88rem; color:#555;">
+      A shared fund used across the whole community.  
+      It helps cover small replacements, deposits for people who need support, 
+      and occasional repairs. It is <strong>not required</strong> and is always 
+      transparently tracked.
     </p>
 
-    <p style="font-size:.88rem; color:#555; margin-bottom:.8rem;">
-      Members can propose repairs or replacements, and the community
-      votes on items above a certain threshold.
-    </p>
+    <ul style="font-size:0.86rem; color:#444; padding-left:1rem; margin:1rem 0;">
+      <li>Helps borrowers who can’t afford first-time deposits</li>
+      <li>Supports low-income or emergency needs</li>
+      <li>Backs up neighbourhood pools when they fall short</li>
+      <li>Used for approved categories only (repairs, replacements, access)</li>
+    </ul>
 
-    <a class="btn btn-primary" href="#">View Pool Activity</a>
+    <a class="btn btn-primary" href="#">Contribute</a>
   </div>
 
-  <div class="card" style="padding:1rem; margin-top:1.2rem;">
-    <h3 style="margin-top:0;">Contribute</h3>
-    <p style="font-size:.88rem; color:#555; margin-bottom:1rem;">
-      You can contribute any amount to help keep shared items in good
-      shape and support accessibility for everyone.
+  <!-- NEIGHBOURHOOD POOLS -->
+  <div class="card" style="margin-bottom:1.6rem;">
+    <h2 style="margin:0 0 0.4rem;">Neighbourhood Pools</h2>
+    <p style="font-size:0.88rem; color:#555;">
+      Each neighbourhood circle maintains its own small “micro-pool.”  
+      These funds are used locally for quick repairs, replacing small shared 
+      items, and supporting first-time borrowers inside that circle.
     </p>
-    <a class="btn btn-primary" href="#">Contribute to Pool</a>
+
+    <ul style="font-size:0.86rem; color:#444; padding-left:1rem; margin:1rem 0;">
+      <li>Funds stay inside your neighbourhood</li>
+      <li>Used first before touching the general pool</li>
+      <li>Helps maintain shared assets (like a ladder or lawnmower)</li>
+      <li>Decisions made by neighbourhood members</li>
+    </ul>
+
+    <a class="btn btn-ghost" href="circles_neighbourhood.html">View neighbourhood circles</a>
+  </div>
+
+  <!-- WHY TWO POOLS -->
+  <div class="card" style="background:#f7f7f7;">
+    <h2 style="margin:0 0 0.4rem;">Why Two Pools?</h2>
+    <p style="font-size:0.88rem; color:#555;">
+      This model balances <strong>fairness</strong> and <strong>trust</strong>.
+      Local funds keep neighbourhoods empowered and quick, while the general pool 
+      ensures no one is left behind.
+    </p>
+
+    <h4 style="margin-top:1rem; margin-bottom:0.3rem;">How a request works:</h4>
+    <ol style="font-size:0.86rem; color:#444; padding-left:1.1rem;">
+      <li><strong>Neighbourhood pool is checked first.</strong></li>
+      <li>If it doesn’t fully cover the request,</li>
+      <li><strong>General pool may top it up</strong> (within limits).</li>
+    </ol>
+
+    <p style="font-size:0.86rem; color:#666; margin-top:0.8rem;">
+      This keeps everything sustainable while still supporting people who need it.
+    </p>
   </div>
 
 </main>
 
 <footer>
   <div class="footer-nav">
-    <a href="index.html">Home</a>
+    <a href="dashboard.html">Home</a>
     <a href="circles.html">Circles</a>
-    <a href="library.html">Library</a>
-    <a href="free.html">Free</a>
-    <a href="pool.html">Pool</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
     <a href="info.html">Info</a>
   </div>
 </footer>
