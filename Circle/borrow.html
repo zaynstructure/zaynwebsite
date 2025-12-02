@@ -3,40 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Borrow Item · CircleShare</title>
+  <title>Borrow · CircleShare</title>
   <link rel="stylesheet" href="styles.css" />
-
-  <style>
-    /* Calendar styling (inline so page is self-contained) */
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 4px;
-      margin-top: 0.5rem;
-    }
-
-    .calendar-day {
-      padding: 0.6rem 0;
-      background: #f1f1f1;
-      border-radius: 6px;
-      text-align: center;
-      font-size: 0.8rem;
-      color: #333;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .calendar-day.unavailable {
-      background: #ddd;
-      color: #777;
-      cursor: not-allowed;
-    }
-
-    .calendar-day.selected {
-      background: #111;
-      color: white;
-    }
-  </style>
 </head>
 
 <body>
@@ -44,101 +12,81 @@
 <header>
   <div class="header-inner">
     <div class="logo">CircleShare</div>
-    <a href="item.html" style="text-decoration:none;">←</a>
+    <a href="item.html?id=1" style="text-decoration:none;">←</a>
   </div>
 </header>
 
 <main class="page">
 
-  <h1 class="section-title">Borrow This Item</h1>
+  <h1 class="section-title">Borrow Request</h1>
 
-  <p style="font-size:0.9rem; color:#555; margin-bottom:1rem;">
-    Select a pickup day. Unavailable days are greyed out.
+  <div class="card" style="margin-bottom:1rem;">
+    <p><strong id="itemName">Item Name</strong></p>
+    <p id="itemLocation" style="color:#777;"></p>
+  </div>
+
+  <h3 style="margin:1.2rem 0 0.4rem;">Pick-up Window</h3>
+  <input type="date" id="borrowDate" style="margin-bottom:1rem;">
+
+  <h3 style="margin:1rem 0 0.4rem;">Return Date</h3>
+  <input type="date" id="returnDate" style="margin-bottom:1rem;">
+
+  <h3 style="margin:1.2rem 0 0.4rem;">First 3 Borrows</h3>
+  <p style="font-size:0.82rem; color:#666;">
+    Choose one quick accountability step:
   </p>
 
-  <div class="card" style="padding:1rem;">
-    <h2 style="margin:0 0 0.8rem;">Pickup Date</h2>
-
-    <div id="calendar"></div>
-
-    <button id="confirmBorrow"
-            class="btn btn-primary"
-            style="margin-top:1.4rem;"
-            disabled>
-      Confirm Borrow
-    </button>
+  <div class="card" style="margin-bottom:1rem;" id="firstSteps">
+    <label style="display:block; margin-bottom:0.4rem;">
+      <input type="radio" name="acct" value="deposit"> $5 refundable deposit
+    </label>
+    <label style="display:block; margin-bottom:0.4rem;">
+      <input type="radio" name="acct" value="backup"> Add backup contact
+    </label>
+    <label style="display:block;">
+      <input type="radio" name="acct" value="care"> Read care basics
+    </label>
   </div>
+
+  <div id="poolAssist" class="card" style="display:none; background:#f7f7f7;">
+    <p style="font-size:0.85rem; margin:0;">
+      Not able to cover a deposit?  
+      <strong>The community pool can help.</strong>
+    </p>
+  </div>
+
+  <a class="btn btn-primary" id="continueBtn" style="margin-top:1.4rem;">
+    Continue
+  </a>
 
 </main>
 
 <footer>
   <div class="footer-nav">
-    <a href="index.html">Home</a>
+    <a href="dashboard.html">Home</a>
     <a href="circles.html">Circles</a>
-    <a href="library.html">Library</a>
-    <a href="free.html">Free</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
     <a href="info.html">Info</a>
   </div>
 </footer>
 
 <script>
-/* =======================================================
-   SIMPLE BORROWING CALENDAR
-======================================================= */
+document.getElementById("continueBtn").addEventListener("click", () => {
+  const acct = document.querySelector('input[name="acct"]:checked');
+  if (!acct) { alert("Please choose an accountability step."); return; }
 
-function buildCalendar() {
-  const calendar = document.getElementById("calendar");
-  const today = new Date();
-  const month = today.getMonth();
-  const year  = today.getFullYear();
+  localStorage.setItem("borrow_acct", acct.value);
+  window.location.href = "borrow_confirm.html";
+});
 
-  // Example: unavailable days
-  const unavailable = [3, 7, 11, 12, 18, 25];
+// If choosing deposit shows pool assist option
+document.getElementById("firstSteps").addEventListener("change", () => {
+  const acct = document.querySelector('input[name="acct"]:checked');
+  document.getElementById("poolAssist").style.display = 
+    (acct && acct.value === "deposit") ? "block" : "none";
+});
+</script>
 
-  /* Calendar Header */
-  const header = document.createElement("div");
-  header.style.fontWeight = "bold";
-  header.style.marginBottom = "0.4rem";
-  header.innerText = today.toLocaleString("default", {
-    month: "long",
-    year: "numeric"
-  });
-  calendar.appendChild(header);
-
-  /* Weekday Labels */
-  const labels = document.createElement("div");
-  labels.className = "calendar-grid";
-  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => {
-    const el = document.createElement("div");
-    el.style.fontSize = "0.65rem";
-    el.style.color = "#666";
-    el.innerText = d;
-    labels.appendChild(el);
-  });
-  calendar.appendChild(labels);
-
-  /* Calendar Days */
-  const grid = document.createElement("div");
-  grid.className = "calendar-grid";
-
-  const firstDay = new Date(year, month, 1).getDay();
-  const numDays  = new Date(year, month + 1, 0).getDate();
-
-  // blank squares before month begins
-  for (let i = 0; i < firstDay; i++) {
-    const blank = document.createElement("div");
-    grid.appendChild(blank);
-  }
-
-  let selectedDay = null;
-
-  // days of the month
-  for (let day = 1; day <= numDays; day++) {
-    const cell = document.createElement("div");
-    cell.className = "calendar-day";
-    cell.innerText = day;
-
-    if (unavailable.includes(day)) {
-      cell.classList.add("unavailable");
-    } else {
-      cell.addEventListener
+</body>
+</html>
