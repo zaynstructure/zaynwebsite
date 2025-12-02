@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Return Item · CircleShare</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="borrow_active.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Return Item</h1>
+
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1rem;">
+    Confirm that you’ve returned this item to the lender.
+  </p>
+
+  <textarea placeholder="Optional: Leave a note for the lender"
+            style="width:100%; height:90px; margin-bottom:1rem;"></textarea>
+
+  <a class="btn btn-primary" id="completeBtn">Complete Return</a>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+document.getElementById("completeBtn").addEventListener("click", () => {
+  const returns = Number(localStorage.getItem("user_successful_returns") || 0);
+  localStorage.setItem("user_successful_returns", returns + 1);
+
+  const activity = JSON.parse(localStorage.getItem("user_activity") || "[]");
+  activity.push("Returned an item");
+  localStorage.setItem("user_activity", JSON.stringify(activity));
+
+  window.location.href = "dashboard.html";
+});
+</script>
+
+</body>
+</html>
