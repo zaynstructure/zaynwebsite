@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Confirm Borrow · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="borrow.html" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Confirm Request</h1>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <p><strong>Item:</strong> Drill (Makita)</p>
+    <p><strong>Pick-up:</strong> Tomorrow</p>
+    <p><strong>Return:</strong> In 3 days</p>
+    <p><strong>Accountability:</strong> <span id="acctText"></span></p>
+  </div>
+
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1.2rem;">
+    The lender will receive your request.  
+    Once they approve, you’ll get the exact pickup details.
+  </p>
+
+  <a class="btn btn-primary" id="submitBtn">Submit Request</a>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+document.getElementById("acctText").innerText =
+  localStorage.getItem("borrow_acct") || "None";
+
+document.getElementById("submitBtn").addEventListener("click", () => {
+  // simulate activity log
+  const activity = JSON.parse(localStorage.getItem("user_activity") || "[]");
+  activity.push("Requested to borrow an item");
+  localStorage.setItem("user_activity", JSON.stringify(activity));
+
+  // fake approval workflow
+  window.location.href = "borrow_waiting.html";
+});
+</script>
+
+</body>
+</html>
