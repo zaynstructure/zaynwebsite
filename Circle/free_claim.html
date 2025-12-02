@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Claim Item · CircleShare</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">CircleShare</div>
+    <a href="javascript:history.back()" style="text-decoration:none;">←</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <h1 class="section-title">Claim Item</h1>
+
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1rem;">
+    This item is free to take.  
+    Confirm that you want to claim it and you'll receive pickup instructions.
+  </p>
+
+  <textarea id="msg" placeholder="Optional message to the giver"
+            style="width:100%; height:80px; margin-bottom:1rem;"></textarea>
+
+  <a class="btn btn-primary" id="confirmClaim">Confirm Claim</a>
+
+</main>
+
+<footer>
+  <div class="footer-nav">
+    <a href="dashboard.html">Home</a>
+    <a href="circles.html">Circles</a>
+    <a href="library.html">Borrow/Lend</a>
+    <a href="free.html">Give/Receive</a>
+    <a href="info.html">Info</a>
+  </div>
+</footer>
+
+<script>
+document.getElementById("confirmClaim").addEventListener("click", () => {
+  const activity = JSON.parse(localStorage.getItem("user_activity") || "[]");
+  activity.push("Claimed a free item");
+  localStorage.setItem("user_activity", JSON.stringify(activity));
+
+  window.location.href = "free_claim_success.html";
+});
+</script>
+
+</body>
+</html>
