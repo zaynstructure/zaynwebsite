@@ -2,194 +2,95 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF Simulation (Mobile Ready)</title>
+<title>EVF Diagnostic</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
     margin:0; padding:0;
-    background:#000;
-    overflow:hidden;
-    height:100%;
+    background:#000; color:#fff;
     font-family: system-ui, sans-serif;
+    height:100%;
   }
-
-  /* ===== LAYOUT ===== */
   #container {
     display:flex;
     flex-direction:column;
     height:100%;
-    width:100%;
   }
-
   #gl-wrap {
-    flex: 1 1 auto;
-    min-height: 50vh;       /* ensures canvas stays visible */
-    position:relative;
+    flex:1; min-height:50vh;
   }
-
   canvas {
-    width:100%;
-    height:100%;
-    display:block;
-    background:black;
+    width:100%; height:100%; background:#111; display:block;
   }
-
-  /* ===== CONTROL PANEL BELOW ===== */
-  #evf-ui {
-    flex: 0 0 auto;
-    width:100%;
-    background: rgba(20,20,20,0.9);
-    color:#fff;
-    padding:12px;
-    box-sizing:border-box;
-    border-top: 1px solid #444;
-  }
-
-  #evf-ui label {
-    display:block;
-    margin-top:6px;
+  #log {
+    background:#111;
+    padding:8px;
     font-size:12px;
-    font-weight:600;
-  }
-
-  #evf-ui select,
-  #evf-ui input[type=range],
-  #evf-ui button {
-    width:100%;
-    margin-top:4px;
-  }
-
-  #evf-ui button {
-    background:#444;
-    color:#fff;
-    border:1px solid #666;
-    padding:6px;
-    cursor:pointer;
-    border-radius:4px;
-    margin-top:8px;
-  }
-  #evf-ui button:active {
-    background:#666;
+    height:140px;
+    overflow:auto;
+    border-top:1px solid #333;
   }
 </style>
 </head>
 <body>
 
 <div id="container">
-
-  <!-- ===== CANVAS ON TOP ===== -->
-  <div id="gl-wrap">
-    <canvas id="glcanvas"></canvas>
-  </div>
-
-  <!-- ===== PANEL BELOW ===== -->
-  <div id="evf-ui">
-
-      <label>Mode:</label>
-      <select id="evf-mode">
-        <option value="damping">Damping Only</option>
-        <option value="coupling">Coupling Only</option>
-        <option value="gradient">Gradient Only</option>
-        <option value="attractor">Attractor Only</option>
-        <option value="rhythm">Rhythm Only</option>
-        <option value="noise">Noise Only</option>
-        <option value="full">Full Model</option>
-      </select>
-
-      <label>Damping (gamma)</label>
-      <input id="ui-gamma" type="range" min="0" max="3" step="0.01" value="0.6">
-
-      <label>Coupling (k)</label>
-      <input id="ui-k" type="range" min="0" max="1" step="0.01" value="0.25">
-
-      <label>Noise (sigma)</label>
-      <input id="ui-sigma" type="range" min="0" max="1" step="0.01" value="0.1">
-
-      <label>Gradient X</label>
-      <input id="ui-gx" type="range" min="-1" max="1" step="0.01" value="0.3">
-
-      <label>Attractor Strength (lambda)</label>
-      <input id="ui-lambda" type="range" min="0" max="2" step="0.01" value="0.5">
-
-      <button id="evf-reset">Reset Field</button>
-  </div>
-
+  <div id="gl-wrap"><canvas id="glcanvas"></canvas></div>
+  <div id="log"></div>
 </div>
 
 <script>
-/* =============================
-   FIXED MOBILE-SAFE RESIZE
-============================= */
+/* ========== LOGGING ========== */
+function log(msg){
+  const el = document.getElementById("log");
+  el.innerHTML += msg + "<br>";
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ========== SETUP CANVAS / GL CONTEXT ========== */
 const canvas = document.getElementById("glcanvas");
 let gl = canvas.getContext("webgl", { alpha:false });
 
-function resizeCanvas() {
-  const dpr = window.devicePixelRatio || 1;
+if(!gl){
+  log("<span style='color:red'>WebGL not supported</span>");
+  throw "WebGL not supported";
+}
 
+log("WebGL acquired: OK");
+
+/* ========== DPR + RESIZE HANDLING ========== */
+function resizeCanvas(){
+  const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth * dpr;
   const h = canvas.clientHeight * dpr;
 
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-  }
+  canvas.width = w;
+  canvas.height = h;
 
-  gl.viewport(0,0,canvas.width, canvas.height);
+  gl.viewport(0,0,w,h);
+
+  log(`Resize → client: ${canvas.clientWidth}×${canvas.clientHeight}, GL: ${w}×${h}, dpr=${dpr}`);
+}
+resizeCanvas();
+window.addEventListener("resize", ()=>setTimeout(resizeCanvas,100));
+
+/* ========== CHECK EXTENSIONS ========== */
+const extFloat = gl.getExtension("OES_texture_float");
+const extFloatLinear = gl.getExtension("OES_texture_float_linear");
+
+log("Float textures: " + (extFloat ? "YES" : "NO"));
+log("Float linear: " + (extFloatLinear ? "YES" : "NO"));
+
+if(!extFloat){
+  log("<span style='color:red'>❌ FLOAT TEXTURES NOT SUPPORTED — simulation will fail</span>");
 }
 
-window.addEventListener("resize", () => setTimeout(resizeCanvas, 100));
-window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 300));
-
-/* =============================
-   HELPERS
-============================= */
-function createShader(gl, type, src){
-  const s = gl.createShader(type);
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-    console.error(gl.getShaderInfoLog(s));
-  return s;
-}
-
-function createProgram(gl, vs, fs){
-  const p = gl.createProgram();
-  gl.attachShader(p, createShader(gl, gl.VERTEX_SHADER, vs));
-  gl.attachShader(p, createShader(gl, gl.FRAGMENT_SHADER, fs));
-  gl.linkProgram(p);
-  if(!gl.getProgramParameter(p, gl.LINK_STATUS))
-    console.error(gl.getProgramInfoLog(p));
-  return p;
-}
-
-function createFloatTexture(gl, w, h, data=null){
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w,h,0, gl.RGBA, gl.FLOAT, data);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  return tex;
-}
-
-function randomFieldData(w,h){
-  const arr = new Float32Array(w*h*4);
-  for(let i=0;i<w*h;i++){
-    arr[i*4] = (Math.random()-0.5)*0.8;
-    arr[i*4+3] = 1.0;
-  }
-  return arr;
-}
-
-/* =============================
-   SHADERS
-============================= */
-
+/* ========== SHADERS ========== */
 const VS = `
 attribute vec2 aPos;
 varying vec2 vUV;
 void main(){
-  vUV = (aPos + 1.0)*0.5;
+  vUV = (aPos+1.0)*0.5;
   gl_Position = vec4(aPos,0.0,1.0);
 }
 `;
@@ -197,14 +98,13 @@ void main(){
 const SIM_FS = `
 precision highp float;
 varying vec2 vUV;
-
 uniform sampler2D uField;
 uniform float uDT;
 
 uniform float uGamma;
 uniform float uK;
 uniform float uSigma;
-uniform vec2  uG;
+uniform vec2 uG;
 uniform float uLambda;
 uniform float uA;
 uniform float uRho;
@@ -218,151 +118,161 @@ float hash(vec2 p){
 
 void main(){
   float x = texture2D(uField, vUV).r;
-
-  float left  = texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r;
-  float right = texture2D(uField, vUV + vec2( uTexel.x,0.0)).r;
-  float up    = texture2D(uField, vUV + vec2(0.0, uTexel.y)).r;
-  float down  = texture2D(uField, vUV + vec2(0.0,-uTexel.y)).r;
+  float left  = texture2D(uField, vUV + vec2(-uTexel.x,0)).r;
+  float right = texture2D(uField, vUV + vec2(uTexel.x,0)).r;
+  float up    = texture2D(uField, vUV + vec2(0,uTexel.y)).r;
+  float down  = texture2D(uField, vUV + vec2(0,-uTexel.y)).r;
 
   float lap = left + right + up + down - 4.0*x;
+  float grad = dot(vec2(right-left, up-down), uG);
 
-  float gradX = right - left;
-  float gradY = up - down;
-  float grad  = dot(vec2(gradX,gradY), uG);
-
-  float attract = -uLambda * (x - uA);
-  float rhythm  = uRho * sin(uOmega*uTime);
-
-  float F = (-uGamma*x) + (uK*lap) + grad + attract + rhythm;
+  float F = -uGamma*x + uK*lap + grad - uLambda*(x-uA) + uRho*sin(uOmega*uTime);
   float noise = uSigma*(hash(vUV+uTime)-0.5);
 
   float xNext = x + uDT*F + sqrt(uDT)*noise;
-
-  gl_FragColor = vec4(xNext,0.0,0.0,1.0);
+  gl_FragColor = vec4(xNext,0,0,1);
 }
 `;
 
 const RENDER_FS = `
 precision highp float;
 varying vec2 vUV;
-
 uniform sampler2D uField;
-
 void main(){
   float x = texture2D(uField, vUV).r;
-  float g = 0.5 + 0.5*tanh(x);
-  gl_FragColor = vec4(vec3(g),1.0);
+  float v = 0.5 + 0.5*tanh(x);
+  gl_FragColor = vec4(vec3(v),1);
 }
 `;
 
-/* =============================
-   PROGRAMS + GEOMETRY
-============================= */
-const simProgram    = createProgram(gl, VS, SIM_FS);
-const renderProgram = createProgram(gl, VS, RENDER_FS);
+/* ========== SHADER COMPILATION TEST ========== */
+function createShader(type,source){
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh,source);
+  gl.compileShader(sh);
+  if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+    log("<span style='color:red'>Shader error:</span> " + gl.getShaderInfoLog(sh));
+  }
+  return sh;
+}
 
+function createProgram(vs,fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, createShader(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, createShader(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+    log("<span style='color:red'>Program link error:</span> " + gl.getProgramInfoLog(p));
+  }
+  return p;
+}
+
+log("Compiling shaders…");
+let simProg = createProgram(VS, SIM_FS);
+let renderProg = createProgram(VS, RENDER_FS);
+
+/* ========== GEOMETRY ========== */
 const quad = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, quad);
 gl.bufferData(gl.ARRAY_BUFFER,
-  new Float32Array([-1,-1, 1,-1, -1,1, 1,-1, 1,1, -1,1]),
+  new Float32Array([-1,-1,1,-1,-1,1, 1,-1,1,1,-1,1]),
   gl.STATIC_DRAW);
 
-/* =============================
-   SIMULATION TEXTURES
-============================= */
-const W = 256, H = 256;
+const posLocSim = gl.getAttribLocation(simProg, "aPos");
+const posLocRend = gl.getAttribLocation(renderProg, "aPos");
 
-let fieldA = createFloatTexture(gl, W,H, randomFieldData(W,H));
-let fieldB = createFloatTexture(gl, W,H, null);
+/* ========== FLOAT TEXTURE TEST ========== */
+function testFloatTexture(){
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.FLOAT,new Float32Array([0.7,0,0,1]));
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
 
+  const out = new Float32Array(4);
+  gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,out);
+
+  log("Float texture read test: " + out.join(", "));
+  if(out[0]===0 && out[1]===0 && out[2]===0){
+    log("<span style='color:red'>❌ Float sampling returned zeros. Simulation will appear black.</span>");
+  } else {
+    log("<span style='color:lightgreen'>✔ Float sampling works.</span>");
+  }
+}
+
+testFloatTexture();
+
+/* ========== SIMULATION FIELD ========== */
+function randomFieldData(w,h){
+  const arr = new Float32Array(w*h*4);
+  for(let i=0;i<w*h;i++){
+    arr[i*4] = (Math.random()*2 - 1);  // wide range to avoid black
+    arr[i*4+3] = 1;
+  }
+  return arr;
+}
+
+const W=128, H=128;
+let texA = createFloatTexture(gl, W,H, randomFieldData(W,H));
+let texB = createFloatTexture(gl, W,H);
+
+/* ========== FBO SETUP ========== */
 const fbo = gl.createFramebuffer();
 
-document.getElementById("evf-reset").onclick = () => {
-  fieldA = createFloatTexture(gl, W,H, randomFieldData(W,H));
-};
-
-/* =============================
-   MAIN LOOP
-============================= */
+/* ========== RENDER LOOP ========== */
 function loop(t){
   resizeCanvas();
-  
-  const time = t * 0.001;
-  const dt = 0.016;
 
-  /* ---- READ UI ---- */
-  const mode = document.getElementById("evf-mode").value;
-  let gamma  = parseFloat(uiGamma.value);
-  let k      = parseFloat(uiK.value);
-  let sigma  = parseFloat(uiSigma.value);
-  let gx     = parseFloat(uiGx.value);
-  let lambda = parseFloat(uiLambda.value);
-  let rho    = 0.5;
-  let omega  = 0.8;
-
-  switch(mode){
-    case "damping":  k = sigma = lambda = rho = gx=0; break;
-    case "coupling": gamma = sigma = lambda = rho = gx=0; break;
-    case "gradient": gamma = k = sigma = lambda = rho = 0; break;
-    case "attractor":gamma=k=sigma=rho=gx=0; break;
-    case "rhythm":   gamma=k=sigma=lambda=gx=0; break;
-    case "noise":    gamma=k=lambda=rho=gx=0; break;
-    case "full":     break;
-  }
-
-  /* ---- SIM PASS ---- */
-  gl.useProgram(simProgram);
+  /* ===== SIM PASS ===== */
+  gl.useProgram(simProg);
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-                          gl.TEXTURE_2D, fieldB, 0);
+                          gl.TEXTURE_2D, texB,0);
+
   gl.viewport(0,0,W,H);
-
-  let pos = gl.getAttribLocation(simProgram,"aPos");
-  gl.enableVertexAttribArray(pos);
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(posLocSim);
+  gl.vertexAttribPointer(posLocSim,2,gl.FLOAT,false,0,0);
 
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, fieldA);
-  gl.uniform1i(gl.getUniformLocation(simProgram,"uField"),0);
+  gl.bindTexture(gl.TEXTURE_2D, texA);
+  gl.uniform1i(gl.getUniformLocation(simProg,"uField"),0);
 
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uDT"), dt);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uGamma"), gamma);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uK"), k);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uSigma"), sigma);
-  gl.uniform2f(gl.getUniformLocation(simProgram,"uG"), gx, 0.0);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uLambda"), lambda);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uA"), 0.0);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uRho"), rho);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uOmega"), omega);
-  gl.uniform1f(gl.getUniformLocation(simProgram,"uTime"), time);
-  gl.uniform2f(gl.getUniformLocation(simProgram,"uTexel"), 1.0/W, 1.0/H);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uDT"),0.01);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uGamma"),0.6);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uK"),0.25);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uSigma"),0.05);
+  gl.uniform2f(gl.getUniformLocation(simProg,"uG"),0.3,0);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uLambda"),0.5);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uA"),0);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uRho"),0.3);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uOmega"),0.8);
+  gl.uniform1f(gl.getUniformLocation(simProg,"uTime"), t*0.001);
+  gl.uniform2f(gl.getUniformLocation(simProg,"uTexel"), 1/W, 1/H);
 
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.drawArrays(gl.TRIANGLES,0,6);
 
-  let tmp = fieldA; fieldA = fieldB; fieldB = tmp;
+  let tmp = texA; texA = texB; texB = tmp;
 
-  /* ---- RENDER PASS ---- */
-  gl.useProgram(renderProgram);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0,0,canvas.width, canvas.height);
+  /* ===== RENDER PASS ===== */
+  gl.useProgram(renderProg);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,canvas.width,canvas.height);
 
-  let pos2 = gl.getAttribLocation(renderProgram,"aPos");
-  gl.enableVertexAttribArray(pos2);
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.vertexAttribPointer(pos2, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(posLocRend);
+  gl.vertexAttribPointer(posLocRend,2,gl.FLOAT,false,0,0);
 
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, fieldA);
-  gl.uniform1i(gl.getUniformLocation(renderProgram,"uField"), 0);
+  gl.bindTexture(gl.TEXTURE_2D, texA);
+  gl.uniform1i(gl.getUniformLocation(renderProg,"uField"),0);
 
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.drawArrays(gl.TRIANGLES,0,6);
 
   requestAnimationFrame(loop);
 }
-
 requestAnimationFrame(loop);
 </script>
-
 </body>
 </html>
