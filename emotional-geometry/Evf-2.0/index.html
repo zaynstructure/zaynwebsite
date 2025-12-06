@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF Simulation v0.3 · Tiered & Rhythmic</title>
+<title>EVF Simulation v0.4 · Single Attractor Basin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
@@ -79,15 +79,6 @@
     font-size:11px;
     opacity:0.85;
     line-height:1.4;
-  }
-
-  .row-inline {
-    display:flex;
-    gap:8px;
-    margin-top:4px;
-  }
-  .row-inline > * {
-    flex:1 1 0;
   }
 
   .section-label {
@@ -305,17 +296,10 @@ window.addEventListener('load', function () {
       vec2 gradVec = vec2(xR - xL, xU - xD);
       float grad = dot(gradVec, uG);
 
-      // multi-attractor (three preferred levels)
-      const float A1 = -0.7;
-      const float A2 =  0.0;
-      const float A3 =  0.7;
-      const vec3  W  = vec3(1.0, 0.8, 1.0);
-
-      float mis = W.x * (x - A1) +
-                  W.y * (x - A2) +
-                  W.z * (x - A3);
-
-      float attract = -uLambda * fastTanh(mis);
+      // single attractor basin centered at A1
+      const float A1    = 0.0;
+      const float alpha = 2.0;
+      float attract = -uLambda * fastTanh(alpha * (x - A1));
 
       // rhythm (time-based only in this demo)
       float rhythm = uRho * sin(uOmega * uTime);
