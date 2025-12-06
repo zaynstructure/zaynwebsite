@@ -139,9 +139,22 @@ function randomFieldData(w, h) {
    Main Setup
 ============================= */
 const canvas = document.getElementById("glcanvas");
-const gl = canvas.getContext("webgl", {alpha:false});
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const gl = canvas.getContext("webgl", { alpha: false });
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.style.width = "100vw";
+  canvas.style.height = "100vh";
+
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 
 if (!gl) alert("WebGL not supported.");
 
