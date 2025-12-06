@@ -337,16 +337,76 @@ window.addEventListener('load', function () {
     let rho    = 0.5;
     let omega  = 0.8;
 
-    switch (mode) {
-      case 'damping':  k = sigma = lambda = rho = gx = 0.0; break;
-      case 'coupling': gamma = sigma = lambda = rho = gx = 0.0; break;
-      case 'gradient': gamma = k = sigma = lambda = rho = 0.0; break;
-      case 'attractor':gamma = k = sigma = rho = gx = 0.0; break;
-      case 'rhythm':   gamma = k = sigma = lambda = gx = 0.0; break;
-      case 'noise':    gamma = k = lambda = rho = gx = 0.0; break;
-      case 'full':     break;
-    }
+    // UI → parameters
+const mode = modeSel.value;
+let gamma  = parseFloat(uiGamma.value);
+let k      = parseFloat(uiK.value);
+let sigma  = parseFloat(uiSigma.value);
+let gx     = parseFloat(uiGx.value);      // gradient strength stays user-defined
+let lambda = parseFloat(uiLambda.value);
+let rho    = 0.5;
+let omega  = 0.8;
 
+switch (mode) {
+  case 'damping':
+    // only damping active
+    k      = 0.0;
+    sigma  = 0.0;
+    lambda = 0.0;
+    rho    = 0.0;
+    // gx stays as slider value (gradient still present in background)
+    break;
+
+  case 'coupling':
+    // only coupling active
+    gamma  = 0.0;
+    sigma  = 0.0;
+    lambda = 0.0;
+    rho    = 0.0;
+    // gx unchanged
+    break;
+
+  case 'gradient':
+    // pure gradient flow: only G · ∇x
+    gamma  = 0.0;
+    k      = 0.0;
+    sigma  = 0.0;
+    lambda = 0.0;
+    rho    = 0.0;
+    // gx unchanged → gradient is never zero
+    break;
+
+  case 'attractor':
+    // only attractor wells
+    gamma  = 0.0;
+    k      = 0.0;
+    sigma  = 0.0;
+    rho    = 0.0;
+    // gx unchanged
+    break;
+
+  case 'rhythm':
+    // only rhythmic forcing
+    gamma  = 0.0;
+    k      = 0.0;
+    sigma  = 0.0;
+    lambda = 0.0;
+    // gx unchanged
+    break;
+
+  case 'noise':
+    // only noise
+    gamma  = 0.0;
+    k      = 0.0;
+    lambda = 0.0;
+    rho    = 0.0;
+    // gx unchanged
+    break;
+
+  case 'full':
+    // all sliders as-is
+    break;
+}
     // --- SIM PASS ---
     gl.useProgram(simProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
