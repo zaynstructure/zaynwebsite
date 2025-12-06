@@ -80,7 +80,7 @@
     <canvas id="glcanvas"></canvas>
   </div>
 
-  <!-- SIMPLE CONTROL PANEL -->
+  <!-- CONTROL PANEL -->
   <div id="evf-ui">
     <label>Mode:</label>
     <select id="evf-mode">
@@ -175,10 +175,10 @@ window.addEventListener('load', function () {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA,        // internalFormat
+      gl.RGBA,         // internalFormat (iOS-safe)
       w, h,
       0,
-      gl.RGBA,        // format
+      gl.RGBA,         // format
       gl.UNSIGNED_BYTE,
       data
     );
@@ -189,13 +189,13 @@ window.addEventListener('load', function () {
     return tex;
   }
 
-  // initial field: x in [-1,1] encoded into red channel as v in [0,1]
+  // initial state: encode x ∈ [-1,1] as R ∈ [0,255]
   function randomFieldDataBytes(w, h) {
     const arr = new Uint8Array(w*h*4);
     for (let i=0; i<w*h; i++) {
       const x = (Math.random() * 2 - 1); // [-1,1]
       const v = 0.5 + 0.5 * x;           // [0,1]
-      const r = Math.max(0, Math.min(255, Math.floor(v * 255)));
+      const r = Math.floor(v * 255);
       arr[i*4 + 0] = r;
       arr[i*4 + 1] = 0;
       arr[i*4 + 2] = 0;
@@ -217,10 +217,8 @@ window.addEventListener('load', function () {
   const SIM_FS = `
   precision highp float;
   varying vec2 vUV;
-
   uniform sampler2D uField;
   uniform float uDT;
-
   uniform float uGamma;
   uniform float uK;
   uniform float uSigma;
@@ -237,7 +235,6 @@ window.addEventListener('load', function () {
   }
 
   void main(){
-    // decode x from v in [0,1]
     float v = texture2D(uField, vUV).r;
     float x = (v - 0.5) * 2.0;
 
@@ -305,7 +302,7 @@ window.addEventListener('load', function () {
 
   const fbo = gl.createFramebuffer();
 
-  // quick FBO sanity check
+  // sanity check
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
                           gl.TEXTURE_2D, fieldB, 0);
@@ -332,81 +329,42 @@ window.addEventListener('load', function () {
     let gamma  = parseFloat(uiGamma.value);
     let k      = parseFloat(uiK.value);
     let sigma  = parseFloat(uiSigma.value);
-    let gx     = parseFloat(uiGx.value);
+    let gx     = parseFloat(uiGx.value);    // gradient NEVER zeroed
     let lambda = parseFloat(uiLambda.value);
     let rho    = 0.5;
     let omega  = 0.8;
 
-    // UI → parameters
-const mode = modeSel.value;
-let gamma  = parseFloat(uiGamma.value);
-let k      = parseFloat(uiK.value);
-let sigma  = parseFloat(uiSigma.value);
-let gx     = parseFloat(uiGx.value);      // gradient strength stays user-defined
-let lambda = parseFloat(uiLambda.value);
-let rho    = 0.5;
-let omega  = 0.8;
+    // mode switch (gradient untouched)
+    switch (mode) {
+      case 'damping':
+        k = sigma = lambda = rho = 0.0;
+        break;
 
-switch (mode) {
-  case 'damping':
-    // only damping active
-    k      = 0.0;
-    sigma  = 0.0;
-    lambda = 0.0;
-    rho    = 0.0;
-    // gx stays as slider value (gradient still present in background)
-    break;
+      case 'coupling':
+        gamma = sigma = lambda = rho = 0.0;
+        break;
 
-  case 'coupling':
-    // only coupling active
-    gamma  = 0.0;
-    sigma  = 0.0;
-    lambda = 0.0;
-    rho    = 0.0;
-    // gx unchanged
-    break;
+      case 'gradient':
+        gamma = k = sigma = lambda = rho = 0.0;
+        // gx stays user-defined (gradient is never zero)
+        break;
 
-  case 'gradient':
-    // pure gradient flow: only G · ∇x
-    gamma  = 0.0;
-    k      = 0.0;
-    sigma  = 0.0;
-    lambda = 0.0;
-    rho    = 0.0;
-    // gx unchanged → gradient is never zero
-    break;
+      case 'attractor':
+        gamma = k = sigma = rho = 0.0;
+        break;
 
-  case 'attractor':
-    // only attractor wells
-    gamma  = 0.0;
-    k      = 0.0;
-    sigma  = 0.0;
-    rho    = 0.0;
-    // gx unchanged
-    break;
+      case 'rhythm':
+        gamma = k = sigma = lambda = 0.0;
+        break;
 
-  case 'rhythm':
-    // only rhythmic forcing
-    gamma  = 0.0;
-    k      = 0.0;
-    sigma  = 0.0;
-    lambda = 0.0;
-    // gx unchanged
-    break;
+      case 'noise':
+        gamma = k = lambda = rho = 0.0;
+        break;
 
-  case 'noise':
-    // only noise
-    gamma  = 0.0;
-    k      = 0.0;
-    lambda = 0.0;
-    rho    = 0.0;
-    // gx unchanged
-    break;
+      case 'full':
+        break;
+    }
 
-  case 'full':
-    // all sliders as-is
-    break;
-}
     // --- SIM PASS ---
     gl.useProgram(simProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -437,7 +395,7 @@ switch (mode) {
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // ping–pong
+    // ping-pong
     let tmp = fieldA; fieldA = fieldB; fieldB = tmp;
 
     // --- RENDER PASS ---
