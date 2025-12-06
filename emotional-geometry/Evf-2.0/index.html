@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF Simulation v0.5 · Single Spatial Basin</title>
+<title>EVF Simulation v0.6 · Small Spatial Basin + Glow</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
@@ -99,7 +99,7 @@
   <!-- CONTROL PANEL -->
   <div id="evf-ui">
 
-    <!-- Top row: Reset only (no force-dom) -->
+    <!-- Top row: Reset -->
     <div style="display:flex; justify-content:flex-end; margin-bottom:6px;">
       <button id="evf-reset" style="width:90px; height:30px;">
         Reset
@@ -279,26 +279,25 @@ window.addEventListener('load', function () {
     float lap = xL + xR + xU + xD - 4.0*x;
     float grad = dot(vec2(xR-xL, xU-xD), uG);
 
-    // --- spatial attractor basin ---
-    // center of basin in UV space
+    // --- small spatial attractor basin at center ---
     vec2 center = vec2(0.5, 0.5);
     vec2 d = vUV - center;
     float d2 = dot(d,d);
 
-    // radius^2 ~ (0.25)^2; tweakable in code if needed
-    float radius = 0.25;
+    // small radius (~0.12 of screen)
+    float radius = 0.12;
     float radius2 = radius * radius;
 
-    // Gaussian falloff: weight strongest at the center, fades with distance
+    // Gaussian weight localized near center
     float weight = exp(-d2 / (2.0 * radius2));
 
-    // Misalignment in value-space vs attractor preferred value uA (here 0)
+    // misalignment vs preferred value uA (0 here)
     float mis = x - uA;
 
-    // Spatially localized attractor: strongest near center, weaker at edges
+    // spatially localized attractor: strongest near center
     float attract = -uLambda * weight * fastTanh(mis);
 
-    // Rhythmic forcing (global in time)
+    // rhythmic forcing
     float rhythm = uRho * sin(uOmega*uTime);
 
     float F = -uGamma*x + uK*lap + grad + attract + rhythm;
@@ -325,14 +324,30 @@ window.addEventListener('load', function () {
     float v=texture2D(uField,vUV).r;
     float x=(v-0.5)*2.0;
 
+    // base grayscale from field
     float g = 0.5 + 0.5*fastTanh(1.2*x);
 
+    // radial vignette (same as before)
     vec2 uv=vUV*2.0-1.0;
     float r2=dot(uv,uv);
     float vign=1.0-0.25*r2;
+    float baseVal=clamp(g*vign,0.0,1.0);
+    vec3 baseColor = vec3(baseVal);
 
-    float val=clamp(g*vign,0.0,1.0);
-    gl_FragColor=vec4(vec3(val),1.0);
+    // --- soft radial glow for basin visualization ---
+    vec2 center = vec2(0.5, 0.5);
+    float d = distance(vUV, center);
+
+    // small glow radius (~0.12) with Gaussian falloff
+    float glowRadius = 0.12;
+    float glowMask = exp(-(d*d) / (2.0 * glowRadius * glowRadius));
+
+    vec3 basinColor = vec3(1.0, 0.3, 0.3);  // soft red
+    float basinAlpha = 0.35 * glowMask;     // transparent edges
+
+    vec3 finalColor = mix(baseColor, basinColor, basinAlpha);
+
+    gl_FragColor = vec4(finalColor,1.0);
   }`;
 
   // -----------------------
@@ -373,7 +388,7 @@ window.addEventListener('load', function () {
     const time=t*0.001;
     const dt=0.016;
 
-    // read sliders
+    // sliders
     let gamma  = parseFloat(uiGamma.value);
     let sigma  = parseFloat(uiSigma.value);
     let k      = parseFloat(uiK.value);
@@ -382,31 +397,25 @@ window.addEventListener('load', function () {
     let gx     = parseFloat(uiGx.value);
     let lambda = parseFloat(uiLambda.value);
 
-    // simple tier presets (multipliers), but keep sliders primary
+    // tier presets
     const mode = modeSel.value;
     if (mode === 'tier1') {
-      // containment focus: damping & noise, weaker coupling/gradient/attractor
       k      *= 0.3;
       gx     *= 0.3;
       lambda *= 0.5;
       rho    *= 0.5;
     } else if (mode === 'tier2') {
-      // synchronization focus: stronger k & rhythm, moderate gradient
       k      *= 1.4;
       rho    *= 1.3;
       gx     *= 0.7;
       lambda *= 0.8;
     } else if (mode === 'tier3') {
-      // directional focus: stronger gradient & attractor
       gx     *= 1.5;
       lambda *= 1.3;
       k      *= 0.7;
       rho    *= 0.8;
-    } else {
-      // tier4: full model, sliders as-is
-    }
+    } // tier4 uses raw sliders
 
-    // update status text (just omega and gamma ratio for now)
     const ratio = (omega > 0.0001) ? (gamma/omega) : 0.0;
     statusEl.textContent =
       `ω = ${omega.toFixed(2)}, γ = ${gamma.toFixed(2)}, γ/ω = ${ratio.toFixed(2)}`;
@@ -433,7 +442,7 @@ window.addEventListener('load', function () {
     gl.uniform1f(gl.getUniformLocation(simProgram,'uSigma'), sigma);
     gl.uniform2f(gl.getUniformLocation(simProgram,'uG'),     gx, 0.0);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uLambda'),lambda);
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uA'),0.0);   // attractor preferred value
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uA'),0.0);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uRho'),   rho);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uOmega'), omega);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uTime'),  time);
