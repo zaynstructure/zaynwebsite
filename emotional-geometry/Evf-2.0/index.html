@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF Simulation (Byte, Mobile, Fixed)</title>
+<title>EVF Simulation · Mobile Ready</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
@@ -70,31 +70,17 @@
   #evf-ui button:active {
     background:#666;
   }
-
-  #debug {
-    position:fixed;
-    top:4px;
-    right:4px;
-    max-width:50%;
-    max-height:40%;
-    overflow:auto;
-    font-size:10px;
-    line-height:1.2;
-    background:rgba(0,0,0,0.6);
-    color:#0f0;
-    padding:4px 6px;
-    z-index:20;
-    white-space:pre-wrap;
-  }
 </style>
 </head>
 <body>
 
 <div id="container">
+  <!-- FIELD -->
   <div id="gl-wrap">
     <canvas id="glcanvas"></canvas>
   </div>
 
+  <!-- SIMPLE CONTROL PANEL -->
   <div id="evf-ui">
     <label>Mode:</label>
     <select id="evf-mode">
@@ -104,7 +90,7 @@
       <option value="attractor">Attractor Only</option>
       <option value="rhythm">Rhythm Only</option>
       <option value="noise">Noise Only</option>
-      <option value="full">Full Model</option>
+      <option value="full" selected>Full Model</option>
     </select>
 
     <label>Damping (gamma)</label>
@@ -126,20 +112,9 @@
   </div>
 </div>
 
-<div id="debug"></div>
-
 <script>
-window.onerror = function (msg, src, line, col, err) {
-  const d = document.getElementById('debug');
-  d.textContent += 'JS error: ' + msg + ' @ ' + line + ':' + col + '\\n';
-};
-
-function dbg(msg) {
-  const d = document.getElementById('debug');
-  d.textContent += msg + '\\n';
-}
-
 window.addEventListener('load', function () {
+  // --- DOM handles ---
   const canvas   = document.getElementById('glcanvas');
   const modeSel  = document.getElementById('evf-mode');
   const uiGamma  = document.getElementById('ui-gamma');
@@ -149,35 +124,35 @@ window.addEventListener('load', function () {
   const uiLambda = document.getElementById('ui-lambda');
   const resetBtn = document.getElementById('evf-reset');
 
+  // --- GL context ---
   const gl = canvas.getContext('webgl', { alpha:false });
   if (!gl) {
-    dbg('WebGL not supported');
+    alert('WebGL not supported');
     return;
   }
-  dbg('WebGL acquired');
 
+  // DPR-aware resize
   function resizeCanvas(){
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth * dpr;
     const h = canvas.clientHeight * dpr;
-
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
       canvas.height = h;
     }
     gl.viewport(0, 0, w, h);
-    dbg('resizeCanvas → ' + w + 'x' + h + ' (dpr=' + dpr + ')');
   }
   window.addEventListener('resize', () => setTimeout(resizeCanvas,100));
   window.addEventListener('orientationchange', () => setTimeout(resizeCanvas,300));
   resizeCanvas();
 
+  // --- helpers ---
   function createShader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
     gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      dbg('Shader error: ' + gl.getShaderInfoLog(s));
+      console.error('Shader error:', gl.getShaderInfoLog(s));
     }
     return s;
   }
@@ -188,17 +163,25 @@ window.addEventListener('load', function () {
     gl.attachShader(p, createShader(gl.FRAGMENT_SHADER, fsSrc));
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-      dbg('Program link error: ' + gl.getProgramInfoLog(p));
+      console.error('Program link error:', gl.getProgramInfoLog(p));
     }
     return p;
   }
 
+  // RGBA8 + UNSIGNED_BYTE
   function createByteTexture(w, h, data=null) {
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
-                  w, h, 0, gl.RGBA,
-                  gl.UNSIGNED_BYTE, data);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,        // internalFormat
+      w, h,
+      0,
+      gl.RGBA,        // format
+      gl.UNSIGNED_BYTE,
+      data
+    );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -206,11 +189,12 @@ window.addEventListener('load', function () {
     return tex;
   }
 
+  // initial field: x in [-1,1] encoded into red channel as v in [0,1]
   function randomFieldDataBytes(w, h) {
     const arr = new Uint8Array(w*h*4);
     for (let i=0; i<w*h; i++) {
-      const x = (Math.random() * 2 - 1);   // [-1,1]
-      const v = 0.5 + 0.5 * x;             // [0,1]
+      const x = (Math.random() * 2 - 1); // [-1,1]
+      const v = 0.5 + 0.5 * x;           // [0,1]
       const r = Math.max(0, Math.min(255, Math.floor(v * 255)));
       arr[i*4 + 0] = r;
       arr[i*4 + 1] = 0;
@@ -220,6 +204,7 @@ window.addEventListener('load', function () {
     return arr;
   }
 
+  // --- shaders ---
   const VS = `
   attribute vec2 aPos;
   varying vec2 vUV;
@@ -252,6 +237,7 @@ window.addEventListener('load', function () {
   }
 
   void main(){
+    // decode x from v in [0,1]
     float v = texture2D(uField, vUV).r;
     float x = (v - 0.5) * 2.0;
 
@@ -265,13 +251,13 @@ window.addEventListener('load', function () {
     float xU = (vU - 0.5) * 2.0;
     float xD = (vD - 0.5) * 2.0;
 
-    float lap = xL + xR + xU + xD - 4.0 * x;
+    float lap  = xL + xR + xU + xD - 4.0 * x;
     float grad = dot(vec2(xR - xL, xU - xD), uG);
 
     float attract = -uLambda * (x - uA);
     float rhythm  = uRho * sin(uOmega * uTime);
-    float F = -uGamma * x + uK * lap + grad + attract + rhythm;
 
+    float F = -uGamma * x + uK * lap + grad + attract + rhythm;
     float noise = uSigma * (hash(vUV + uTime) - 0.5);
 
     float xNext = x + uDT * F + sqrt(uDT) * noise;
@@ -303,34 +289,45 @@ window.addEventListener('load', function () {
   const simProgram    = createProgram(VS, SIM_FS);
   const renderProgram = createProgram(VS, RENDER_FS);
 
+  // full-screen quad
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.bufferData(gl.ARRAY_BUFFER,
-    new Float32Array([
-      -1,-1, 1,-1, -1,1,
-       1,-1, 1, 1, -1,1
-    ]),
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1,-1, 1,-1, -1,1,  1,-1, 1,1, -1,1]),
     gl.STATIC_DRAW
   );
 
+  // simulation textures
   const W = 128, H = 128;
-
   let fieldA = createByteTexture(W, H, randomFieldDataBytes(W, H));
   let fieldB = createByteTexture(W, H, null);
 
   const fbo = gl.createFramebuffer();
 
-  resetBtn.onclick = function () {
-    dbg('Reset field');
+  // quick FBO sanity check
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+                          gl.TEXTURE_2D, fieldB, 0);
+  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if (status !== gl.FRAMEBUFFER_COMPLETE) {
+    console.warn('FBO incomplete: 0x' + status.toString(16));
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+  // reset action
+  resetBtn.onclick = () => {
     fieldA = createByteTexture(W, H, randomFieldDataBytes(W, H));
   };
 
+  // main loop
   function loop(t){
     resizeCanvas();
 
     const time = t * 0.001;
-    const dt = 0.016;
+    const dt   = 0.016;
 
+    // UI → parameters
     const mode = modeSel.value;
     let gamma  = parseFloat(uiGamma.value);
     let k      = parseFloat(uiK.value);
@@ -350,7 +347,7 @@ window.addEventListener('load', function () {
       case 'full':     break;
     }
 
-    // SIM PASS
+    // --- SIM PASS ---
     gl.useProgram(simProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
@@ -376,13 +373,14 @@ window.addEventListener('load', function () {
     gl.uniform1f(gl.getUniformLocation(simProgram, 'uRho'), rho);
     gl.uniform1f(gl.getUniformLocation(simProgram, 'uOmega'), omega);
     gl.uniform1f(gl.getUniformLocation(simProgram, 'uTime'), time);
-    gl.uniform2f(gl.getUniformLocation(simProgram, 'uTexel'), 1.0 / W, 1.0 / H);
+    gl.uniform2f(gl.getUniformLocation(simProgram, 'uTexel'), 1.0/W, 1.0/H);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+    // ping–pong
     let tmp = fieldA; fieldA = fieldB; fieldB = tmp;
 
-    // RENDER PASS
+    // --- RENDER PASS ---
     gl.useProgram(renderProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
