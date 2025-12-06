@@ -403,10 +403,41 @@ window.addEventListener('load', function () {
     gl.uniform1i(gl.getUniformLocation(renderProgram,'uField'),0);
 
     // Basin visualization
-    gl.uniform1i(
-      gl.getUniformLocation(renderProgram,'uBasinMode'),
-      uiBasin.value==="on" ? 1 : 0
-    );
+    // ⭐ FORCE-DOMINANCE BASIN VISUALIZATION
+if (uBasinMode == 1) {
+    // Decode field value
+    float v = texture2D(uField, vUV).r;
+    float x = (v - 0.5) * 2.0;
+
+    // Recompute local neighbors (needed for gradient & coupling)
+    float xL = (texture2D(uField, vUV + vec2(-uTexel.x, 0)).r - 0.5) * 2.0;
+    float xR = (texture2D(uField, vUV + vec2( uTexel.x, 0)).r - 0.5) * 2.0;
+    float xU = (texture2D(uField, vUV + vec2(0,  uTexel.y)).r - 0.5) * 2.0;
+    float xD = (texture2D(uField, vUV + vec2(0, -uTexel.y)).r - 0.5) * 2.0;
+
+    float gradForce = abs((xR - xL) * uG.x + (xU - xD) * uG.y);
+    float cplForce  = abs((xL + xR + xU + xD - 4.0 * x) * uK);
+    float attrForce = abs(uLambda * fastTanh(x - 0.0));
+    float noiseForce = uSigma;
+
+    // find dominant force
+    float maxF = max(max(attrForce, gradForce), max(cplForce, noiseForce));
+
+    if (maxF == attrForce) {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);  // white = attractor-dominant
+    }
+    else if (maxF == gradForce) {
+        gl_FragColor = vec4(1.0, 0.3, 0.3, 1.0);  // red = gradient-dominant
+    }
+    else if (maxF == cplForce) {
+        gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0);  // blue = coupling-dominant
+    }
+    else {
+        gl_FragColor = vec4(0.8, 0.2, 1.0, 1.0);  // purple = noise-dominant
+    }
+
+    return;
+}
 
     gl.drawArrays(gl.TRIANGLES,0,6);
 
