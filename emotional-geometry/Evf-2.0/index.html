@@ -248,7 +248,62 @@ window.addEventListener('load', function () {
   `;
 
   // (SIM_FS stays unchanged — using your current version)
+const SIM_FS = `
+precision highp float;
+varying vec2 vUV;
 
+uniform sampler2D uField;
+uniform float uDT;
+uniform float uGamma;
+uniform float uK;
+uniform float uSigma;
+uniform vec2  uG;
+uniform float uLambda;
+uniform float uA;
+uniform float uRho;
+uniform float uOmega;
+uniform float uTime;
+uniform vec2  uTexel;
+
+float hash(vec2 p){
+  return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453);
+}
+
+float fastTanh(float v){
+  float e2x = exp(2.0 * v);
+  return (e2x - 1.0) / (e2x + 1.0);
+}
+
+void main() {
+  float v = texture2D(uField, vUV).r;
+  float x = (v - 0.5) * 2.0;
+
+  // neighbors
+  float xL = (texture2D(uField, vUV + vec2(-uTexel.x, 0)).r - 0.5) * 2.0;
+  float xR = (texture2D(uField, vUV + vec2( uTexel.x, 0)).r - 0.5) * 2.0;
+  float xU = (texture2D(uField, vUV + vec2(0,  uTexel.y)).r - 0.5) * 2.0;
+  float xD = (texture2D(uField, vUV + vec2(0, -uTexel.y)).r - 0.5) * 2.0;
+
+  float lap = xL + xR + xU + xD - 4.0 * x;
+  float grad = dot(vec2(xR - xL, xU - xD), uG);
+
+  // single attractor centered at A
+  float mis = x - uA;
+  float attract = -uLambda * fastTanh(mis);
+
+  float rhythm = uRho * sin(uOmega * uTime);
+
+  float F = -uGamma * x + uK * lap + grad + attract + rhythm;
+
+  float noise = uSigma * (hash(vUV + uTime) - 0.5);
+
+  float xNext = x + uDT * F + sqrt(uDT) * noise;
+  xNext = clamp(xNext, -1.0, 1.0);
+
+  float vNext = 0.5 + 0.5 * xNext;
+  gl_FragColor = vec4(vNext, 0.0, 0.0, 1.0);
+}
+`;
   const RENDER_FS = `
   precision highp float;
   varying vec2 vUV;
