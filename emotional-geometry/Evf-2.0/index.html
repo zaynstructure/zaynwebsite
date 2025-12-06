@@ -35,14 +35,18 @@
   }
 
   #evf-ui {
-    flex:0 0 auto;
-    width:100%;
-    max-height:42vh;
-    overflow-y:auto;
-    background:rgba(15,15,20,0.96);
-    padding:12px;
-    border-top:1px solid #333;
-  }
+  flex:0 0 auto;
+  width:100%;
+  max-height:36vh;                /* REDUCED to avoid bottom chrome */
+  overflow-y:scroll;              /* CHANGED from auto → scroll */
+  -webkit-overflow-scrolling:touch; /* iOS scroll smoothing */
+  background:rgba(15,15,20,0.96);
+  color:#fff;
+  padding:12px;
+  padding-bottom:40px;            /* EXTRA ROOM for finger gestures */
+  box-sizing:border-box;
+  border-top:1px solid #333;
+}
 
   #evf-ui label {
     display:block;
