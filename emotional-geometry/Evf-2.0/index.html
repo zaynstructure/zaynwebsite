@@ -236,6 +236,12 @@ window.addEventListener('load', function () {
     return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453);
   }
 
+  // local tanh approximation (WebGL1 has no built-in tanh)
+  float fastTanh(float v){
+    float e2x = exp(2.0 * v);
+    return (e2x - 1.0) / (e2x + 1.0);
+  }
+
   void main(){
     float v = texture2D(uField, vUV).r;
     float x = (v - 0.5) * 2.0;
@@ -254,24 +260,18 @@ window.addEventListener('load', function () {
     float grad = dot(vec2(xR - xL, xU - xD), uG);
 
     // --- EVF-style multi-attractor ---
-// three preferred levels in [-1,1]
-const float A1 = -0.7;
-const float A2 =  0.0;
-const float A3 =  0.7;
+    const float A1 = -0.7;
+    const float A2 =  0.0;
+    const float A3 =  0.7;
+    const vec3 W = vec3(1.0, 0.8, 1.0);
 
-// relative weights (can tweak)
-const vec3 W = vec3(1.0, 0.8, 1.0);
+    float mis = W.x * (x - A1) +
+                W.y * (x - A2) +
+                W.z * (x - A3);
 
-// combined misalignment w.r.t. all attractors
-float mis = W.x * (x - A1) +
-            W.y * (x - A2) +
-            W.z * (x - A3);
+    float attract = -uLambda * fastTanh(mis);
 
-// saturating multi-attractor pull
-float attract = -uLambda * tanh(mis);
-
-// rhythm unchanged
-float rhythm  = uRho * sin(uOmega * uTime);
+    float rhythm  = uRho * sin(uOmega * uTime);
 
     float F = -uGamma * x + uK * lap + grad + attract + rhythm;
     float noise = uSigma * (hash(vUV + uTime) - 0.5);
@@ -282,25 +282,7 @@ float rhythm  = uRho * sin(uOmega * uTime);
     float vNext = 0.5 + 0.5 * xNext;
     gl_FragColor = vec4(vNext, 0.0, 0.0, 1.0);
   }
-  `;
-
-  const RENDER_FS = `
-  precision highp float;
-  varying vec2 vUV;
-  uniform sampler2D uField;
-
-  float fastTanh(float v){
-    float e2x = exp(2.0 * v);
-    return (e2x - 1.0) / (e2x + 1.0);
-  }
-
-  void main(){
-    float v = texture2D(uField, vUV).r;
-    float x = (v - 0.5) * 2.0;
-    float g = 0.5 + 0.5 * fastTanh(x);
-    gl_FragColor = vec4(vec3(g), 1.0);
-  }
-  `;
+`;
 
   const simProgram    = createProgram(VS, SIM_FS);
   const renderProgram = createProgram(VS, RENDER_FS);
