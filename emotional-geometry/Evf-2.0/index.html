@@ -34,14 +34,16 @@
   }
 
   #evf-ui {
-    flex:0 0 auto;
-    width:100%;
-    background:rgba(20,20,20,0.95);
-    color:#fff;
-    padding:12px;
-    box-sizing:border-box;
-    border-top:1px solid #333;
-  }
+  flex:0 0 auto;
+  width:100%;
+  max-height:40vh;          /* NEW */
+  overflow-y:auto;          /* NEW — allows UI scrolling */
+  background:rgba(20,20,20,0.95);
+  color:#fff;
+  padding:12px;
+  box-sizing:border-box;
+  border-top:1px solid #333;
+}
 
   #evf-ui label {
     display:block;
