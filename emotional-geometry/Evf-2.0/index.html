@@ -253,8 +253,25 @@ window.addEventListener('load', function () {
     float lap  = xL + xR + xU + xD - 4.0 * x;
     float grad = dot(vec2(xR - xL, xU - xD), uG);
 
-    float attract = -uLambda * (x - uA);
-    float rhythm  = uRho * sin(uOmega * uTime);
+    // --- EVF-style multi-attractor ---
+// three preferred levels in [-1,1]
+const float A1 = -0.7;
+const float A2 =  0.0;
+const float A3 =  0.7;
+
+// relative weights (can tweak)
+const vec3 W = vec3(1.0, 0.8, 1.0);
+
+// combined misalignment w.r.t. all attractors
+float mis = W.x * (x - A1) +
+            W.y * (x - A2) +
+            W.z * (x - A3);
+
+// saturating multi-attractor pull
+float attract = -uLambda * tanh(mis);
+
+// rhythm unchanged
+float rhythm  = uRho * sin(uOmega * uTime);
 
     float F = -uGamma * x + uK * lap + grad + attract + rhythm;
     float noise = uSigma * (hash(vUV + uTime) - 0.5);
