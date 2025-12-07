@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF-2.1 · Dimensionless PDE Demo</title>
+<title>EVF-2.2 · Field Demo (Finite-Difference)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
@@ -55,6 +55,7 @@
 
   #evf-ui select,
   #evf-ui input[type=range],
+  #evf-ui input[type=checkbox],
   #evf-ui button {
     margin-top:4px;
   }
@@ -86,6 +87,12 @@
     text-transform:uppercase;
     letter-spacing:0.06em;
   }
+
+  .row {
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
 </style>
 </head>
 <body>
@@ -99,56 +106,57 @@
   <!-- CONTROL PANEL -->
   <div id="evf-ui">
 
-    <!-- Top row: Reset -->
-    <div style="display:flex; justify-content:flex-end; margin-bottom:6px;">
-      <button id="evf-reset" style="width:90px; height:30px;">
-        Reset
-      </button>
+    <div class="row" style="justify-content:space-between; margin-bottom:6px;">
+      <button id="evf-reset" style="width:90px; height:30px;">Reset</button>
+      <label class="row" style="font-weight:400; font-size:11px;">
+        <input id="ui-show-basin" type="checkbox" checked>
+        <span>Show basin overlay</span>
+      </label>
     </div>
 
     <!-- Tier selector -->
-    <label for="evf-mode">Mode (Tier Presets)</label>
+    <label for="evf-mode">Mode (parameter presets)</label>
     <select id="evf-mode" style="width:100%;">
-      <option value="tier1">Tier 1 · Containment</option>
-      <option value="tier2">Tier 2 · Synchronization</option>
-      <option value="tier3">Tier 3 · Directional</option>
-      <option value="tier4" selected>Tier 4 · Full Model</option>
+      <option value="tier1">Tier 1 · Containment-heavy</option>
+      <option value="tier2">Tier 2 · Synchronization-heavy</option>
+      <option value="tier3">Tier 3 · Directional-heavy</option>
+      <option value="tier4" selected>Free sliders</option>
     </select>
 
     <div class="section-label">Containment</div>
-    <label>Damping γ</label>
-    <input id="ui-gamma" type="range" min="0" max="3" step="0.01" value="0.8" style="width:100%;">
+    <label>Damping γ̃ (per step)</label>
+    <input id="ui-gamma" type="range" min="0" max="1.0" step="0.01" value="0.3" style="width:100%;">
 
-    <label>Noise σ</label>
-    <input id="ui-sigma" type="range" min="0" max="1" step="0.01" value="0.10" style="width:100%;">
+    <label>Noise σ̃ (per step)</label>
+    <input id="ui-sigma" type="range" min="0" max="0.5" step="0.01" value="0.08" style="width:100%;">
 
     <div class="section-label">Synchronization</div>
-    <label>Diffusion κ</label>
-    <input id="ui-kappa" type="range" min="0" max="1" step="0.01" value="0.25" style="width:100%;">
+    <label>Diffusion κ̃ (per step)</label>
+    <input id="ui-kappa" type="range" min="0" max="1.0" step="0.01" value="0.35" style="width:100%;">
 
-    <label>Rhythm Amplitude ρ</label>
-    <input id="ui-rho" type="range" min="0" max="1" step="0.01" value="0.40" style="width:100%;">
+    <label>Rhythm amplitude ρ̃ (per step)</label>
+    <input id="ui-rho" type="range" min="0" max="1.0" step="0.01" value="0.25" style="width:100%;">
 
-    <label>Rhythm Frequency ω</label>
-    <input id="ui-omega" type="range" min="0.1" max="3" step="0.01" value="0.8" style="width:100%;">
+    <label>Rhythm frequency ω</label>
+    <input id="ui-omega" type="range" min="0.1" max="3.0" step="0.01" value="0.8" style="width:100%;">
 
     <div class="section-label">Directional</div>
-    <label>Gradient X (Gx)</label>
-    <input id="ui-gx" type="range" min="-1" max="1" step="0.01" value="0.3" style="width:100%;">
+    <label>Gradient X (|Gx|, sign from slider)</label>
+    <input id="ui-gx" type="range" min="-1.0" max="1.0" step="0.01" value="0.3" style="width:100%;">
 
-    <label>Attractor Strength λ</label>
-    <input id="ui-lambda" type="range" min="0" max="2" step="0.01" value="0.7" style="width:100%;">
+    <label>Attractor strength λ̃ (per step)</label>
+    <input id="ui-lambda" type="range" min="0" max="1.0" step="0.01" value="0.5" style="width:100%;">
 
-    <div id="evf-status">ω = 0.80, γ = 0.80, κ = 0.25, γ/ω = 1.00</div>
+    <div id="evf-status">
+      γ̃ = 0.30, κ̃ = 0.08, λ̃ = 0.50, ρ̃ = 0.25, |G| = 0.30
+    </div>
   </div>
 </div>
 
 <script>
 window.addEventListener('load', function () {
 
-  // -----------------------
-  // DOM references
-  // -----------------------
+  // DOM refs
   const canvas    = document.getElementById('glcanvas');
   const modeSel   = document.getElementById('evf-mode');
   const uiGamma   = document.getElementById('ui-gamma');
@@ -158,12 +166,11 @@ window.addEventListener('load', function () {
   const uiOmega   = document.getElementById('ui-omega');
   const uiGx      = document.getElementById('ui-gx');
   const uiLambda  = document.getElementById('ui-lambda');
+  const uiShowBasin = document.getElementById('ui-show-basin');
   const resetBtn  = document.getElementById('evf-reset');
   const statusEl  = document.getElementById('evf-status');
 
-  // -----------------------
-  // WebGL
-  // -----------------------
+  // WebGL setup
   const gl = canvas.getContext('webgl', { alpha:false });
   if (!gl) { alert('WebGL not supported'); return; }
 
@@ -181,9 +188,6 @@ window.addEventListener('load', function () {
   window.addEventListener('resize', () => setTimeout(resizeCanvas,100));
   window.addEventListener('orientationchange', () => setTimeout(resizeCanvas,300));
 
-  // -----------------------
-  // Helpers
-  // -----------------------
   function createShader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -230,9 +234,6 @@ window.addEventListener('load', function () {
     return a;
   }
 
-  // -----------------------
-  // Shaders
-  // -----------------------
   const VS = `
   attribute vec2 aPos;
   varying vec2 vUV;
@@ -241,41 +242,40 @@ window.addEventListener('load', function () {
     gl_Position = vec4(aPos,0.0,1.0);
   }`;
 
-  // --- EVF-2.1 SIMULATION SHADER (dimensionless finite-difference) ---
+  // SIMULATION SHADER
+  // Implements a dimensionless EVF step:
+  // u_next = u + [ -γ̃ u + κ̃ Lap(u) + α̃_g Adv(u) - λ̃ w(x) tanh(u-u*)
+  //                + ρ̃ sin(ω t) ] + σ̃ η
   const SIM_FS = `
   precision highp float;
   varying vec2 vUV;
 
   uniform sampler2D uField;
 
-  uniform float uDT;
-
-  uniform float uGamma;   // damping
-  uniform float uKappa;   // diffusion
-  uniform float uSigma;   // noise
-
-  uniform vec2  uG;       // drift direction
-  uniform float uAlphaG;  // drift gain
-
-  uniform float uLambda;  // attractor strength
-  uniform float uUstar;   // equilibrium
+  // dimensionless per-step groups
+  uniform float uGammaT;   // γ̃
+  uniform float uKappaT;   // κ̃
+  uniform float uSigma;    // σ̃
+  uniform vec2  uG;        // direction of drift
+  uniform float uAlphaGT;  // α̃_g
+  uniform float uLambdaT;  // λ̃
+  uniform float uUstar;    // equilibrium
+  uniform float uRhoT;     // ρ̃
+  uniform float uOmega;    // ω
+  uniform float uTime;     // dimensionless time
 
   uniform vec2  uBasinCenter;
   uniform float uBasinRadius;
 
-  uniform float uRho;     // rhythm amp
-  uniform float uOmega;   // rhythm freq
-  uniform float uTime;
-
-  uniform float uFrame;   // for noise seed
-  uniform vec2  uTexel;   // 1/W,1/H
+  uniform float uFrame;    // for hash seed
+  uniform vec2  uTexel;    // (1/W,1/H)
 
   float fastTanh(float v){
     float e2x=exp(2.0*v);
     return (e2x-1.0)/(e2x+1.0);
   }
 
-  // hash: vec3 -> scalar in [0,1)
+  // simple hash ~ [0,1)
   float hash13(vec3 p) {
     p = fract(p * 0.1031);
     p += dot(p, p.yzx + 33.33);
@@ -285,7 +285,7 @@ window.addEventListener('load', function () {
   void main() {
     vec2 uv = vUV;
 
-    // read center and neighbors, decode from [0,1] to [-1,1]
+    // read center + neighbors, decode from [0,1] to [-1,1]
     float vC = texture2D(uField, uv).r;
     float uC = (vC - 0.5) * 2.0;
 
@@ -299,48 +299,53 @@ window.addEventListener('load', function () {
     float uD = (vD - 0.5) * 2.0;
     float uU = (vU - 0.5) * 2.0;
 
-    // Discrete Laplacian (dimensionless)
+    // 5-point Laplacian on flat grid (representational manifold in practice)
     float lap = (uL + uR + uD + uU - 4.0 * uC);
 
-    // Discrete gradient (central differences, dimensionless)
-    float du_dx = 0.5 * (uR - uL);
-    float du_dy = 0.5 * (uU - uD);
-    float adv   = uG.x * du_dx + uG.y * du_dy;
+    // Upwind advection based on sign of G components
+    vec2 G = uG;
+    float adv_x;
+    if (G.x > 0.0) {
+      adv_x = G.x * (uC - uL);
+    } else {
+      adv_x = G.x * (uR - uC);
+    }
+    float adv_y;
+    if (G.y > 0.0) {
+      adv_y = G.y * (uC - uD);
+    } else {
+      adv_y = G.y * (uU - uC);
+    }
+    float adv = adv_x + adv_y;
 
-    // Attractor weight w(x): Gaussian basin
+    // Gaussian basin w(x)
     vec2 d = uv - uBasinCenter;
     float r2 = dot(d, d);
     float R  = uBasinRadius;
     float w  = exp(-r2 / (2.0 * R * R));
 
-    float attract = -uLambda * w * fastTanh(uC - uUstar);
+    // deterministic contributions (already multiplied by per-step groups)
+    float damp    = -uGammaT * uC;
+    float diff    =  uKappaT * lap;
+    float drift   =  uAlphaGT * adv;
+    float attract = -uLambdaT * w * fastTanh(uC - uUstar);
+    float rhythm  =  uRhoT * sin(uOmega * uTime);
 
-    // Damping
-    float damp = -uGamma * uC;
+    float deterministic = damp + diff + drift + attract + rhythm;
 
-    // Rhythm
-    float rhythm = uRho * sin(uOmega * uTime);
-
-    // Full deterministic RHS
-    float rhs =
-        damp
-      + uKappa * lap
-      + uAlphaG * adv
-      + attract
-      + rhythm;
-
-    // White noise: σ ξ(x,t)
+    // approximate spatial/temporal white-ish noise
     float eta = hash13(vec3(gl_FragCoord.xy, uFrame)) * 2.0 - 1.0;
-    float noiseTerm = 0.5 * uSigma * sqrt(max(uDT, 0.0)) * eta;
+    float noiseTerm = uSigma * eta;
 
-    float uNext = uC + uDT * rhs + noiseTerm;
+    float uNext = uC + deterministic + noiseTerm;
     uNext = clamp(uNext, -1.0, 1.0);
 
     float vNext = 0.5 + 0.5 * uNext;
     gl_FragColor = vec4(vNext, 0.0, 0.0, 1.0);
   }`;
 
-  // --- PURE RENDER SHADER (aesthetic only) ---
+  // RENDER SHADER
+  // Raw grayscale of u with optional basin highlight
   const RENDER_FS = `
   precision highp float;
   varying vec2 vUV;
@@ -348,6 +353,7 @@ window.addEventListener('load', function () {
   uniform sampler2D uField;
   uniform vec2  uBasinCenter;
   uniform float uBasinRadius;
+  uniform int   uShowBasin;
 
   float fastTanh(float v){
     float e2x=exp(2.0*v);
@@ -360,37 +366,28 @@ window.addEventListener('load', function () {
 
     // base grayscale from field
     float g = 0.5 + 0.5 * fastTanh(1.2 * u);
-
-    // vignette
-    vec2 uv = vUV * 2.0 - 1.0;
-    float r2 = dot(uv, uv);
-    float vign = 1.0 - 0.25 * r2;
-    float baseVal = clamp(g * vign, 0.0, 1.0);
+    float baseVal = clamp(g, 0.0, 1.0);
     vec3 baseColor = vec3(baseVal);
 
-    // basin glow (visual only, same w(x) shape)
-    vec2 d = vUV - uBasinCenter;
-    float dist2 = dot(d, d);
-    float R = uBasinRadius;
-    float glowMask = exp(-dist2 / (2.0 * R * R));
+    if (uShowBasin == 1) {
+      // basin glow is purely visual, same Gaussian shape as w(x)
+      vec2 d = vUV - uBasinCenter;
+      float dist2 = dot(d, d);
+      float R = uBasinRadius;
+      float glowMask = exp(-dist2 / (2.0 * R * R));
 
-    vec3 basinColor = vec3(1.0, 0.3, 0.3);
-    float basinAlpha = 0.35 * glowMask;
+      vec3 basinColor = vec3(1.0, 0.3, 0.3);
+      float basinAlpha = 0.35 * glowMask;
+      baseColor = mix(baseColor, basinColor, basinAlpha);
+    }
 
-    vec3 finalColor = mix(baseColor, basinColor, basinAlpha);
-
-    gl_FragColor = vec4(finalColor, 1.0);
+    gl_FragColor = vec4(baseColor, 1.0);
   }`;
 
-  // -----------------------
-  // Programs
-  // -----------------------
   const simProgram    = createProgram(VS, SIM_FS);
   const renderProgram = createProgram(VS, RENDER_FS);
 
-  // -----------------------
-  // Quad
-  // -----------------------
+  // full-screen quad
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(
@@ -401,9 +398,7 @@ window.addEventListener('load', function () {
     gl.STATIC_DRAW
   );
 
-  // -----------------------
-  // Field textures
-  // -----------------------
+  // field textures
   const W = 128, H = 128;
   let fieldA = createByteTexture(W,H,randomFieldData(W,H));
   let fieldB = createByteTexture(W,H,null);
@@ -416,71 +411,71 @@ window.addEventListener('load', function () {
 
   let frameCount = 0.0;
 
-  // -----------------------
-  // Main loop
-  // -----------------------
   function loop(t) {
     resizeCanvas();
 
-    const time = t * 0.001;
-    const dt   = 0.01;        // smaller dt for stability
-
+    const time = t * 0.001;      // dimensionless time input for rhythm
     frameCount += 1.0;
 
-    // sliders → dimensionless PDE parameters
-    let gamma  = parseFloat(uiGamma.value);
-    let sigma  = parseFloat(uiSigma.value);
-    let kappa  = parseFloat(uiKappa.value);
-    let rho    = parseFloat(uiRho.value);
-    let omega  = parseFloat(uiOmega.value);
-    let gx     = parseFloat(uiGx.value);
-    let lambda = parseFloat(uiLambda.value);
+    // base slider values (dimensionless groups)
+    let gammaT  = parseFloat(uiGamma.value);   // γ̃
+    let sigma   = parseFloat(uiSigma.value);   // σ̃
+    let kappaS  = parseFloat(uiKappa.value);   // slider in [0,1] for κ̃
+    let rhoT    = parseFloat(uiRho.value);     // ρ̃
+    let omega   = parseFloat(uiOmega.value);   // ω
+    let gx      = parseFloat(uiGx.value);      // direction X
+    let lambdaT = parseFloat(uiLambda.value);  // λ̃
 
-    // tier presets (parameter sets only)
+    // map kappa slider into a stable range for discrete laplacian
+    const KAPPA_MAX = 0.24; // conservative bound for per-step κ̃
+    let kappaT = kappaS * KAPPA_MAX;
+
+    // simple tier presets (demo regimes only)
     const mode = modeSel.value;
     if (mode === 'tier1') {
-      // containment-dominant
-      gamma  *= 1.5;
-      kappa  *= 0.4;
-      lambda *= 0.6;
-      rho    *= 0.3;
-      gx     *= 0.3;
+      // containment-heavy
+      gammaT  *= 1.4;
+      kappaT  *= 0.4;
+      lambdaT *= 0.6;
+      rhoT    *= 0.4;
+      gx      *= 0.3;
     } else if (mode === 'tier2') {
-      // synchronization-dominant
-      gamma  *= 0.7;
-      kappa  *= 1.4;
-      lambda *= 0.7;
-      rho    *= 1.3;
-      gx     *= 0.7;
+      // synchronization-heavy
+      gammaT  *= 0.7;
+      kappaT  *= 1.1;
+      lambdaT *= 0.7;
+      rhoT    *= 1.3;
+      gx      *= 0.5;
     } else if (mode === 'tier3') {
-      // directional-dominant
-      gamma  *= 0.8;
-      kappa  *= 0.8;
-      lambda *= 1.3;
-      rho    *= 0.7;
-      gx     *= 1.5;
+      // directional-heavy
+      gammaT  *= 0.8;
+      kappaT  *= 0.7;
+      lambdaT *= 1.2;
+      rhoT    *= 0.8;
+      gx      *= 1.0;
     }
-    // tier4 = raw sliders
+    // tier4: free sliders
 
-    const ratio = (omega > 0.0001) ? (gamma / omega) : 0.0;
-    statusEl.textContent =
-      `ω = ${omega.toFixed(2)}, γ = ${gamma.toFixed(2)}, κ = ${kappa.toFixed(2)}, γ/ω = ${ratio.toFixed(2)}`;
+    // soft caps to keep groups in a sane regime
+    gammaT  = Math.min(gammaT, 1.5);
+    kappaT  = Math.min(kappaT, KAPPA_MAX);
+    lambdaT = Math.min(lambdaT, 1.5);
+    rhoT    = Math.min(rhoT, 1.5);
+    sigma   = Math.min(sigma, 0.7);
 
-    // basin params (fixed for now)
+    const gmag = Math.abs(gx);
+    const status = `γ̃ = ${gammaT.toFixed(2)}, κ̃ = ${kappaT.toFixed(2)}, λ̃ = ${lambdaT.toFixed(2)}, ρ̃ = ${rhoT.toFixed(2)}, |G| = ${gmag.toFixed(2)}`;
+    statusEl.textContent = status;
+
     const basinCenterX = 0.5;
     const basinCenterY = 0.5;
     const basinRadius  = 0.12;
 
-    // ----- SIM PASS -----
+    // SIM PASS
     gl.useProgram(simProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D,
-      fieldB,
-      0
-    );
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D, fieldB, 0);
     gl.viewport(0, 0, W, H);
 
     const posS = gl.getAttribLocation(simProgram, 'aPos');
@@ -492,22 +487,20 @@ window.addEventListener('load', function () {
     gl.bindTexture(gl.TEXTURE_2D, fieldA);
     gl.uniform1i(gl.getUniformLocation(simProgram,'uField'), 0);
 
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uDT'), dt);
-
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uGamma'), gamma);
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uKappa'), kappa);
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uSigma'), sigma);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uGammaT'), gammaT);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uKappaT'), kappaT);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uSigma'),  sigma);
 
     gl.uniform2f(gl.getUniformLocation(simProgram,'uG'), gx, 0.0);
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uAlphaG'), 1.0);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uAlphaGT'), 0.5); // modest drift gain
 
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uLambda'), lambda);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uLambdaT'), lambdaT);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uUstar'), 0.0);
 
     gl.uniform2f(gl.getUniformLocation(simProgram,'uBasinCenter'), basinCenterX, basinCenterY);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uBasinRadius'),  basinRadius);
 
-    gl.uniform1f(gl.getUniformLocation(simProgram,'uRho'),   rho);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uRhoT'),  rhoT);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uOmega'), omega);
     gl.uniform1f(gl.getUniformLocation(simProgram,'uTime'),  time);
 
@@ -517,7 +510,7 @@ window.addEventListener('load', function () {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     let tmp = fieldA; fieldA = fieldB; fieldB = tmp;
 
-    // ----- RENDER PASS -----
+    // RENDER PASS
     gl.useProgram(renderProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -533,6 +526,8 @@ window.addEventListener('load', function () {
 
     gl.uniform2f(gl.getUniformLocation(renderProgram,'uBasinCenter'), basinCenterX, basinCenterY);
     gl.uniform1f(gl.getUniformLocation(renderProgram,'uBasinRadius'),  basinRadius);
+    gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowBasin'),
+                 uiShowBasin.checked ? 1 : 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
