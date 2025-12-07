@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>EVF Simulation v0.7 · EVF-2.1 PDE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  html, body {
+    margin:0; padding:0;
+    background:#000;
+    overflow:hidden;
+    height:100%;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    color:#fff;
+  }
+
+  #container {
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    width:100%;
+  }
+
+  #gl-wrap {
+    flex:1 1 auto;
+    min-height:50vh;
+    position:relative;
+  }
+
+  canvas {
+    width:100%;
+    height:100%;
+    display:block;
+    background:#000;
+  }
+
+  #evf-ui {
+    flex:0 0 auto;
+    width:100%;
+    max-height:42vh;
+    overflow-y:auto;
+    background:rgba(15,15,20,0.96);
+    color:#fff;
+    padding:12px;
+    box-sizing:border-box;
+    border-top:1px solid #333;
+  }
+
+  #evf-ui label {
+    display:block;
+    margin-top:6px;
+    font-size:12px;
+    font-weight:600;
+  }
+
+  #evf-ui select,
+  #evf-ui input[type=range],
+  #evf-ui button {
+    margin-top:4px;
+  }
+
+  #evf-ui button {
+    background:#444;
+    color:#fff;
+    border:1px solid #666;
+    padding:6px;
+    cursor:pointer;
+    border-radius:4px;
+  }
+
+  #evf-ui button:active {
+    background:#666;
+  }
+
+  #evf-status {
+    margin-top:8px;
+    font-size:11px;
+    opacity:0.85;
+    line-height:1.4;
+  }
+
+  .section-label {
+    margin-top:10px;
+    font-size:11px;
+    opacity:0.8;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+</style>
+</head>
+<body>
+
+<div id="container">
+  <!-- FIELD -->
+  <div id="gl-wrap">
+    <canvas id="glcanvas"></canvas>
+  </div>
+
+  <!-- CONTROL PANEL -->
+  <div id="evf-ui">
+
+    <!-- Top row: Reset -->
+    <div style="display:flex; justify-content:flex-end; margin-bottom:6px;">
+      <button id="evf-reset" style="width:90px; height:30px;">
+        Reset
+      </button>
+    </div>
+
+    <!-- Tier selector -->
+    <label for="evf-mode">Mode (Tier Presets)</label>
+    <select id="evf-mode" style="width:100%;">
+      <option value="tier1">Tier 1 · Containment</option>
+      <option value="tier2">Tier 2 · Synchronization</option>
+      <option value="tier3">Tier 3 · Directional</option>
+      <option value="tier4" selected>Tier 4 · Full Model</option>
+    </select>
+
+    <div class="section-label">Containment</div>
+    <label>Damping γ</label>
+    <input id="ui-gamma" type="range" min="0" max="3" step="0.01" value="0.8" style="width:100%;">
+
+    <label>Noise σ</label>
+    <input id="ui-sigma" type="range" min="0" max="1" step="0.01" value="0.10" style="width:100%;">
+
+    <div class="section-label">Synchronization</div>
+    <label>Diffusion κ</label>
+    <input id="ui-k" type="range" min="0" max="1" step="0.01" value="0.25" style="width:100%;">
+
+    <label>Rhythm Amplitude ρ</label>
+    <input id="ui-rho" type="range" min="0" max="1" step="0.01" value="0.40" style="width:100%;">
+
+    <label>Rhythm Frequency ω</label>
+    <input id="ui-omega" type="range" min="0.1" max="3" step="0.01" value="0.8" style="width:100%;">
+
+    <div class="section-label">Directional</div>
+    <label>Gradient X (Gx)</label>
+    <input id="ui-gx" type="range" min="-1" max="1" step="0.01" value="0.3" style="width:100%;">
+
+    <label>Attractor Strength λ</label>
+    <input id="ui-lambda" type="range" min="0" max="2" step="0.01" value="0.7" style="width:100%;">
+
+    <div id="evf-status">ω = 0.80, γ = 0.80, κ = 0.25, γ/ω = 1.00</div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('load', function () {
+
+  // -----------------------
+  // DOM references
+  // -----------------------
+  const canvas   = document.getElementById('glcanvas');
+  const modeSel  = document.getElementById('evf-mode');
+  const uiGamma  = document.getElementById('ui-gamma');
+  const uiSigma  = document.getElementById('ui-sigma');
+  const uiK      = document.getElementById('ui-k');      // κ
+  const uiRho    = document.getElementById('ui-rho');
+  const uiOmega  = document.getElementById('ui-omega');
+  const uiGx     = document.getElementById('ui-gx');
+  const uiLambda = document.getElementById('ui-lambda');
+  const resetBtn = document.getElementById('evf-reset');
+  const statusEl = document.getElementById('evf-status');
+
+  // -----------------------
+  // WebGL
+  // -----------------------
+  const gl = canvas.getContext('webgl', { alpha:false });
+  if (!gl) { alert('WebGL not supported'); return; }
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth * dpr;
+    const h = canvas.clientHeight * dpr;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    gl.viewport(0, 0, w, h);
+  }
+  resizeCanvas();
+  window.addEventListener('resize', () => setTimeout(resizeCanvas,100));
+  window.addEventListener('orientationchange', () => setTimeout(resizeCanvas,300));
+
+  // -----------------------
+  // Helpers
+  // -----------------------
+  function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error('Shader compile error:', gl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  function createProgram(vsSrc, fsSrc) {
+    const p = gl.createProgram();
+    gl.attachShader(p, createShader(gl.VERTEX_SHADER, vsSrc));
+    gl.attachShader(p, createShader(gl.FRAGMENT_SHADER, fsSrc));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      console.error('Program link error:', gl.getProgramInfoLog(p));
+    }
+    return p;
+  }
+
+  function createByteTexture(w, h, data=null) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
+      w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+
+  function randomFieldData(w, h) {
+    const a = new Uint8Array(w*h*4);
+    for (let i=0;i<w*h;i++) {
+      const x = Math.random()*2 - 1.0;
+      const v = 0.5 + 0.5*x;
+      a[i*4+0] = v*255;
+      a[i*4+1] = 0;
+      a[i*4+2] = 0;
+      a[i*4+3] = 255;
+    }
+    return a;
+  }
+
+  // -----------------------
+  // Shaders
+  // -----------------------
+  const VS = `
+  attribute vec2 aPos;
+  varying vec2 vUV;
+  void main(){
+    vUV = (aPos + 1.0)*0.5;
+    gl_Position = vec4(aPos,0.0,1.0);
+  }`;
+
+  // --- EVF-2.1 SIMULATION SHADER ---
+  const SIM_FS = `
+  precision highp float;
+  varying vec2 vUV;
+
+  uniform sampler2D uField;
+
+  uniform float uDT;
+  uniform float uDX;
+
+  uniform float uGamma;
+  uniform float uKappa;
+  uniform float uSigma;
+
+  uniform vec2  uG;        // drift direction
+  uniform float uAlphaG;   // drift gain
+
+  uniform float uLambda;
+  uniform float uUstar;
+
+  uniform vec2  uBasinCenter;
+  uniform float uBasinRadius;
+
+  uniform float uRho;
+  uniform float uOmega;
+  uniform float uTime;
+
+  uniform float uFrame;
+  uniform vec2  uTexel;
+
+  float fastTanh(float v){
+    float e2x=exp(2.0*v);
+    return (e2x-1.0)/(e2x+1.0);
+  }
+
+  // float hash-based noise (WebGL1-safe)
+  float hash13(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.yzx + 33.33);
+    return fract((p.x + p.y) * p.z);
+  }
+
+  void main() {
+    vec2 uv = vUV;
+
+    // decode u in [-1,1]
+    float vC = texture2D(uField, uv).r;
+    float uC = (vC - 0.5) * 2.0;
+
+    // neighbors
+    float vL = texture2D(uField, uv + vec2(-uTexel.x, 0.0)).r;
+    float vR = texture2D(uField, uv + vec2( uTexel.x, 0.0)).r;
+    float vD = texture2D(uField, uv + vec2(0.0, -uTexel.y)).r;
+    float vU = texture2D(uField, uv + vec2(0.0,  uTexel.y)).r;
+
+    float uL = (vL - 0.5) * 2.0;
+    float uR = (vR - 0.5) * 2.0;
+    float uD = (vD - 0.5) * 2.0;
+    float uU = (vU - 0.5) * 2.0;
+
+    float dx = uDX;
+
+    // Laplacian κ ∇²u
+    float lap = (uL + uR + uD + uU - 4.0 * uC) / (dx * dx);
+
+    // Gradient ∇u (central differences)
+    float du_dx = (uR - uL) / (2.0 * dx);
+    float du_dy = (uU - uD) / (2.0 * dx);
+    float adv   = uG.x * du_dx + uG.y * du_dy;
+
+    // Attractor weight w(x) (Gaussian basin)
+    vec2 d = uv - uBasinCenter;
+    float r2 = dot(d, d);
+    float R  = uBasinRadius;
+    float w  = exp(-r2 / (2.0 * R * R));
+
+    float attract = -uLambda * w * fastTanh(uC - uUstar);
+
+    // Damping
+    float damp = -uGamma * uC;
+
+    // Rhythm
+    float rhythm = uRho * sin(uOmega * uTime);
+
+    // Full RHS
+    float rhs =
+        damp                  // -γ u
+      + uKappa * lap          // κ ∇²u
+      + uAlphaG * adv         // α_g G·∇u
+      + attract               // -λ w(x) tanh(u-u*)
+      + rhythm;               // ρ sin(ωt)
+
+    // White noise σ ξ(x,t)
+    float eta = hash13(vec3(gl_FragCoord.xy, uFrame)) * 2.0 - 1.0;
+    float noiseTerm = uSigma * sqrt(max(uDT, 0.0)) * eta;
+
+    float uNext = uC + uDT * rhs + noiseTerm;
+
+    // numerical safety
+    uNext = clamp(uNext, -1.0, 1.0);
+
+    // encode back to [0,1]
+    float vNext = 0.5 + 0.5 * uNext;
+    gl_FragColor = vec4(vNext, 0.0, 0.0, 1.0);
+  }`;
+
+  // --- PURE RENDER SHADER (AESTHETICS ONLY) ---
+  const RENDER_FS = `
+  precision highp float;
+  varying vec2 vUV;
+
+  uniform sampler2D uField;
+  uniform vec2  uBasinCenter;
+  uniform float uBasinRadius;
+
+  float fastTanh(float v){
+    float e2x=exp(2.0*v);
+    return (e2x-1.0)/(e2x+1.0);
+  }
+
+  void main() {
+    float v = texture2D(uField, vUV).r;
+    float u = (v - 0.5) * 2.0;
+
+    // base grayscale from field
+    float g = 0.5 + 0.5*fastTanh(1.2*u);
+
+    // vignette
+    vec2 uv = vUV*2.0 - 1.0;
+    float r2 = dot(uv,uv);
+    float vign = 1.0 - 0.25*r2;
+    float baseVal = clamp(g*vign,0.0,1.0);
+    vec3 baseColor = vec3(baseVal);
+
+    // soft radial glow for basin visualization (same w(x) shape)
+    vec2 d = vUV - uBasinCenter;
+    float dist2 = dot(d,d);
+    float R = uBasinRadius;
+    float glowMask = exp(-dist2 / (2.0 * R * R));
+
+    vec3 basinColor = vec3(1.0, 0.3, 0.3);  // soft red
+    float basinAlpha = 0.35 * glowMask;     // transparent edges
+
+    vec3 finalColor = mix(baseColor, basinColor, basinAlpha);
+
+    gl_FragColor = vec4(finalColor,1.0);
+  }`;
+
+  // -----------------------
+  // Programs
+  // -----------------------
+  const simProgram    = createProgram(VS,SIM_FS);
+  const renderProgram = createProgram(VS,RENDER_FS);
+
+  // -----------------------
+  // Quad
+  // -----------------------
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,quad);
+  gl.bufferData(gl.ARRAY_BUFFER,
+    new Float32Array([-1,-1,1,-1,-1,1,  1,-1,1,1,-1,1]),
+    gl.STATIC_DRAW
+  );
+
+  // -----------------------
+  // Field textures
+  // -----------------------
+  const W=128, H=128;
+  let fieldA = createByteTexture(W,H,randomFieldData(W,H));
+  let fieldB = createByteTexture(W,H,null);
+
+  const fbo = gl.createFramebuffer();
+
+  resetBtn.onclick = () => {
+    fieldA = createByteTexture(W,H,randomFieldData(W,H));
+  };
+
+  let frameCount = 0.0;
+
+  // -----------------------
+  // Main loop
+  // -----------------------
+  function loop(t) {
+    resizeCanvas();
+
+    const time = t*0.001;
+    const dt   = 0.016;
+    const dx   = 1.0 / W;
+
+    frameCount += 1.0;
+
+    // sliders → PDE parameters
+    let gamma  = parseFloat(uiGamma.value);
+    let sigma  = parseFloat(uiSigma.value);
+    let kappa  = parseFloat(uiK.value);
+    let rho    = parseFloat(uiRho.value);
+    let omega  = parseFloat(uiOmega.value);
+    let gx     = parseFloat(uiGx.value);
+    let lambda = parseFloat(uiLambda.value);
+
+    // tier presets (purely parameter sets)
+    const mode = modeSel.value;
+    if (mode === 'tier1') {
+      // Containment-dominant
+      gamma  *= 1.5;
+      kappa  *= 0.4;
+      lambda *= 0.6;
+      rho    *= 0.3;
+      gx     *= 0.3;
+    } else if (mode === 'tier2') {
+      // Synchronization-dominant
+      gamma  *= 0.7;
+      kappa  *= 1.4;
+      lambda *= 0.7;
+      rho    *= 1.3;
+      gx     *= 0.7;
+    } else if (mode === 'tier3') {
+      // Directional-dominant
+      gamma  *= 0.8;
+      kappa  *= 0.8;
+      lambda *= 1.3;
+      rho    *= 0.7;
+      gx     *= 1.5;
+    }
+    // tier4 uses raw sliders
+
+    const ratio = (omega > 0.0001) ? (gamma/omega) : 0.0;
+    statusEl.textContent =
+      `ω = ${omega.toFixed(2)}, γ = ${gamma.toFixed(2)}, κ = ${kappa.toFixed(2)}, γ/ω = ${ratio.toFixed(2)}`;
+
+    // ----- SIM PASS -----
+    gl.useProgram(simProgram);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,fieldB,0);
+    gl.viewport(0,0,W,H);
+
+    const posS=gl.getAttribLocation(simProgram,'aPos');
+    gl.enableVertexAttribArray(posS);
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad);
+    gl.vertexAttribPointer(posS,2,gl.FLOAT,false,0,0);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,fieldA);
+    gl.uniform1i(gl.getUniformLocation(simProgram,'uField'),0);
+
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uDT'), dt);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uDX'), dx);
+
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uGamma'), gamma);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uKappa'), kappa);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uSigma'), sigma);
+
+    gl.uniform2f(gl.getUniformLocation(simProgram,'uG'), gx, 0.0);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uAlphaG'), 1.0);
+
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uLambda'), lambda);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uUstar'), 0.0); // equilibrium at 0
+
+    const basinCenterX = 0.5;
+    const basinCenterY = 0.5;
+    const basinRadius  = 0.12;
+
+    gl.uniform2f(gl.getUniformLocation(simProgram,'uBasinCenter'), basinCenterX, basinCenterY);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uBasinRadius'),  basinRadius);
+
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uRho'),   rho);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uOmega'), omega);
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uTime'),  time);
+
+    gl.uniform1f(gl.getUniformLocation(simProgram,'uFrame'), frameCount);
+    gl.uniform2f(gl.getUniformLocation(simProgram,'uTexel'), 1.0/W,1.0/H);
+
+    gl.drawArrays(gl.TRIANGLES,0,6);
+    let tmp=fieldA; fieldA=fieldB; fieldB=tmp;
+
+    // ----- RENDER PASS -----
+    gl.useProgram(renderProgram);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.viewport(0,0,canvas.width,canvas.height);
+
+    const posR=gl.getAttribLocation(renderProgram,'aPos');
+    gl.enableVertexAttribArray(posR);
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad);
+    gl.vertexAttribPointer(posR,2,gl.FLOAT,false,0,0);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,fieldA);
+    gl.uniform1i(gl.getUniformLocation(renderProgram,'uField'),0);
+
+    gl.uniform2f(gl.getUniformLocation(renderProgram,'uBasinCenter'), basinCenterX, basinCenterY);
+    gl.uniform1f(gl.getUniformLocation(renderProgram,'uBasinRadius'),  basinRadius);
+
+    gl.drawArrays(gl.TRIANGLES,0,6);
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+
+});
+</script>
+
+</body>
+</html>
