@@ -369,7 +369,9 @@ window.addEventListener('load', function () {
     // White noise: sigma ξ(x,t) with sqrt(dt) scaling
     float eta = hash13(vec3(gl_FragCoord.xy, uFrame)) * 2.0 - 1.0;
     float noiseTerm = 0.5 * uSigma * sqrt(max(uDT, 0.0)) * eta;
-
+if (uSigma < 0.001) {
+    uNext = mix(uNext, 0.5*(uL + uR + uU + uD), 0.15);
+}
     float uNext = uC + uDT * rhs + noiseTerm;
     uNext = clamp(uNext, -1.0, 1.0);
 
