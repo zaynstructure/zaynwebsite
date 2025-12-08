@@ -274,111 +274,119 @@ window.addEventListener('load', function () {
     gl_Position = vec4(aPos,0.0,1.0);
   }`;
 
-  // --- EVF-2.3 SIMULATION SHADER ---
-  // Implements:
-  // u_t = kappa ∇²u - gamma u - lambda w(x) tanh(u - u_star)
-  //       + alpha_g G·∇u + rho sin(omega t) + sigma ξ(x,t)
-  const SIM_FS = `
-  precision highp float;
-  varying vec2 vUV;
+ // =============================
+// EVF-2.3 SIMULATION SHADER
+// With ADSR-modulated volatility σ(t)
+// =============================
+precision highp float;
+varying vec2 vUV;
 
-  uniform sampler2D uField;
+// Field input
+uniform sampler2D uField;
 
-  uniform float uDT;      // time step (CFL-controlled)
+// Core PDE params
+uniform float uDT;        // dt (CFL-controlled)
+uniform float uGamma;     // damping
+uniform float uKappa;     // diffusion
+uniform float uSigma;     // *** ADSR-driven volatility σ(t) ***
+uniform float uAlphaG;    // drift gain
 
-  uniform float uGamma;   // damping
-  uniform float uKappa;   // diffusion
-  uniform float uSigma;   // noise
+// Drift vector
+uniform vec2  uG;         // drift G(t), from outer JS
 
-  uniform vec2  uG;       // drift direction (dynamic G(t))
-  uniform float uAlphaG;  // drift gain
+// Attractor
+uniform float uLambda;    // attractor strength
+uniform float uUstar;     // equilibrium u*
+uniform vec2  uBasinCenter;
+uniform float uBasinRadius;
 
-  uniform float uLambda;  // attractor strength
-  uniform float uUstar;   // equilibrium value u*
+// Rhythm
+uniform float uRho;
+uniform float uOmega;
+uniform float uTime;
 
-  uniform vec2  uBasinCenter;
-  uniform float uBasinRadius;
+// GPU spatial info
+uniform float uFrame;
+uniform vec2  uTexel;     // (1/W, 1/H)
 
-  uniform float uRho;     // rhythm amp
-  uniform float uOmega;   // rhythm freq
-  uniform float uTime;    // global time
+// --------------------------------------------
+// fast tanh
+// --------------------------------------------
+float fastTanh(float v){
+    float e2x = exp(2.0*v);
+    return (e2x - 1.0)/(e2x + 1.0);
+}
 
-  uniform float uFrame;   // for noise seed
-  uniform vec2  uTexel;   // 1/W,1/H
-
-  float fastTanh(float v){
-    float e2x=exp(2.0*v);
-    return (e2x-1.0)/(e2x+1.0);
-  }
-
-  // hash: vec3 -> scalar in [0,1)
-  float hash13(vec3 p) {
+// --------------------------------------------
+// Noise hash (whitened)
+// Improved over bare hash13
+// --------------------------------------------
+float hash13(vec3 p) {
     p = fract(p * 0.1031);
     p += dot(p, p.yzx + 33.33);
     return fract((p.x + p.y) * p.z);
-  }
+}
 
-  void main() {
-    vec2 uv = vUV;
+float whiteNoise(vec2 uv, float frame){
+    // decorrelated noise based on uv + time
+    float n = hash13(vec3(uv*vec2(97.1,151.2), frame));
+    return n * 2.0 - 1.0;   // [-1,1]
+}
 
-    // read center and neighbors, decode from [0,1] to [-1,1]
-    float vC = texture2D(uField, uv).r;
+void main() {
+    // ----------------------------------------
+    // Read center and neighbors
+    // ----------------------------------------
+    float vC = texture2D(uField, vUV).r;
     float uC = (vC - 0.5) * 2.0;
 
-    float vL = texture2D(uField, uv + vec2(-uTexel.x, 0.0)).r;
-    float vR = texture2D(uField, uv + vec2( uTexel.x, 0.0)).r;
-    float vD = texture2D(uField, uv + vec2(0.0, -uTexel.y)).r;
-    float vU = texture2D(uField, uv + vec2(0.0,  uTexel.y)).r;
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5)*2.0;
+    float uD = (texture2D(uField, vUV + vec2(0.0,-uTexel.y)).r - 0.5)*2.0;
+    float uU = (texture2D(uField, vUV + vec2(0.0, uTexel.y)).r - 0.5)*2.0;
 
-    float uL = (vL - 0.5) * 2.0;
-    float uR = (vR - 0.5) * 2.0;
-    float uD = (vD - 0.5) * 2.0;
-    float uU = (vU - 0.5) * 2.0;
+    // ----------------------------------------
+    // Laplacian ∇²u
+    // ----------------------------------------
+    float lap = (uL + uR + uU + uD - 4.0 * uC);
 
-    // Discrete Laplacian
-    float lap = (uL + uR + uD + uU - 4.0 * uC);
-
-    // Discrete gradient (central differences)
+    // ----------------------------------------
+    // Advection G·∇u
+    // ----------------------------------------
     float du_dx = 0.5 * (uR - uL);
     float du_dy = 0.5 * (uU - uD);
-    float adv   = uG.x * du_dx + uG.y * du_dy;
+    float adv = uG.x * du_dx + uG.y * du_dy;
 
-    // Attractor weight w(x): Gaussian basin (thematic geometry placeholder)
-    vec2 d = uv - uBasinCenter;
-    float r2 = dot(d, d);
+    // ----------------------------------------
+    // Attractor weight w(x)
+    // ----------------------------------------
+    vec2 d = vUV - uBasinCenter;
+    float r2 = dot(d,d);
     float R  = uBasinRadius;
     float w  = exp(-r2 / (2.0 * R * R));
 
-    // Attractor term: -lambda w(x) tanh(u - u_star)
     float attract = -uLambda * w * fastTanh(uC - uUstar);
 
-    // Damping
+    // ----------------------------------------
+    // Damping & Rhythm
+    // ----------------------------------------
     float damp = -uGamma * uC;
-
-    // Rhythm
     float rhythm = uRho * sin(uOmega * uTime);
 
+    // ----------------------------------------
     // Deterministic RHS
+    // ----------------------------------------
     float rhs =
-        damp
-      + uKappa * lap
-      + uAlphaG * adv
-      + attract
-      + rhythm;
+          damp
+        + uKappa * lap
+        + uAlphaG * adv
+        + attract
+        + rhythm;
 
-    // White noise: sigma ξ(x,t) with sqrt(dt) scaling
-    float eta = hash13(vec3(gl_FragCoord.xy, uFrame)) * 2.0 - 1.0;
-    float noiseTerm = 0.5 * uSigma * sqrt(max(uDT, 0.0)) * eta;
-if (uSigma < 0.001) {
-    uNext = mix(uNext, 0.5*(uL + uR + uU + uD), 0.15);
-}
-    float uNext = uC + uDT * rhs + noiseTerm;
-    uNext = clamp(uNext, -1.0, 1.0);
-
-    float vNext = 0.5 + 0.5 * uNext;
-    gl_FragColor = vec4(vNext, 0.0, 0.0, 1.0);
-  }`;
-
+    // ----------------------------------------
+    // ADSR-driven noise term
+    // σ(t) comes from CPU as uSigma
+   
   // --- PURE RENDER SHADER (visualization only) ---
   const RENDER_FS = `
   precision highp float;
