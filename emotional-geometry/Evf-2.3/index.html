@@ -96,6 +96,16 @@
   <!-- FIELD -->
   <div id="gl-wrap">
     <canvas id="glcanvas"></canvas>
+    <!-- Spatial coherence overlay -->
+    <div id="cs-overlay"
+         style="position:absolute; top:10px; right:12px;
+                font-size:11px; color:#ccc;
+                background:rgba(0,0,0,0.35);
+                padding:3px 6px; border-radius:4px;
+                pointer-events:none;
+                font-family:system-ui, sans-serif;">
+      Cₛ: 1.000
+    </div>
   </div>
 
   <!-- CONTROL PANEL -->
@@ -187,6 +197,7 @@ window.addEventListener('load', function () {
   const resetBtn  = document.getElementById('evf-reset');
   const statusEl  = document.getElementById('evf-status');
   const presetDescEl = document.getElementById('evf-preset-desc');
+  const csOverlay = document.getElementById('cs-overlay');
 
   const btnContainment = document.getElementById('preset-containment');
   const btnSync        = document.getElementById('preset-sync');
@@ -264,9 +275,6 @@ window.addEventListener('load', function () {
   }
 
   // -----------------------
-  // Shaders
-  // -----------------------
-    // -----------------------
   // Shaders
   // -----------------------
   const VS = `
@@ -373,50 +381,21 @@ window.addEventListener('load', function () {
   uniform sampler2D uField;
   uniform vec2  uBasinCenter;
   uniform float uBasinRadius;
-  uniform vec2  uTexel;        // same sim texel, for coherence gradient
 
   float fastTanh(float v){
-    float e2x = exp(2.0*v);
-    return (e2x - 1.0)/(e2x + 1.0);
+    float e2x=exp(2.0*v);
+    return (e2x-1.0)/(e2x+1.0);
   }
 
   void main() {
     float v = texture2D(uField, vUV).r;
     float u = (v - 0.5) * 2.0;
 
-    // Base grayscale from field
+    // base grayscale from field
     float g = 0.5 + 0.5 * fastTanh(1.2 * u);
+    vec3 baseColor = vec3(g);
 
-    // Vignette
-    vec2 uv = vUV * 2.0 - 1.0;
-    float r2 = dot(uv, uv);
-    float vign = 1.0 - 0.25 * r2;
-    float baseVal = clamp(g * vign, 0.0, 1.0);
-    vec3 baseColor = vec3(baseVal);
-
-    // ---- Spatial coherence proxy (local gradient magnitude) ----
-    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r - 0.5)*2.0;
-    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5)*2.0;
-    float uD = (texture2D(uField, vUV + vec2(0.0,-uTexel.y)).r - 0.5)*2.0;
-    float uU = (texture2D(uField, vUV + vec2(0.0, uTexel.y)).r - 0.5)*2.0;
-
-    float du_dx = 0.5 * (uR - uL);
-    float du_dy = 0.5 * (uU - uD);
-    float gradMag = sqrt(du_dx*du_dx + du_dy*du_dy);
-
-    // Map gradient -> roughness -> spatial coherence C_s
-    float rough = clamp(gradMag * 2.0, 0.0, 1.0);
-    float Cs    = 1.0 - rough;
-
-    // Low coherence = reddish, high coherence = greenish
-    vec3 coherenceColor = mix(vec3(0.9, 0.2, 0.2),
-                              vec3(0.1, 0.9, 0.3),
-                              Cs);
-    float overlayAlpha = 0.35; // strength of coherence overlay
-
-    vec3 colorWithCoherence = mix(baseColor, coherenceColor, overlayAlpha);
-
-    // Basin glow (same as before)
+    // basin glow (visual-only)
     vec2 d = vUV - uBasinCenter;
     float dist2 = dot(d, d);
     float R = uBasinRadius;
@@ -425,10 +404,9 @@ window.addEventListener('load', function () {
     vec3 basinColor = vec3(1.0, 0.3, 0.3);
     float basinAlpha = 0.35 * glowMask;
 
-    vec3 finalColor = mix(colorWithCoherence, basinColor, basinAlpha);
+    vec3 finalColor = mix(baseColor, basinColor, basinAlpha);
     gl_FragColor = vec4(finalColor, 1.0);
   }`;
-
 
   // -----------------------
   // Programs
@@ -467,6 +445,19 @@ window.addEventListener('load', function () {
   // -----------------------
   let Gx = 0.3;   // initial drift
   let Gy = 0.0;   // keep y=0 for simplicity
+
+  // -----------------------
+  // Noise ADSR state
+  // -----------------------
+  let noiseOnTime  = -1.0;
+  let noiseOffTime = -1.0;
+
+  let noiseAttack  = 0.3;     // seconds
+  let noiseDecay   = 0.8;     // seconds
+  let noiseSustain = 0.5;     // level
+  let noiseRelease = 1.2;     // seconds
+
+  let targetSigma = parseFloat(uiSigma.value);
 
   // -----------------------
   // Presets: dynamic regimes + phenomenology
@@ -543,18 +534,6 @@ window.addEventListener('load', function () {
       desc: "Low damping and high noise drive irregular fluctuations; feels jittery and hard to stabilize."
     }
   };
-  // -----------------------
-// Noise ADSR state
-// -----------------------
-let noiseOnTime  = -1.0;
-let noiseOffTime = -1.0;
-
-let noiseAttack  = 0.3;     // seconds
-let noiseDecay   = 0.8;     // seconds
-let noiseSustain = 0.5;     // envelope level
-let noiseRelease = 1.2;     // seconds
-
-let targetSigma = parseFloat(uiSigma.value);
 
   function applyPresetInternal(name) {
     const p = EVF_PRESETS[name];
@@ -607,30 +586,32 @@ let targetSigma = parseFloat(uiSigma.value);
     Gy = 0.0;
 
     presetDescEl.textContent = "";
+    csOverlay.textContent = "Cₛ: 1.000";
   }
 
   resetBtn.onclick = resetEVF;
+
   // -----------------------
-// ADSR envelope for σ(t)
-// -----------------------
-function adsrEnvelope(t, on, off, A, D, S, R) {
-  if (on < 0.0) return 0.0;
+  // ADSR envelope for σ(t)
+  // -----------------------
+  function adsrEnvelope(t, on, off, A, D, S, R) {
+    if (on < 0.0) return 0.0;
 
-  const tau = t - on;
+    const tau = t - on;
 
-  // Attack
-  if (tau < A) return tau / A;
+    // Attack
+    if (tau < A) return tau / A;
 
-  // Decay
-  if (tau < A + D) return 1.0 - (1.0 - S) * ((tau - A) / D);
+    // Decay
+    if (tau < A + D) return 1.0 - (1.0 - S) * ((tau - A) / D);
 
-  // Sustain
-  if (off < 0.0 || t < off) return S;
+    // Sustain
+    if (off < 0.0 || t < off) return S;
 
-  // Release
-  const tr = t - off;
-  return S * Math.exp(-tr / R);
-}
+    // Release
+    const tr = t - off;
+    return S * Math.exp(-tr / R);
+  }
 
   // -----------------------
   // Main loop
@@ -647,37 +628,6 @@ function adsrEnvelope(t, on, off, A, D, S, R) {
     // Read slider params
     // -------------------
     let gamma  = parseFloat(uiGamma.value);
-    // --- ADSR-controlled volatility σ(t) ---
-const rawSigma = parseFloat(uiSigma.value);
-
-// Detect slider changes
-if (rawSigma !== targetSigma) {
-
-  // If slider increased → new attack
-  if (rawSigma > targetSigma) {
-    noiseOnTime  = time;
-    noiseOffTime = -1.0;
-  }
-
-  // If slider reduced → begin release
-  else if (rawSigma < targetSigma) {
-    if (noiseOnTime >= 0.0) {
-      noiseOffTime = time;
-    }
-  }
-
-  targetSigma = rawSigma;
-}
-
-// Compute envelope value
-const sigmaEnvelope = adsrEnvelope(
-  time,
-  noiseOnTime, noiseOffTime,
-  noiseAttack, noiseDecay, noiseSustain, noiseRelease
-);
-
-// Final noise strength
-let sigma = sigmaEnvelope * targetSigma;
     let kappa  = parseFloat(uiKappa.value);
     let rho    = parseFloat(uiRho.value);
     let omega  = parseFloat(uiOmega.value);
@@ -688,6 +638,30 @@ let sigma = sigmaEnvelope * targetSigma;
     let behavior = parseFloat(uiBehavior.value);
     let beta     = parseFloat(uiBeta.value);
     let chi      = parseFloat(uiChi.value);
+
+    // --- ADSR-controlled volatility σ(t) ---
+    const rawSigma = parseFloat(uiSigma.value);
+
+    if (rawSigma !== targetSigma) {
+      if (rawSigma > targetSigma) {
+        // rising → new attack
+        noiseOnTime  = time;
+        noiseOffTime = -1.0;
+      } else if (rawSigma < targetSigma) {
+        // falling → release
+        if (noiseOnTime >= 0.0) {
+          noiseOffTime = time;
+        }
+      }
+      targetSigma = rawSigma;
+    }
+
+    const sigmaEnvelope = adsrEnvelope(
+      time,
+      noiseOnTime, noiseOffTime,
+      noiseAttack, noiseDecay, noiseSustain, noiseRelease
+    );
+    let sigma = sigmaEnvelope * targetSigma;
 
     // -------------------
     // CFL-based dt for PDE (EVF-2.3 stability)
@@ -702,12 +676,10 @@ let sigma = sigmaEnvelope * targetSigma;
 
     // Drift evolution in JS:
     // G_t = -beta G + chi B(t)
-    // use wall-time dt but clamp to something reasonable
     const dtPhys = Math.min(dtWall, 0.05);
     Gx += dtPhys * (-beta * Gx + chi * behavior);
-    // keep Gy=0 for simplicity in this demo
 
-    // Soft cap on |G| to avoid extreme drift
+    // Soft cap on |G|
     const gMag = Math.abs(Gx);
     const gCap = 5.0;
     if (gMag > gCap) {
@@ -720,17 +692,17 @@ let sigma = sigmaEnvelope * targetSigma;
     let dt = Math.min(dtMaxDiff, dtMaxDrift, 0.02);
     if (dt <= 0.0 || !isFinite(dt)) dt = 0.005;
 
-    // enforce tiny floor so "gradient never strictly zero" if user picks 0
+    // tiny floor so drift never gets stuck exactly zero under drive
     if (Math.abs(Gx) < 1e-4 && Math.abs(behavior) > 0.0) {
       Gx = 1e-4 * Math.sign(behavior);
     }
 
-    // status
+    // status text (no Cs here, Cs in overlay)
     statusEl.textContent =
       `dt ≈ ${dt.toFixed(4)}, γ = ${gamma.toFixed(2)}, κ = ${kappa.toFixed(2)}, `
       + `λ = ${lambda.toFixed(2)}, |G| ≈ ${gMag.toFixed(2)}`;
 
-    // Basin center fixed at midpoint (geometry placeholder)
+    // Basin center fixed at midpoint
     const basinCenterX = 0.5;
     const basinCenterY = 0.5;
 
@@ -780,6 +752,48 @@ let sigma = sigmaEnvelope * targetSigma;
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     let tmp = fieldA; fieldA = fieldB; fieldB = tmp;
 
+    // ------------------------
+    // Compute emergent coherence value C_s(t)
+    // ------------------------
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      fieldA,
+      0
+    );
+
+    const pixels = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    let gradSum = 0.0;
+    let count = 0;
+
+    for (let y = 1; y < H-1; y++) {
+      for (let x = 1; x < W-1; x++) {
+        const idx = (y*W + x) * 4;
+        const uC = (pixels[idx] / 255) * 2 - 1;
+
+        const uL = (pixels[idx - 4]       / 255) * 2 - 1;
+        const uR = (pixels[idx + 4]       / 255) * 2 - 1;
+        const uD = (pixels[idx - W*4]     / 255) * 2 - 1;
+        const uU = (pixels[idx + W*4]     / 255) * 2 - 1;
+
+        const du_dx = 0.5 * (uR - uL);
+        const du_dy = 0.5 * (uU - uD);
+        const gmag  = Math.sqrt(du_dx*du_dx + du_dy*du_dy);
+
+        gradSum += gmag;
+        count++;
+      }
+    }
+
+    let roughness = gradSum / count;       // mean gradient magnitude
+    let Cs = 1.0 - Math.min(1.0, roughness * 2.0); // normalized coherence
+
+    csOverlay.textContent = `Cₛ: ${Cs.toFixed(3)}`;
+
     // ----- RENDER PASS -----
     gl.useProgram(renderProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -796,7 +810,7 @@ let sigma = sigmaEnvelope * targetSigma;
 
     gl.uniform2f(gl.getUniformLocation(renderProgram,'uBasinCenter'), basinCenterX, basinCenterY);
     gl.uniform1f(gl.getUniformLocation(renderProgram,'uBasinRadius'),  basinR);
-gl.uniform2f(gl.getUniformLocation(renderProgram,'uTexel'), 1.0/W, 1.0/H);
+
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     requestAnimationFrame(loop);
