@@ -541,6 +541,18 @@ void main() {
       desc: "Low damping and high noise drive irregular fluctuations; feels jittery and hard to stabilize."
     }
   };
+  // -----------------------
+// Noise ADSR state
+// -----------------------
+let noiseOnTime  = -1.0;
+let noiseOffTime = -1.0;
+
+let noiseAttack  = 0.3;     // seconds
+let noiseDecay   = 0.8;     // seconds
+let noiseSustain = 0.5;     // envelope level
+let noiseRelease = 1.2;     // seconds
+
+let targetSigma = parseFloat(uiSigma.value);
 
   function applyPresetInternal(name) {
     const p = EVF_PRESETS[name];
@@ -596,6 +608,27 @@ void main() {
   }
 
   resetBtn.onclick = resetEVF;
+  // -----------------------
+// ADSR envelope for σ(t)
+// -----------------------
+function adsrEnvelope(t, on, off, A, D, S, R) {
+  if (on < 0.0) return 0.0;
+
+  const tau = t - on;
+
+  // Attack
+  if (tau < A) return tau / A;
+
+  // Decay
+  if (tau < A + D) return 1.0 - (1.0 - S) * ((tau - A) / D);
+
+  // Sustain
+  if (off < 0.0 || t < off) return S;
+
+  // Release
+  const tr = t - off;
+  return S * exp(-tr / R);
+}
 
   // -----------------------
   // Main loop
@@ -612,7 +645,37 @@ void main() {
     // Read slider params
     // -------------------
     let gamma  = parseFloat(uiGamma.value);
-    let sigma  = parseFloat(uiSigma.value);
+    // --- ADSR-controlled volatility σ(t) ---
+const rawSigma = parseFloat(uiSigma.value);
+
+// Detect slider changes
+if (rawSigma !== targetSigma) {
+
+  // If slider increased → new attack
+  if (rawSigma > targetSigma) {
+    noiseOnTime  = time;
+    noiseOffTime = -1.0;
+  }
+
+  // If slider reduced → begin release
+  else if (rawSigma < targetSigma) {
+    if (noiseOnTime >= 0.0) {
+      noiseOffTime = time;
+    }
+  }
+
+  targetSigma = rawSigma;
+}
+
+// Compute envelope value
+const sigmaEnvelope = adsrEnvelope(
+  time,
+  noiseOnTime, noiseOffTime,
+  noiseAttack, noiseDecay, noiseSustain, noiseRelease
+);
+
+// Final noise strength
+let sigma = sigmaEnvelope * targetSigma;
     let kappa  = parseFloat(uiKappa.value);
     let rho    = parseFloat(uiRho.value);
     let omega  = parseFloat(uiOmega.value);
