@@ -399,7 +399,7 @@ window.addEventListener('load', function () {
 
     // Damping & Rhythm
     float damp   = -uGamma * uC;
-    float rhythm = uRho * sin(uOmega * uTime) * (1.0 - abs(uC));
+    float rhythm = uRho * sin(uOmega * uTime) * exp(-2.0 * abs(uC));
 
     // Deterministic RHS
     float rhs =
