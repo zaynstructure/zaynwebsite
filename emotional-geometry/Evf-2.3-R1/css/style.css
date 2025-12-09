@@ -100,6 +100,17 @@ button {
 #gl-wrap {
   flex:1 1 auto;
   min-height:60vh;
+  #container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+#sidebar {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: 100vh;
+  box-sizing: border-box;
+}
 }
 @media (max-width: 480px) {
   /* tighter layout for small phones */
