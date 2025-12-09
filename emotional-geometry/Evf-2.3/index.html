@@ -319,14 +319,15 @@ window.addEventListener("load", function(){
   const pixels=new Uint8Array(W*H*4);
 
   function adsr(t,on,off,A,D,S,R){
-    if(on<0) return 0.0;
-    const dt = t-on;
-    if(dt<A) return dt/A;
-    if(dt<A+D) return 1.0-(1.0-S)*((dt-A)/D);
-    if(off<0||t<off) return S;
-    return S*Math.exp(-(t-off)/R);
-  }
+    if(on < 0) return 0.0;
+    const dt = t - on;    // ✔ Correct JS variable
 
+    if(dt < A)   return dt/A;
+    if(dt < A+D) return 1.0 - (1.0-S)*((dt-A)/D);
+    if(off < 0 || t < off) return S;
+
+    return S * Math.exp(-(t-off)/R);
+}
   function updateCoherence(){
     gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,
