@@ -115,11 +115,32 @@
   <div id="evf-ui">
 
     <!-- Top row: Reset -->
-    <div style="display:flex; justify-content:flex-end; margin-bottom:6px;">
-      <button id="evf-reset" style="width:90px; height:30px;">
-        Reset
-      </button>
-    </div>
+    <!-- Top row: Reset + Diagnostics -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+
+  <button id="evf-reset" style="width:90px; height:30px;">
+    Reset
+  </button>
+
+  <button id="diag-toggle" style="
+      height:30px; padding:0 8px; font-size:11px;
+      background:#333; border:1px solid #555; border-radius:4px;">
+    Diagnostics ▼
+  </button>
+
+</div>
+
+<!-- Collapsible diagnostics panel (initially hidden) -->
+<div id="diag-panel" style="display:none; padding-left:4px;">
+
+  <label><input type="checkbox" id="diag-grad"> Gradient |∇u|</label>
+  <label><input type="checkbox" id="diag-lap"> Laplacian ∇²u</label>
+  <label><input type="checkbox" id="diag-drift"> Drift Influence</label>
+  <label><input type="checkbox" id="diag-attractor"> Attractor Influence</label>
+  <label><input type="checkbox" id="diag-basin"> Basin Glow</label>
+  <label><input type="checkbox" id="diag-coherence"> Show Coherence Number</label>
+
+</div>
 
     <!-- Presets -->
     <div class="section-label">Presets · EVF-2.3 Regimes</div>
@@ -198,7 +219,7 @@
     <div id="evf-status">dt ≈ 0.0100, γ = 0.80, κ = 0.25, λ = 0.70, |G| ≈ 0.30</div>
   </div>
 <script>
-document.getElementById("diag-header").onclick = function(){
+document.getElementById("diag-toggle").onclick = function(){
   const p = document.getElementById("diag-panel");
   if (p.style.display === "none"){
     p.style.display = "block";
