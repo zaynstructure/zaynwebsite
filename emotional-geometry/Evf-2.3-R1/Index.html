@@ -56,6 +56,12 @@
   </div>
 </div>
 
+  
 <script src="evf_research.js"></script>
+  <script>
+document.body.addEventListener('touchmove', function(e){
+  if(!e.target.closest('#sidebar')) e.preventDefault();
+}, {passive:false});
+</script>
 </body>
 </html>
