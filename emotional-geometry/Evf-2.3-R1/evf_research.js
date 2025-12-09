@@ -48,13 +48,12 @@ btnPause.onclick = ()=>{
   btnPause.textContent = paused ? "Resume" : "Pause";
 };
 
-// Resize
 function resize(){
   const dpr = window.devicePixelRatio || 1;
-
   const rect = canvas.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
+
+  const w = Math.max(1, Math.floor(rect.width));
+  const h = Math.max(1, Math.floor(rect.height));
 
   canvas.width  = w * dpr;
   canvas.height = h * dpr;
