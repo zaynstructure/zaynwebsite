@@ -7,22 +7,48 @@
 
 <style>
   html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden; }
+
   #container { display:flex; flex-direction:column; height:100%; }
+
   #gl-wrap { flex:1 1 auto; position:relative; }
+
   canvas { width:100%; height:100%; display:block; background:#000; }
+
   #evf-coherence {
     position:absolute; right:8px; top:8px;
     font-size:11px; background:rgba(0,0,0,0.55);
     padding:3px 6px; border-radius:3px; color:#fff;
     pointer-events:none;
   }
+
   #evf-ui {
-    flex:0 0 auto; max-height:40vh;
-    background:rgba(20,20,25,0.96); color:#fff;
-    padding:12px; overflow-y:auto; font-size:12px;
+    flex:0 0 auto;
+    max-height:40vh;
+    background:rgba(20,20,25,0.96);
+    color:#fff;
+    padding:12px;
+    overflow-y:auto;
+    font-size:12px;
   }
-  .section-label { margin-top:10px; font-size:11px; opacity:0.7; text-transform:uppercase; }
-  button { font-size:11px; }
+
+  .section-label {
+    margin-top:12px;
+    font-size:11px;
+    opacity:0.7;
+    text-transform:uppercase;
+  }
+
+  /* FIX: label + slider alignment */
+  #evf-ui label {
+    display:block;
+    margin-top:6px;
+    margin-bottom:2px;
+    font-size:12px;
+  }
+
+  #evf-ui input[type=range] {
+    width:100%;
+  }
 </style>
 </head>
 <body>
@@ -36,6 +62,7 @@
   <div id="evf-ui">
     <button id="evf-reset" style="width:80px;">Reset</button>
     <button id="diag-toggle" style="margin-left:6px;">Structure Map</button>
+    <button id="mode-toggle" style="margin-left:6px;">Aesthetic Mode</button>
     <button id="tone-toggle" style="margin-left:6px;">Aesthetic Mode</button>
 
     <div class="section-label">Noise</div>
@@ -158,7 +185,7 @@ varying vec2 vUV;
 
 uniform sampler2D uField;
 uniform float uShowStructure;
-uniform float uToneMode;   // 0 = raw, 1 = aesthetic
+uniform float uVisMode;  // 0 = PURE, 1 = AESTHETIC
 
 uniform vec2  uBasinCenter;
 uniform float uBasinRadius;
@@ -166,52 +193,62 @@ uniform vec2  uTexel;
 
 float fastTanh(float x){
     float e2 = exp(2.0*x);
-    return (e2 - 1.0) / (e2 + 1.0);
+    return (e2-1.0)/(e2+1.0);
 }
 
 void main(){
+
     float v = texture2D(uField, vUV).r;
     float u = (v - 0.5) * 2.0;
 
-    // Raw vs Aesthetic tone mapping (blend)
-    float g_raw  = 0.5 + 0.5 * u;
-    float g_nice = 0.5 + 0.5 * fastTanh(0.6 * u);
-    float g = mix(g_raw, g_nice, uToneMode);
+    // --------------------------------------------------------
+    // MODE 0 — PURE (scientific)
+    // --------------------------------------------------------
+    if(uVisMode < 0.5){
+        float base = 0.5 + 0.5 * u;
 
-    vec2 uv = vUV * 2.0 - 1.0;
-    float vign = 1.0 - 0.25 * dot(uv, uv);
-
-    vec3 color = vec3(clamp(g * vign, 0.0, 1.0));
-
-    if(uShowStructure > 0.5){
-        float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r - 0.5)*2.0;
-        float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5)*2.0;
-        float uD = (texture2D(uField, vUV + vec2(0.0,-uTexel.y)).r - 0.5)*2.0;
-        float uU = (texture2D(uField, vUV + vec2(0.0, uTexel.y)).r - 0.5)*2.0;
-
-        float grad = length(vec2(uR - uL, uU - uD));
-        float gradSoft = smoothstep(0.00, 0.04, grad);
-
-        vec3 structureColor = mix(
-            vec3(0.7, 0.75, 1.0),
-            vec3(1.0, 0.85, 0.55),
-            gradSoft
-        );
-
-        color = mix(color, structureColor, 0.18 * gradSoft);
+        gl_FragColor = vec4(vec3(base), 1.0);
+        return;
     }
 
+    // --------------------------------------------------------
+    // MODE 1 — AESTHETIC MODE (designed to reveal dynamics)
+    // --------------------------------------------------------
+
+    // 1. Controlled sigmoid contrast
+    float s = 0.5 + 0.5 * tanh(1.2 * u);
+
+    // 2. Midtone lift: reveals dynamics
+    float c = pow(s, 0.75);
+
+    // 3. Gradient (edges = dynamics)
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
+    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
+    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
+
+    float grad = length(vec2(uR - uL, uU - uD));
+    float def = smoothstep(0.015, 0.08, grad);   // clarity mask
+
+    // 4. Warm structure color overlay
+    vec3 baseColor = vec3(c);
+    vec3 defColor = vec3(1.0, 0.65, 0.2);
+
+    vec3 color = mix(baseColor, defColor, 0.25 * def);
+
+    // Optional vignette to focus
+    vec2 uv = vUV * 2.0 - 1.0;
+    float vign = 1.0 - 0.20 * dot(uv, uv);
+    color *= vign;
+
+    // 5. Basin mask (attractor region)
     vec2 d = vUV - uBasinCenter;
     float mask = exp(-dot(d,d) / (2.0 * uBasinRadius * uBasinRadius));
-
-    // Only let the attractor glow fully in aesthetic mode
-    float attractMix = 0.35 * uToneMode;
-    color = mix(color, vec3(1.0, 0.3, 0.3), attractMix * mask);
+    color = mix(color, vec3(1.0, 0.3, 0.3), 0.25 * mask);
 
     gl_FragColor = vec4(color, 1.0);
 }
 </script>
-
 <!-- ---------------------------------------
      FULL JS ENGINE (CLEAN)
 ---------------------------------------- -->
@@ -335,7 +372,12 @@ window.addEventListener("load", function(){
   const diagBtn=document.getElementById("diag-toggle");
   const toneBtn=document.getElementById("tone-toggle");
   const resetBtn=document.getElementById("evf-reset");
-
+  const modeBtn = document.getElementById("mode-toggle");
+  let visMode = 0;
+  modeBtn.onclick = () => {
+    visMode = 1 - visMode;
+    modeBtn.textContent = visMode ? "Pure Mode" : "Aesthetic Mode";
+  };
   let showStructure = false;
   let toneMode = 1.0; // 1 = aesthetic, 0 = raw
 
@@ -497,7 +539,7 @@ window.addEventListener("load", function(){
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,fieldA);
     gl.uniform1i(gl.getUniformLocation(renderProg,"uField"),0);
-
+    gl.uniform1f(gl.getUniformLocation(renderProg, "uVisMode"), visMode);
     gl.uniform1f(gl.getUniformLocation(renderProg,"uShowStructure"), showStructure?1.0:0.0);
     gl.uniform1f(gl.getUniformLocation(renderProg,"uToneMode"), toneMode);
     gl.uniform2f(gl.getUniformLocation(renderProg,"uBasinCenter"), 0.5,0.5);
