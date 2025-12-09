@@ -307,22 +307,33 @@ let sigmaEventTarget = parseFloat(uiSigma.value);
 
     if (Math.abs(Gx) > 5) Gx = 5 * Math.sign(Gx);
 
-    // Chronic noise low-pass
-    const rawC = parseFloat(uiSigma0.value);
-    sigmaChronic = rawC;
+    
+    // Chronic noise: direct from slider (no smoothing)
+sigmaChronic = parseFloat(uiSigma0.value);
 
-    // Event noise ADSR
-    const rawE = parseFloat(uiSigma.value);
-    if(rawE !== sigmaEventTarget){
-      if(rawE > sigmaEventTarget) { noiseOn = time; noiseOff=-1; }
-      else if(noiseOn >= 0 && noiseOff < 0) noiseOff = time;
-      sigmaEventTarget = rawE;
-    }
+// Event noise ADSR (short, impulsive)
+const rawE = parseFloat(uiSigma.value);
 
-    const sigmaEnv = adsr(time, noiseOn, noiseOff, 0.2, 0.4, 0.4, 0.18);
-    const sigmaEvent = sigmaEnv * sigmaEventTarget;
-    const sigma = sigmaChronic + sigmaEvent;
+// Trigger a new envelope when slider moves up
+if (rawE !== sigmaEventTarget) {
+  if (rawE > sigmaEventTarget) {
+    // new "event" begins
+    noiseOn  = time;
+    noiseOff = -1.0;
+  } else if (noiseOn >= 0.0 && noiseOff < 0.0) {
+    // begin release when slider is turned down
+    noiseOff = time;
+  }
+  sigmaEventTarget = rawE;
+}
 
+// Much shorter envelope: quick hit, quick decay
+// A=0.05, D=0.15, S=0.0, R=0.25  (all in seconds)
+const sigmaEnv   = adsr(time, noiseOn, noiseOff, 0.05, 0.15, 0.0, 0.25);
+const sigmaEvent = sigmaEnv * sigmaEventTarget;
+
+// Total noise
+const sigma = sigmaChronic + sigmaEvent;
     // dt stability
     const denom = gamma + 8*kappa + lambda;
     let dt = Math.min(2/denom, 1/Math.max(0.2,Math.abs(Gx)), 0.02);
