@@ -450,7 +450,8 @@ window.addEventListener('load', function () {
       float u = (v - 0.5) * 2.0;
 
       // base grayscale
-      float g = 0.5 + 0.5 * fastTanh(1.2 * u);
+      // EVF 2.1-style smooth dreamy tone-map
+float g = 0.5 + 0.5 * tanh(0.6 * u);
 
       // subtle vignette
       vec2 uv = vUV * 2.0 - 1.0;
