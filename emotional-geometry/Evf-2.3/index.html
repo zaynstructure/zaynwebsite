@@ -151,16 +151,29 @@ function createProgram(vsSrc, fsSrc) {
       vUV = (aPos+1.0)*0.5;
       gl_Position = vec4(aPos,0.0,1.0);
     }`;
+function createProgram(vsSrc, fsSrc) {
+  const vs = compile(gl.VERTEX_SHADER, vsSrc);
+  const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
 
-  const simProg = gl.createProgram();
-  gl.attachShader(simProg, compile(gl.VERTEX_SHADER, VS));
-  gl.attachShader(simProg, compile(gl.FRAGMENT_SHADER, SIM_FS));
-  gl.linkProgram(simProg);
+  if (!vs || !fs) {
+    console.error("PROGRAM BUILD CANCELLED — shader failed");
+    return null;
+  }
 
-  const renderProg = gl.createProgram();
-  gl.attachShader(renderProg, compile(gl.VERTEX_SHADER, VS));
-  gl.attachShader(renderProg, compile(gl.FRAGMENT_SHADER, RENDER_FS));
-  gl.linkProgram(renderProg);
+  const p = gl.createProgram();
+  gl.attachShader(p, vs);
+  gl.attachShader(p, fs);
+  gl.linkProgram(p);
+
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    console.error("PROGRAM LINK ERROR:\n", gl.getProgramInfoLog(p));
+    gl.deleteProgram(p);
+    return null;
+  }
+
+  return p;
+}
+  
 
   //-------------------------------------------------------
   // GEOMETRY (screen quad)
