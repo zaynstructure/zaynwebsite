@@ -104,13 +104,14 @@ float fastTanh(float x){
   return (e2 - 1.0) / (e2 + 1.0);
 }
 
-// simpler, cheaper RNG — good enough for visual noise
-float rng(vec2 v){
-  return fract(sin(dot(v, vec2(12.9898,78.233))) * 43758.5453);
+float hash13(vec3 p){
+  p = fract(p * 0.1031);
+  p += dot(p, p.yzx + 33.33);
+  return fract((p.x + p.y) * p.z);
 }
 
 float fetchU(vec2 uv){
-  uv = mod(uv, 1.0);                // periodic, mobile-safe
+  uv = mod(uv, 1.0);                // PERIODIC & MOBILE SAFE
   float v = texture2D(uField, uv).r;
   return (v - 0.5) * 2.0;
 }
@@ -147,9 +148,7 @@ void main(){
             + uRho * sin(uOmega * uTime);
 
   float dt = max(uDT, 0.0);
-
-  // noise
-  float eta = rng(gl_FragCoord.xy + vec2(uFrame, 0.0)) * 2.0 - 1.0;
+  float eta = hash13(vec3(gl_FragCoord.xy, uFrame)) * 2.0 - 1.0;
   float uNext = clamp(uC + dt * rhs + uSigmaTotal * sqrt(dt) * eta,
                       -1.0, 1.0);
 
@@ -178,13 +177,12 @@ uniform vec2 uContext;
 uniform vec2 uTexel;
 
 float fetchU(vec2 uv){
-  uv = mod(uv, 1.0);                // periodic, mobile-safe
+  uv = mod(uv, 1.0);                // PERIODIC & MOBILE SAFE
   float v = texture2D(uField, uv).r;
   return (v - 0.5) * 2.0;
 }
 
 void main(){
-  // decode drift field from [0,1] -> [-1,1]
   vec2 G = (texture2D(uDrift, vUV).rg - 0.5) * 2.0;
 
   float uC = fetchU(vUV);
@@ -212,6 +210,7 @@ void main(){
   gl_FragColor = vec4(outG, 0.0, 1.0);
 }
 </script>
+
 <!-- Render shader -->
 <script id="fs-render" type="x-shader/x-fragment">
 precision highp float;
