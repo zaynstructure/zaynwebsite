@@ -382,7 +382,7 @@ window.addEventListener("load", function(){
     if(dt<A) return dt/A;
     if(dt<A+D) return 1.0-(1.0-S)*((dt-A)/D);
     if(off<0 || t<off) return S;
-    return S*exp(-(t-off)/R);
+    return S * Math.exp(-(t - off) / R);
   }
 
   function updateCoherence(){
@@ -434,7 +434,7 @@ window.addEventListener("load", function(){
 
     const dtPhys=Math.min(dtw,0.05);
     Gx+=dtPhys*(-beta*Gx + chi*beh);
-    if(abs(Gx)>5) Gx=5*sign(Gx);
+    if (Math.abs(Gx) > 5) Gx = 5 * Math.sign(Gx);
 
     const sigmaChronic=+uiSigma0.value;
     const rawE=+uiSigma.value;
