@@ -45,27 +45,22 @@ btnPause.onclick = ()=>{
 };
 
 // ======================================================
-//  MOBILE TOUCH HANDLING — prevent unwanted zoom/pan
-// ======================================================
-document.addEventListener('touchmove', function(e){
-  if (!e.target.closest('#sidebar')) e.preventDefault();
-}, {passive:false});
-
-document.addEventListener('touchstart', function(e){
-  if (e.touches.length > 1) e.preventDefault();
-}, {passive:false});
-
-// ======================================================
 //  GLSL HELPERS
 // ======================================================
 function compileShader(type, id){
-  const src = document.getElementById(id).textContent;
+  const el = document.getElementById(id);
+  if (!el) {
+    console.error("Missing shader script with id:", id);
+    return null;
+  }
+  const src = el.textContent;
   const s = gl.createShader(type);
   gl.shaderSource(s, src);
   gl.compileShader(s);
   if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-    console.error(gl.getShaderInfoLog(s));
+    console.error("Shader compile error for", id, ":", gl.getShaderInfoLog(s));
     console.log(src);
+    gl.deleteShader(s);
     return null;
   }
   return s;
@@ -80,7 +75,8 @@ function makeProgram(vsId, fsId){
   gl.attachShader(p, fs);
   gl.linkProgram(p);
   if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
-    console.error(gl.getProgramInfoLog(p));
+    console.error("Program link error for", fsId, ":", gl.getProgramInfoLog(p));
+    gl.deleteProgram(p);
     return null;
   }
   return p;
@@ -105,14 +101,19 @@ gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
    1,-1, 1, 1, -1,1
 ]), gl.STATIC_DRAW);
 
+// Attribute locations (cache them)
+const locFieldPos  = gl.getAttribLocation(progField,  "aPos");
+const locDriftPos  = gl.getAttribLocation(progDrift,  "aPos");
+const locRenderPos = gl.getAttribLocation(progRender, "aPos");
+
 // ======================================================
-//  TEXTURE INITIALIZATION (Chrome-safe)
+//  TEXTURE INITIALIZATION
 // ======================================================
 function initFieldData(){
   const a = new Uint8Array(W*H*4);
   for(let i=0;i<W*H;i++){
     const u = Math.random()*0.2 - 0.1;   // small random around 0
-    a[i*4] = (0.5 + 0.5*u) * 255;
+    a[i*4]   = (0.5 + 0.5*u) * 255;
     a[i*4+1] = 0;
     a[i*4+2] = 0;
     a[i*4+3] = 255;
@@ -123,15 +124,14 @@ function initFieldData(){
 function initDriftData(){
   const a = new Uint8Array(W*H*4);
   for(let i=0;i<W*H;i++){
-    a[i*4]   = 128; // Gx
-    a[i*4+1] = 128; // Gy
+    a[i*4]   = 128; // Gx (0)
+    a[i*4+1] = 128; // Gy (0)
     a[i*4+2] = 0;
     a[i*4+3] = 255;
   }
   return a;
 }
 
-// Chrome-safe makeTex
 function makeTex(data){
   const arr = data || new Uint8Array(W*H*4).fill(128);
   const t = gl.createTexture();
@@ -156,11 +156,36 @@ function makeTex(data){
   return t;
 }
 
-// Initialize ALL textures with real data (Chrome requires this)
+// drift uses NEAREST (no blending)
+function makeDriftTex(data){
+  const arr = data || new Uint8Array(W*H*4).fill(128);
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    W, H,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    arr
+  );
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  return t;
+}
+
+// Initialize ping-pong textures
 let texFieldA = makeTex(initFieldData());
 let texFieldB = makeTex(initFieldData());
-let texDriftA = makeTex(initDriftData());
-let texDriftB = makeTex(initDriftData());
+let texDriftA = makeDriftTex(initDriftData());
+let texDriftB = makeDriftTex(initDriftData());
 
 const fbo = gl.createFramebuffer();
 
@@ -168,8 +193,8 @@ const fbo = gl.createFramebuffer();
 btnReset.onclick = () => {
   texFieldA = makeTex(initFieldData());
   texFieldB = makeTex(initFieldData());
-  texDriftA = makeTex(initDriftData());
-  texDriftB = makeTex(initDriftData());
+  texDriftA = makeDriftTex(initDriftData());
+  texDriftB = makeDriftTex(initDriftData());
 
   sigma0 = 0;
   sigma0Target = +pSigma0.value;
@@ -235,7 +260,6 @@ function computeCs(){
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 
   let sum=0, count=0;
-
   const idx=(x,y)=>(y*W+x)*4;
 
   for(let y=0;y<H;y++){
@@ -263,7 +287,7 @@ function computeCs(){
 }
 
 // ======================================================
-//  RESIZE (Chrome mobile safe)
+//  RESIZE
 // ======================================================
 function resize(){
   const dpr = window.devicePixelRatio || 1;
@@ -272,7 +296,6 @@ function resize(){
   let w = Math.max(1, Math.floor(rect.width));
   let h = Math.max(1, Math.floor(rect.height));
 
-  // Chrome collapses flex sometimes → force fallback
   if (h < 10) {
     h = Math.floor(window.innerHeight * 0.6);
   }
@@ -285,15 +308,19 @@ function resize(){
 
 window.addEventListener("resize", resize);
 
+// run resize AFTER layout settles
+setTimeout(resize, 50);
+requestAnimationFrame(() => resize());
+
 // ======================================================
-//  MAIN LOOP
+//  MAIN LOOP + INSTRUMENTATION
 // ======================================================
 let lastTime = 0;
 let frame = 0;
 
-// run resize AFTER layout settles
-setTimeout(resize, 50);
-requestAnimationFrame(() => resize());
+let fpsAccum = 0;
+let fpsCount = 0;
+let fpsValue = 0;
 
 function loop(tMs){
   requestAnimationFrame(loop);
@@ -302,6 +329,18 @@ function loop(tMs){
   const t = tMs * 0.001;
   const dtPhys = lastTime===0 ? 0.016 : Math.min(t-lastTime,0.05);
   lastTime = t;
+
+  // FPS instrumentation
+  if(dtPhys > 0){
+    const instFPS = 1.0 / dtPhys;
+    fpsAccum += instFPS;
+    fpsCount++;
+    if(fpsCount >= 20){
+      fpsValue = fpsAccum / fpsCount;
+      fpsAccum = 0;
+      fpsCount = 0;
+    }
+  }
 
   // Parameters
   const gamma  = +pGamma.value;
@@ -321,9 +360,9 @@ function loop(tMs){
   const cx     = +pCx.value;
   const cy     = +pCy.value;
 
-  // dt stability
+  // dt stability (Laplace assumes h=1)
   const denom = gamma + 8*kappa + lambda;
-  const dtCFL = 2 / Math.max(denom,1e-4);
+  const dtCFL = 2 / Math.max(denom, 1e-4);
   const dt = Math.min(dtCFL, dtPhys, 0.02);
 
   const sigmaTotal = updateSigma(t, dtPhys);
@@ -338,9 +377,8 @@ function loop(tMs){
   gl.viewport(0,0,W,H);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  let loc = gl.getAttribLocation(progDrift,"aPos");
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  gl.enableVertexAttribArray(locDriftPos);
+  gl.vertexAttribPointer(locDriftPos,2,gl.FLOAT,false,0,0);
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texFieldA);
@@ -362,7 +400,7 @@ function loop(tMs){
 
   gl.drawArrays(gl.TRIANGLES,0,6);
 
-  let tmp = texDriftA; texDriftA = texDriftB; texDriftB = tmp;
+  [texDriftA, texDriftB] = [texDriftB, texDriftA];
 
   // -----------------------------
   // FIELD PASS
@@ -373,9 +411,8 @@ function loop(tMs){
                           gl.TEXTURE_2D, texFieldB,0);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  loc = gl.getAttribLocation(progField,"aPos");
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  gl.enableVertexAttribArray(locFieldPos);
+  gl.vertexAttribPointer(locFieldPos,2,gl.FLOAT,false,0,0);
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texFieldA);
@@ -405,12 +442,12 @@ function loop(tMs){
 
   gl.drawArrays(gl.TRIANGLES,0,6);
 
-  tmp = texFieldA; texFieldA = texFieldB; texFieldB = tmp;
+  [texFieldA, texFieldB] = [texFieldB, texFieldA];
 
   // -----------------------------
   // COHERENCE
   // -----------------------------
-  if(frame % 16 === 0){
+  if(frame % 32 === 0){
     const Cs = computeCs();
     csEl.textContent = "Cₛ ≈ " + Cs.toFixed(3);
   }
@@ -418,15 +455,14 @@ function loop(tMs){
   // -----------------------------
   // RENDER PASS
   // -----------------------------
-  resize();  
   gl.useProgram(progRender);
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  resize();  // cheap enough, keeps layout-resize in sync
   gl.viewport(0,0,canvas.width, canvas.height);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  loc = gl.getAttribLocation(progRender,"aPos");
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  gl.enableVertexAttribArray(locRenderPos);
+  gl.vertexAttribPointer(locRenderPos,2,gl.FLOAT,false,0,0);
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texFieldA);
@@ -438,7 +474,8 @@ function loop(tMs){
     "dt ≈ " + dt.toFixed(4) +
     ", γ=" + gamma.toFixed(2) +
     ", κ=" + kappa.toFixed(2) +
-    ", λ=" + lambda.toFixed(2);
+    ", λ=" + lambda.toFixed(2) +
+    " | FPS ≈ " + fpsValue.toFixed(1);
 
   frame++;
 }
