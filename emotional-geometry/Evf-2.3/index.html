@@ -317,7 +317,7 @@ window.addEventListener("load", async function(){
       sigmaEventTarget = rawE;
     }
 
-    const sigmaEnv = adsr(time, noiseOn, noiseOff, 0.3,0.8,0.5,1.2);
+    const sigmaEnv = adsr(time, noiseOn, noiseOff, 0.2, 0.4, 0.4, 0.18);
     const sigmaEvent = sigmaEnv * sigmaEventTarget;
     const sigma = sigmaChronic + sigmaEvent;
 
