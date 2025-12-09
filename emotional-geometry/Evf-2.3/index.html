@@ -36,8 +36,7 @@
   </div>
 
   <div id="evf-ui">
-    <button id="evf-reset" style="width:80px;">Reset</button>
-    <button id="diag-toggle" style="margin-left:6px;">Structure Map</button>
+    <button id="diag-toggle" style="margin-right:6px;">Structure Map</button>
 
     <div class="section-label">Noise</div>
     <label>Event Noise σₑ</label>
@@ -71,18 +70,15 @@
     <label>χ</label>
     <input id="ui-chi" type="range" min="0" max="3" step="0.01" value="1.0">
 
-    <div id="evf-status" style="margin-top:6px; font-size:11px; opacity:0.8;">
-      dt ≈ …
-    </div>
+    <div id="evf-status" style="margin-top:6px; font-size:11px; opacity:0.8;">dt ≈ …</div>
   </div>
 </div>
 
-
 <script>
-// ---------------------------------------------------------
-// Utility: Load GLSL files
-// ---------------------------------------------------------
-async function loadText(url) {
+// -------------------------------------------------
+// Load GLSL files
+// -------------------------------------------------
+async function loadText(url){
   const res = await fetch(url);
   return await res.text();
 }
@@ -92,35 +88,33 @@ window.addEventListener("load", async function(){
   const SIM_FS    = await loadText("./evf-sim.glsl");
   const RENDER_FS = await loadText("./evf-render.glsl");
 
-  // -------------------------------------------------------
+  // -------------------------------------------------
   // WebGL Setup
-  // -------------------------------------------------------
+  // -------------------------------------------------
   const canvas = document.getElementById("glcanvas");
-  const gl = canvas.getContext("webgl", { alpha:false });
+  const gl = canvas.getContext("webgl", {alpha:false});
 
   function resize(){
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth * dpr;
     const h = canvas.clientHeight * dpr;
-    if (canvas.width !== w) canvas.width = w;
-    if (canvas.height !== h) canvas.height = h;
-    gl.viewport(0, 0, w, h);
+    canvas.width = w; canvas.height = h;
+    gl.viewport(0,0,w,h);
   }
   resize();
   window.addEventListener("resize", resize);
 
-  // -------------------------------------------------------
-  // Shader Compiler + Program Builder
-  // -------------------------------------------------------
+  // -------------------------------------------------
+  // Clean Shader Compiler and Program Builder
+  // -------------------------------------------------
   function compile(type, src){
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
     gl.compileShader(s);
 
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      console.error("SHADER COMPILE ERROR:\n", gl.getShaderInfoLog(s));
-      console.log("Offending source:\n", src);
-      gl.deleteShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      console.error("SHADER ERROR:", gl.getShaderInfoLog(s));
+      console.log("SOURCE:\n", src);
       return null;
     }
     return s;
@@ -129,17 +123,15 @@ window.addEventListener("load", async function(){
   function createProgram(vsSrc, fsSrc){
     const vs = compile(gl.VERTEX_SHADER, vsSrc);
     const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
-
-    if (!vs || !fs) return null;
+    if(!vs || !fs) return null;
 
     const p = gl.createProgram();
     gl.attachShader(p, vs);
     gl.attachShader(p, fs);
     gl.linkProgram(p);
 
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-      console.error("PROGRAM LINK ERROR:\n", gl.getProgramInfoLog(p));
-      gl.deleteProgram(p);
+    if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+      console.error("PROGRAM LINK ERROR:", gl.getProgramInfoLog(p));
       return null;
     }
     return p;
@@ -149,7 +141,7 @@ window.addEventListener("load", async function(){
     attribute vec2 aPos;
     varying vec2 vUV;
     void main(){
-      vUV = (aPos + 1.0) * 0.5;
+      vUV = (aPos+1.0)*0.5;
       gl_Position = vec4(aPos,0.0,1.0);
     }
   `;
@@ -157,26 +149,26 @@ window.addEventListener("load", async function(){
   const simProg    = createProgram(VS, SIM_FS);
   const renderProg = createProgram(VS, RENDER_FS);
 
-  // -------------------------------------------------------
+  // -------------------------------------------------
   // Quad
-  // -------------------------------------------------------
+  // -------------------------------------------------
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1,-1,  1,-1, -1, 1,
-     1,-1,  1, 1, -1, 1
+    -1,-1,  1,-1, -1,1,
+     1,-1,  1, 1, -1,1
   ]), gl.STATIC_DRAW);
 
-  // -------------------------------------------------------
-  // Field Setup
-  // -------------------------------------------------------
+  // -------------------------------------------------
+  // Field Textures
+  // -------------------------------------------------
   const W = 128, H = 128;
 
   function createField(){
     const a = new Uint8Array(W*H*4);
-    for (let i=0; i<W*H; i++){
+    for(let i=0;i<W*H;i++){
       const x = Math.random()*2 - 1;
-      a[i*4] = (0.5 + 0.5*x) * 255;
+      a[i*4] = (0.5+0.5*x)*255;
       a[i*4+3] = 255;
     }
     return a;
@@ -193,12 +185,11 @@ window.addEventListener("load", async function(){
 
   let fieldA = tex(createField());
   let fieldB = tex(null);
-
   const fbo = gl.createFramebuffer();
 
-  // -------------------------------------------------------
+  // -------------------------------------------------
   // UI References
-  // -------------------------------------------------------
+  // -------------------------------------------------
   const uiGamma = document.getElementById("ui-gamma");
   const uiSigma = document.getElementById("ui-sigma");
   const uiSigma0= document.getElementById("ui-sigma-chronic");
@@ -215,54 +206,61 @@ window.addEventListener("load", async function(){
   const statusEl = document.getElementById("evf-status");
   const CsEl     = document.getElementById("evf-coherence");
 
-  const diagToggle = document.getElementById("diag-toggle");
   let showStructure = false;
-  diagToggle.onclick = ()=> showStructure = !showStructure;
+  document.getElementById("diag-toggle").onclick = 
+    ()=> showStructure = !showStructure;
 
-  // -------------------------------------------------------
-// Noise & Drift State
-// -------------------------------------------------------
-let Gx = 0.3;
+  // -------------------------------------------------
+  // Noise + Drift States
+  // -------------------------------------------------
+  let Gx = 0.3;
 
-// chronic noise: *direct* from slider (no low-pass memory)
-let sigmaChronic = parseFloat(uiSigma0.value);
+  // smooth chronic noise
+  let sigmaChronic = parseFloat(uiSigma0.value);
+  const tauChronic = 1.5;
 
-// event noise ADSR trigger state
-let noiseOn  = -1.0;
-let noiseOff = -1.0;
-let sigmaEventTarget = parseFloat(uiSigma.value);
+  // event ADSR
+  let noiseOn  = -1;
+  let noiseOff = -1;
+  let sigmaEventTarget = parseFloat(uiSigma.value);
+
   function adsr(t,on,off,A,D,S,R){
-    if(on < 0) return 0;
-    const dt = t - on;
+    if(on<0) return 0;
+    const dt = t-on;
     if(dt < A) return dt/A;
-    if(dt < A+D) return 1 - (1-S)*((dt-A)/D);
-    if(off < 0 || t < off) return S;
+    if(dt < A+D) return 1-(1-S)*((dt-A)/D);
+    if(off<0 || t<off) return S;
     return S * Math.exp(-(t-off)/R);
   }
 
-  let coherence = 1;
+  // -------------------------------------------------
+  // Coherence Metric
+  // -------------------------------------------------
   const pixels = new Uint8Array(W*H*4);
+  let coherence = 1;
 
   function updateCoherence(){
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D, fieldA, 0);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fieldA, 0);
+
     gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
 
     let s=0, n=0;
     for(let y=1;y<H-1;y++){
       for(let x=1;x<W-1;x++){
         const i = (y*W+x)*4;
-        const uC = (pixels[i]/255 - 0.5)*2;
 
-        const uL = (pixels[i-4]/255 -0.5)*2;
-        const uR = (pixels[i+4]/255 -0.5)*2;
-        const uD = (pixels[i-(W*4)]/255 -0.5)*2;
-        const uU = (pixels[i+(W*4)]/255 -0.5)*2;
+        const uC = (pixels[i]   /255 - 0.5)*2;
+        const uL = (pixels[i-4] /255 - 0.5)*2;
+        const uR = (pixels[i+4] /255 - 0.5)*2;
+        const uD = (pixels[i-4*W]/255 -0.5)*2;
+        const uU = (pixels[i+4*W]/255 -0.5)*2;
 
         const dx = 0.5*(uR-uL);
         const dy = 0.5*(uU-uD);
-        s += Math.sqrt(dx*dx + dy*dy);
+
+        s += Math.sqrt(dx*dx+dy*dy);
         n++;
       }
     }
@@ -274,9 +272,9 @@ let sigmaEventTarget = parseFloat(uiSigma.value);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
-  // -------------------------------------------------------
+  // -------------------------------------------------
   // Main Loop
-  // -------------------------------------------------------
+  // -------------------------------------------------
   let lastT = 0;
   let frame = 0;
 
@@ -289,7 +287,9 @@ let sigmaEventTarget = parseFloat(uiSigma.value);
     const dtw = (lastT === 0 ? 0.016 : time - lastT);
     lastT = time;
 
-    // Read sliders
+    // ---------------------------
+    // Read UI Params
+    // ---------------------------
     const gamma  = parseFloat(uiGamma.value);
     const kappa  = parseFloat(uiKappa.value);
     const rho    = parseFloat(uiRho.value);
@@ -301,79 +301,80 @@ let sigmaEventTarget = parseFloat(uiSigma.value);
     const beta   = parseFloat(uiBeta.value);
     const chi    = parseFloat(uiChi.value);
 
-    // Drift update
+    // ---------------------------
+    // Drift (behavior-driven)
+    // ---------------------------
     const dtPhys = Math.min(dtw, 0.05);
     Gx += dtPhys * (-beta*Gx + chi*beh);
+    if(Math.abs(Gx) > 5) Gx = 5*Math.sign(Gx);
 
-    if (Math.abs(Gx) > 5) Gx = 5 * Math.sign(Gx);
+    // ---------------------------
+    // Chronic Noise Smoothing
+    // ---------------------------
+    const rawC = parseFloat(uiSigma0.value);
+    sigmaChronic += (dtw/tauChronic) * (rawC - sigmaChronic);
 
-    
-    // Chronic noise: direct from slider (no smoothing)
-sigmaChronic = parseFloat(uiSigma0.value);
+    // ---------------------------
+    // Event Noise ADSR (fast hit)
+    // ---------------------------
+    const rawE = parseFloat(uiSigma.value);
 
-// Event noise ADSR (short, impulsive)
-const rawE = parseFloat(uiSigma.value);
+    if(rawE !== sigmaEventTarget){
+      if(rawE > sigmaEventTarget){
+        noiseOn = time;
+        noiseOff = -1;
+      } else if(noiseOn >= 0 && noiseOff < 0){
+        noiseOff = time;
+      }
+      sigmaEventTarget = rawE;
+    }
 
-// Trigger a new envelope when slider moves up
-if (rawE !== sigmaEventTarget) {
-  if (rawE > sigmaEventTarget) {
-    // new "event" begins
-    noiseOn  = time;
-    noiseOff = -1.0;
-  } else if (noiseOn >= 0.0 && noiseOff < 0.0) {
-    // begin release when slider is turned down
-    noiseOff = time;
-  }
-  sigmaEventTarget = rawE;
-}
+    const sigmaEnv = adsr(time, noiseOn, noiseOff,
+                          0.05, 0.15, 0.0, 0.25);
 
-// Much shorter envelope: quick hit, quick decay
-// A=0.05, D=0.15, S=0.0, R=0.25  (all in seconds)
-const sigmaEnv   = adsr(time, noiseOn, noiseOff, 0.05, 0.15, 0.0, 0.25);
-const sigmaEvent = sigmaEnv * sigmaEventTarget;
+    const sigmaEvent = sigmaEnv * sigmaEventTarget;
+    const sigmaTotal = sigmaChronic + sigmaEvent;
 
-// Total noise
-const sigma = sigmaChronic + sigmaEvent;
-    // dt stability
+    // ---------------------------
+    // dt Stability
+    // ---------------------------
     const denom = gamma + 8*kappa + lambda;
     let dt = Math.min(2/denom, 1/Math.max(0.2,Math.abs(Gx)), 0.02);
-    if (!isFinite(dt) || dt <= 0) dt = 0.005;
+    if(!isFinite(dt) || dt <= 0) dt = 0.005;
 
     statusEl.textContent =
       `dt ≈ ${dt.toFixed(4)}, γ=${gamma}, κ=${kappa}, λ=${lambda}, |G|=${Math.abs(Gx).toFixed(2)}`;
 
-    // ---------------------------------------------------
+    // ---------------------------
     // SIM PASS
-    // ---------------------------------------------------
+    // ---------------------------
     gl.useProgram(simProg);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D, fieldB, 0);
-
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fieldB, 0);
     gl.viewport(0,0,W,H);
 
-    const posLoc = gl.getAttribLocation(simProg, "aPos");
-    gl.enableVertexAttribArray(posLoc);
+    const posSim = gl.getAttribLocation(simProg, "aPos");
+    gl.enableVertexAttribArray(posSim);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(posSim,2,gl.FLOAT,false,0,0);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, fieldA);
-    gl.uniform1i(gl.getUniformLocation(simProg,"uField"), 0);
+    gl.uniform1i(gl.getUniformLocation(simProg,"uField"),0);
 
     gl.uniform1f(gl.getUniformLocation(simProg,"uDT"), dt);
     gl.uniform1f(gl.getUniformLocation(simProg,"uGamma"), gamma);
     gl.uniform1f(gl.getUniformLocation(simProg,"uKappa"), kappa);
-    gl.uniform1f(gl.getUniformLocation(simProg,"uSigma"), sigma);
+    gl.uniform1f(gl.getUniformLocation(simProg,"uSigma"), sigmaTotal);
 
     gl.uniform2f(gl.getUniformLocation(simProg,"uG"), Gx,0);
     gl.uniform1f(gl.getUniformLocation(simProg,"uAlphaG"), 1.0);
 
     gl.uniform1f(gl.getUniformLocation(simProg,"uLambda"), lambda);
-    gl.uniform1f(gl.getUniformLocation(simProg,"uUstar"), ustar);
+    gl.uniform1f(gl.getUniformLocation(simProg,"uUstar"),  ustar);
 
-    gl.uniform2f(gl.getUniformLocation(simProg,"uBasinCenter"), 0.5,0.5);
+    gl.uniform2f(gl.getUniformLocation(simProg,"uBasinCenter"),0.5,0.5);
     gl.uniform1f(gl.getUniformLocation(simProg,"uBasinRadius"), R);
 
     gl.uniform1f(gl.getUniformLocation(simProg,"uRho"), rho);
@@ -383,36 +384,35 @@ const sigma = sigmaChronic + sigmaEvent;
     gl.uniform1f(gl.getUniformLocation(simProg,"uFrame"), frame);
     gl.uniform2f(gl.getUniformLocation(simProg,"uTexel"), 1/W, 1/H);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-
+    gl.drawArrays(gl.TRIANGLES,0,6);
     let tmp = fieldA; fieldA = fieldB; fieldB = tmp;
 
-    if (frame % 10 === 0) updateCoherence();
+    if(frame % 10 === 0) updateCoherence();
 
-    // ---------------------------------------------------
+    // ---------------------------
     // RENDER PASS
-    // ---------------------------------------------------
+    // ---------------------------
     gl.useProgram(renderProg);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.viewport(0,0,canvas.width,canvas.height);
 
-    const posR = gl.getAttribLocation(renderProg, "aPos");
+    const posR = gl.getAttribLocation(renderProg,"aPos");
     gl.enableVertexAttribArray(posR);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.vertexAttribPointer(posR, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(posR,2,gl.FLOAT,false,0,0);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, fieldA);
-    gl.uniform1i(gl.getUniformLocation(renderProg,"uField"), 0);
+    gl.uniform1i(gl.getUniformLocation(renderProg,"uField"),0);
 
     gl.uniform1f(gl.getUniformLocation(renderProg,"uShowStructure"),
                  showStructure ? 1.0 : 0.0);
 
-    gl.uniform2f(gl.getUniformLocation(renderProg,"uBasinCenter"), 0.5,0.5);
-    gl.uniform1f(gl.getUniformLocation(renderProg,"uBasinRadius"), R);
-    gl.uniform2f(gl.getUniformLocation(renderProg,"uTexel"), 1/W,1/H);
+    gl.uniform2f(gl.getUniformLocation(renderProg,"uBasinCenter"),0.5,0.5);
+    gl.uniform1f(gl.getUniformLocation(renderProg,"uBasinRadius"),R);
+    gl.uniform2f(gl.getUniformLocation(renderProg,"uTexel"),1/W,1/H);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.drawArrays(gl.TRIANGLES,0,6);
   }
 
   requestAnimationFrame(loop);
