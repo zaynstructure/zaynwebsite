@@ -330,18 +330,17 @@ window.addEventListener("load", function(){
     if(on < 0) return 0.0;
     const dt = t - on;
 
-    if(dt < A) return dt/A;
+    if(dt < A)   return dt/A;
     if(dt < A+D) return 1.0 - (1.0-S)*((dt-A)/D);
     if(off < 0 || t < off) return S;
 
     return S * Math.exp(-(t-off)/R);
-  }
+}
 
-  function updateCoherence(){
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-                            gl.TEXTURE_2D, fieldA, 0);
-
+function updateCoherence(){
+    gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,
+                            gl.TEXTURE_2D,fieldA,0);
     gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
 
     let s=0, n=0;
