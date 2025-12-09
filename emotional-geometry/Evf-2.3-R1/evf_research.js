@@ -48,11 +48,13 @@ btnPause.onclick = ()=>{
 //  MOBILE TOUCH HANDLING — prevent unwanted zoom/pan
 // ======================================================
 document.addEventListener('touchmove', function(e){
-  if (!e.target.closest('#sidebar')) e.preventDefault();
-}, {passive:false});
-
-document.addEventListener('touchstart', function(e){
-  if (e.touches.length > 1) e.preventDefault();
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar.contains(e.target)) {
+    // allow scrolling inside sidebar
+    return;
+  }
+  // block scrolling outside sidebar
+  e.preventDefault();
 }, {passive:false});
 
 // ======================================================
