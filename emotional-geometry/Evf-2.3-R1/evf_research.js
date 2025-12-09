@@ -167,7 +167,10 @@ const fbo = gl.createFramebuffer();
 // Reset
 btnReset.onclick = () => {
   texFieldA = makeTex(initFieldData());
+  texFieldB = makeTex(initFieldData());
   texDriftA = makeTex(initDriftData());
+  texDriftB = makeTex(initDriftData());
+
   sigma0 = 0;
   sigma0Target = +pSigma0.value;
   sigmaEventTarget = +pSigmaE.value;
