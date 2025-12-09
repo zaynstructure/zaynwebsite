@@ -51,10 +51,14 @@ btnPause.onclick = ()=>{
 // Resize
 function resize(){
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth  || canvas.parentElement.clientWidth;
-  const h = canvas.clientHeight || canvas.parentElement.clientHeight;
+
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+
   canvas.width  = w * dpr;
   canvas.height = h * dpr;
+
   gl.viewport(0,0,canvas.width, canvas.height);
 }
 window.addEventListener("resize", resize);
