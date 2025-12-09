@@ -708,7 +708,7 @@ float BASIN_GAIN= 0.45;  // softer basin influence
 
     // Release
     const tr = t - off;
-    return S * exp(-tr / R);
+    return S * Math.exp(-tr / R);
   }
 
   function applyPresetInternal(name) {
