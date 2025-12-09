@@ -337,7 +337,7 @@ window.addEventListener("load", function(){
     return S * Math.exp(-(t-off)/R);
 }
 
-function updateCoherence(){
+  function updateCoherence(){
     gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,
                             gl.TEXTURE_2D,fieldA,0);
