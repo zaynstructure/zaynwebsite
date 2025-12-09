@@ -463,14 +463,22 @@ window.addEventListener('load', function () {
       baseVal *= diagFactor;
 
       vec3 color = vec3(baseVal);
-      float alpha = 0.35;
 
-      // diagnostic palette
-      vec3 colGrad      = vec3(0.95);
-      vec3 colLap       = vec3(0.60, 0.75, 0.95);
-      vec3 colDrift     = vec3(0.95, 0.80, 0.45);
-      vec3 colAttractor = vec3(0.95, 0.60, 0.60);
-      vec3 colBasin     = vec3(1.0, 0.7, 0.8);
+      // ---- Adjusted diagnostic palette + global strength ----
+float alpha = 0.20;  // softer overlay so it does not wash out base
+
+vec3 colGrad      = vec3(0.95);
+vec3 colLap       = vec3(0.60, 0.75, 0.95);
+vec3 colDrift     = vec3(0.95, 0.80, 0.45);
+vec3 colAttractor = vec3(0.95, 0.60, 0.60);
+vec3 colBasin     = vec3(1.0, 0.7, 0.8);
+
+// ---- Boost parameters (prevent blowout, keep visibility) ----
+float GRAD_GAIN = 1.1;   // was 1.8
+float LAP_GAIN  = 1.6;   // was 3.0
+float DRIFT_GAIN= 1.7;   // was 3.0
+float ATTR_GAIN = 0.50;  // was 0.60 exponent
+float BASIN_GAIN= 0.45;  // softer basin influence
 
       //------------------------------------------------------
       // BOOSTED DIAGNOSTICS
@@ -484,7 +492,7 @@ window.addEventListener('load', function () {
           float uU = (texture2D(uField, vUV + vec2(0.0, uTexel.y)).r - 0.5)*2.0;
 
           float gmag = length(vec2(uR - uL, uU - uD));
-          float gradBoost = smoothstep(0.0, 0.04, gmag) * 1.8;
+          float gradBoost = smoothstep(0.0, 0.04, gmag) * GRAD_GAIN;
 
           color = mix(color, colGrad, alpha * gradBoost);
       }
@@ -497,7 +505,7 @@ window.addEventListener('load', function () {
           float uU = (texture2D(uField, vUV + vec2(0.0, uTexel.y)).r - 0.5)*2.0;
 
           float lap = uL + uR + uU + uD - 4.0 * u;
-          float lapBoost = clamp(abs(lap) * 3.0, 0.0, 1.0);
+          float lapBoost = clamp(abs(lap) * LAP_GAIN, 0.0, 1.0);
 
           color = mix(color, colLap, alpha * lapBoost);
       }
@@ -508,7 +516,7 @@ window.addEventListener('load', function () {
           float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5)*2.0;
 
           float proj = abs(uR - uL);
-          float projBoost = clamp(proj * 3.0, 0.0, 1.0);
+          float projBoost = clamp(abs(uR - uL) * DRIFT_GAIN, 0.0, 1.0);
 
           color = mix(color, colDrift, alpha * projBoost);
       }
@@ -518,7 +526,7 @@ window.addEventListener('load', function () {
           vec2 d = vUV - uBasinCenter;
           float w = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
 
-          float attractBoost = pow(w, 0.6);
+          float attractBoost = pow(w, ATTR_GAIN);
 
           color = mix(color, colAttractor, alpha * attractBoost);
       }
@@ -528,7 +536,7 @@ window.addEventListener('load', function () {
           vec2 d = vUV - uBasinCenter;
           float glow = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
 
-          float glowBoost = pow(glow, 0.55);
+          float glowBoost = pow(glow, BASIN_GAIN);
 
           color = mix(color, colBasin, alpha * glowBoost);
       }
