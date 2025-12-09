@@ -148,7 +148,11 @@ window.addEventListener("load", async function(){
 
   const simProg    = createProgram(VS, SIM_FS);
   const renderProg = createProgram(VS, RENDER_FS);
+console.log("SIM length:", SIM_FS.length);
+console.log("SIM preview:", SIM_FS.slice(0,80));
 
+console.log("RENDER length:", RENDER_FS.length);
+console.log("RENDER preview:", RENDER_FS.slice(0,80));
   // -------------------------------------------------
   // Quad
   // -------------------------------------------------
