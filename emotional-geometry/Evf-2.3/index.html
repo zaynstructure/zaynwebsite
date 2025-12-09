@@ -423,110 +423,63 @@ const diagCoherence = document.getElementById('diag-coherence');
   }`;
 
   // PURE RENDER SHADER: grayscale + basin glow
-  const RENDER_FS = `
-precision highp float;
-varying vec2 vUV;
+  //------------------------------------------------------
+// BOOSTED DIAGNOSTICS — Single Replacement Block
+//------------------------------------------------------
 
-uniform sampler2D uField;
+// 1. Gradient |∇u|
+if (uShowGrad) {
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
+    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
+    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
 
-// diagnostics
-uniform bool uShowGrad;
-uniform bool uShowLap;
-uniform bool uShowDrift;
-uniform bool uShowAttractor;
-uniform bool uShowBasin;
-uniform bool uShowCoherence;
+    float gmag = length(vec2(uR - uL, uU - uD));
 
-uniform vec2  uBasinCenter;
-uniform float uBasinRadius;
-uniform vec2  uTexel;
-uniform float uDiagActive;
-
-float fastTanh(float v){
-  float e2x=exp(2.0*v);
-  return (e2x-1.0)/(e2x+1.0);
+    // boost subtle gradients
+    float gradBoost = smoothstep(0.0, 0.04, gmag) * 1.6;
+    color = mix(color, colGrad, alpha * gradBoost);
 }
 
-void main() {
+// 2. Laplacian ∇²u
+if (uShowLap) {
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
+    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
+    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
 
-    float v = texture2D(uField, vUV).r;
-    float u = (v - 0.5) * 2.0;
+    float lap = uL + uR + uU + uD - 4.0 * u;
 
-    // base grayscale
-    float g = 0.5 + 0.5 * fastTanh(1.2 * u);
-
-    // vignette
-    vec2 uv = vUV * 2.0 - 1.0;
-    float r2 = dot(uv, uv);
-    float vign = 1.0 - 0.25 * r2;
-    float baseVal = clamp(g * vign, 0.0, 1.0);
-
-    float baseDarken = mix(1.0, 0.35, uDiagActive);
-vec3 color = vec3(baseVal) * baseDarken;
-    float alpha = 0.25;
-
-    // pastel diagnostic colors
-    vec3 colGrad      = vec3(0.95);
-    vec3 colLap       = vec3(0.60, 0.75, 0.95);
-    vec3 colDrift     = vec3(0.95, 0.80, 0.45);
-    vec3 colAttractor = vec3(0.95, 0.60, 0.60);
-    vec3 colBasin     = vec3(1.0, 0.7, 0.8);
-
-    // =====================================================
-    // 1. GRADIENT |∇u|
-    // =====================================================
-    if (uShowGrad) {
-        float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-        float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-        float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
-        float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
-        float gmag = length(vec2(uR-uL, uU-uD));
-        color = mix(color, colGrad, alpha * smoothstep(0.0,1.0,gmag*2.0));
-    }
-
-    // =====================================================
-    // 2. LAPLACIAN ∇²u
-    // =====================================================
-    if (uShowLap) {
-        float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-        float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-        float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
-        float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
-        float lap = uL + uR + uU + uD - 4.0*u;
-        color = mix(color, colLap, alpha * clamp(abs(lap),0.0,1.0));
-    }
-
-    // =====================================================
-    // 3. DRIFT INFLUENCE (projected gradient)
-    // =====================================================
-    if (uShowDrift) {
-        float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-        float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-        float proj = abs(uR - uL);
-        color = mix(color, colDrift, alpha * clamp(proj,0.0,1.0));
-    }
-
-    // =====================================================
-    // 4. ATTRACTOR FIELD
-    // =====================================================
-    if (uShowAttractor) {
-        vec2 d = vUV - uBasinCenter;
-        float w = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
-        color = mix(color, colAttractor, alpha * w);
-    }
-
-    // =====================================================
-    // 5. BASIN GLOW (diagnostic)
-    // =====================================================
-    if (uShowBasin) {
-        vec2 d = vUV - uBasinCenter;
-        float glow = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
-        color = mix(color, colBasin, alpha * glow);
-    }
-
-    gl_FragColor = vec4(color, 1.0);
+    float lapBoost = clamp(abs(lap) * 2.8, 0.0, 1.0);
+    color = mix(color, colLap, alpha * lapBoost);
 }
-`;
+
+// 3. Drift influence
+if (uShowDrift) {
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
+
+    float projBoost = clamp(abs(uR - uL) * 3.0, 0.0, 1.0);
+    color = mix(color, colDrift, alpha * projBoost);
+}
+
+// 4. Attractor influence
+if (uShowAttractor) {
+    vec2 d = vUV - uBasinCenter;
+    float w = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
+
+    float attractBoost = pow(w, 0.6);
+    color = mix(color, colAttractor, alpha * attractBoost);
+}
+
+// 5. Basin glow
+if (uShowBasin) {
+    vec2 d = vUV - uBasinCenter;
+    float glow = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
+
+    float glowBoost = pow(glow, 0.55);
+    color = mix(color, colBasin, alpha * glowBoost);
+}
   // -----------------------
   // Programs
   // -----------------------
