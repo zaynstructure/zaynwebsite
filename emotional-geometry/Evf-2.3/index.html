@@ -391,20 +391,32 @@ window.addEventListener("load", function(){
                             gl.TEXTURE_2D,fieldA,0);
     gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
 
-    let s=0,n=0;
-    for(let y=1;y<H-1;y++){
-      for(let x=1;x<W-1;x++){
-        const i=(y*W+x)*4;
-        const uL=(pixels[i-4]/255-0.5)*2;
-        const uR=(pixels[i+4]/255-0.5)*2;
-        const uD=(pixels[i-W*4]/255-0.5)*2;
-        const uU=(pixels[i+W*4]/255-0.5)*2;
-        const dx=0.5*(uR-uL);
-        const dy=0.5*(uU-uD);
-        s+=sqrt(dx*dx+dy*dy);
+    let s = 0, n = 0;
+
+    for (let y = 1; y < H-1; y++){
+      for (let x = 1; x < W-1; x++){
+        const i = (y*W + x)*4;
+
+        const uL = (pixels[i-4]/255 - 0.5)*2;
+        const uR = (pixels[i+4]/255 - 0.5)*2;
+        const uD = (pixels[i-W*4]/255 - 0.5)*2;
+        const uU = (pixels[i+W*4]/255 - 0.5)*2;
+
+        const dx = 0.5 * (uR - uL);
+        const dy = 0.5 * (uU - uD);
+
+        s += Math.sqrt(dx*dx + dy*dy);
         n++;
       }
     }
+
+    const avg = s / n;
+    const c = 1.0 - Math.min(1.0, avg * 2.0);
+
+    CsEl.textContent = "Cₛ ≈ " + c.toFixed(2);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+}
     const avg=s/n;
     const c=1.0 - min(1.0,avg*2.0);
     CsEl.textContent="Cₛ ≈ "+c.toFixed(2);
@@ -452,7 +464,11 @@ window.addEventListener("load", function(){
     const sigma=sigmaChronic + sigmaEnv*sigmaEventTarget;
 
     const denom=gamma+8*kappa+lambda;
-    let dt=min(2/denom, 1/max(0.2,abs(Gx)), 0.02);
+    let dt = Math.min(
+    2/denom,
+    1/Math.max(0.2, Math.abs(Gx)),
+    0.02
+);
     if(!isFinite(dt)||dt<=0) dt=0.005;
 
     statusEl.textContent=`dt ≈ ${dt.toFixed(4)}, γ=${gamma}, κ=${kappa}, λ=${lambda}`;
