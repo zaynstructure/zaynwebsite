@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>EVF-2.3 · Research Mode (R1)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="container">
+  <div id="gl-wrap">
+    <canvas id="glcanvas"></canvas>
+  </div>
+
+  <div id="sidebar">
+    <div class="section">
+      <button id="btn-reset">Reset</button>
+      <button id="btn-pause">Pause</button>
+      <div id="status">dt ≈ …</div>
+      <div id="cs-label">Cₛ ≈ …</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Field</div>
+      <label>Diffusion κ <input id="p-kappa" type="range" min="0" max="1" step="0.01" value="0.25"></label>
+      <label>Damping γ <input id="p-gamma" type="range" min="0.1" max="3" step="0.01" value="0.8"></label>
+      <label>Attractor λ <input id="p-lambda" type="range" min="0" max="2" step="0.01" value="0.7"></label>
+      <label>Baseline u* <input id="p-ustar" type="range" min="-1" max="1" step="0.01" value="0"></label>
+      <label>Basin Radius R <input id="p-basinR" type="range" min="0.03" max="0.4" step="0.005" value="0.12"></label>
+      <label>Rhythm ρ <input id="p-rho" type="range" min="0" max="1" step="0.01" value="0.3"></label>
+      <label>Frequency ω <input id="p-omega" type="range" min="0.1" max="3" step="0.01" value="0.8"></label>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Drift</div>
+      <label>β <input id="p-beta" type="range" min="0" max="3" step="0.01" value="0.8"></label>
+      <label>η <input id="p-eta" type="range" min="0" max="3" step="0.01" value="1.0"></label>
+      <label>χ <input id="p-chi" type="range" min="0" max="3" step="0.01" value="1.0"></label>
+      <label>δ <input id="p-delta" type="range" min="0" max="3" step="0.01" value="0.5"></label>
+      <label>Bx <input id="p-bx" type="range" min="-1" max="1" step="0.01" value="0.3"></label>
+      <label>By <input id="p-by" type="range" min="-1" max="1" step="0.01" value="0"></label>
+      <label>Cx <input id="p-cx" type="range" min="-1" max="1" step="0.01" value="0"></label>
+      <label>Cy <input id="p-cy" type="range" min="-1" max="1" step="0.01" value="0"></label>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Noise</div>
+      <label>σ₀ target <input id="p-sigma0" type="range" min="0" max="0.5" step="0.01" value="0.05"></label>
+      <label>σₑ target <input id="p-sigmaE" type="range" min="0" max="1" step="0.01" value="0.15"></label>
+    </div>
+  </div>
+</div>
+
+<script src="evf_research.js"></script>
+</body>
+</html>
