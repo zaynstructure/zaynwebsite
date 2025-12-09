@@ -111,7 +111,7 @@ float hash13(vec3 p){
 }
 
 float fetchU(vec2 uv){
-  uv = clamp(uv, 0.001, 0.999);
+  uv = mod(uv, 1.0);                // PERIODIC & MOBILE SAFE
   float v = texture2D(uField, uv).r;
   return (v - 0.5) * 2.0;
 }
@@ -177,7 +177,7 @@ uniform vec2 uContext;
 uniform vec2 uTexel;
 
 float fetchU(vec2 uv){
-  uv = clamp(uv, 0.001, 0.999);
+  uv = mod(uv, 1.0);                // PERIODIC & MOBILE SAFE
   float v = texture2D(uField, uv).r;
   return (v - 0.5) * 2.0;
 }
