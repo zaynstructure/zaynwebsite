@@ -440,6 +440,7 @@ uniform bool uShowCoherence;
 uniform vec2  uBasinCenter;
 uniform float uBasinRadius;
 uniform vec2  uTexel;
+uniform float uDiagActive;
 
 float fastTanh(float v){
   float e2x=exp(2.0*v);
@@ -460,7 +461,8 @@ void main() {
     float vign = 1.0 - 0.25 * r2;
     float baseVal = clamp(g * vign, 0.0, 1.0);
 
-    vec3 color = vec3(baseVal);
+    float baseDarken = mix(1.0, 0.35, uDiagActive);
+vec3 color = vec3(baseVal) * baseDarken;
     float alpha = 0.25;
 
     // pastel diagnostic colors
@@ -983,6 +985,16 @@ gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowAttractor'), diagAttracto
 gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowBasin'),     diagBasin.checked);
 gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowCoherence'), diagCoherence.checked);
 
+    const anyDiag =
+  diagGrad.checked ||
+  diagLap.checked ||
+  diagDrift.checked ||
+  diagAttractor.checked ||
+  diagBasin.checked ||
+  diagCoherence.checked;
+
+gl.uniform1f(gl.getUniformLocation(renderProgram, 'uDiagActive'),
+             anyDiag ? 1.0 : 0.0);
 
     
     gl.uniform2f(gl.getUniformLocation(renderProgram,'uBasinCenter'), basinCenterX, basinCenterY);
