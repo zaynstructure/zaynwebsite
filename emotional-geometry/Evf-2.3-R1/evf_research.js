@@ -322,8 +322,7 @@ function loop(tMs){
   const cy     = +pCy.value;
 
   // dt stability
-  const h = 1.0/W;
-  const denom = gamma + 8*kappa/(h*h) + lambda*1.0;
+  const denom = gamma + 8*kappa + lambda;
   const dtCFL = 2 / Math.max(denom,1e-4);
   const dt = Math.min(dtCFL, dtPhys, 0.02);
 
