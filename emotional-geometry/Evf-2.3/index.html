@@ -220,15 +220,17 @@ window.addEventListener("load", async function(){
   diagToggle.onclick = ()=> showStructure = !showStructure;
 
   // -------------------------------------------------------
-  // Noise & Drift State
-  // -------------------------------------------------------
-  let Gx = 0.3;
-  let sigmaChronic = parseFloat(uiSigma0.value);
-  const tauChronic = 0.25;
+// Noise & Drift State
+// -------------------------------------------------------
+let Gx = 0.3;
 
-  let noiseOn = -1, noiseOff = -1;
-  let sigmaEventTarget = parseFloat(uiSigma.value);
+// chronic noise: *direct* from slider (no low-pass memory)
+let sigmaChronic = parseFloat(uiSigma0.value);
 
+// event noise ADSR trigger state
+let noiseOn  = -1.0;
+let noiseOff = -1.0;
+let sigmaEventTarget = parseFloat(uiSigma.value);
   function adsr(t,on,off,A,D,S,R){
     if(on < 0) return 0;
     const dt = t - on;
