@@ -1,59 +1,111 @@
 html, body {
-  margin:0; padding:0;
-  background:#111; color:#eee;
-  font-family:system-ui, -apple-system, sans-serif;
-  height:100%; overflow:hidden;
+  margin:0;
+  padding:0;
+  background:#111;
+  color:#eee;
+  font-family:system-ui, sans-serif;
+  height:100%;
+  overflow:hidden;
+  touch-action:none; /* prevents unwanted zoom/pan gestures */
 }
 
 #container {
   display:flex;
   flex-direction:row;
   height:100%;
+  width:100%;
 }
 
+/* -----------------------------
+   MAIN CANVAS REGION
+--------------------------------*/
 #gl-wrap {
-  flex:1;
-  background:#000;
+  flex:1 1 auto;
   position:relative;
+  overflow:hidden;
+  background:#000;
 }
 
 canvas {
   width:100%;
   height:100%;
   display:block;
+  touch-action:none;
 }
 
+/* -----------------------------
+   CONTROL SIDEBAR
+--------------------------------*/
 #sidebar {
   width:280px;
+  max-width:55vw;
+  box-sizing:border-box;
   background:#181818;
-  padding:10px;
+  padding:8px;
   overflow-y:auto;
+  -webkit-overflow-scrolling:touch; /* smooth iOS scrolling */
   font-size:12px;
 }
 
+/* ensure interactions don't zoom */
+input[type=range] {
+  width:100%;
+  touch-action:pan-y;
+}
+
+button {
+  padding:4px 6px;
+  font-size:12px;
+  margin-right:4px;
+  touch-action:manipulation;
+}
+
 .section {
-  margin-bottom:12px;
   border-bottom:1px solid #333;
-  padding-bottom:6px;
+  padding-bottom:8px;
+  margin-bottom:10px;
 }
 
 .section-title {
+  color:#bbb;
   text-transform:uppercase;
   font-size:11px;
-  color:#bbb;
-  margin-bottom:4px;
+  letter-spacing:0.05em;
+  margin-bottom:6px;
 }
 
-label {
-  display:block;
-  margin-top:6px;
-  font-size:11px;
+/* -----------------------------
+   RESPONSIVE BEHAVIOR
+--------------------------------*/
+@media (max-width: 768px) {
+  /* stack vertically on mobile */
+  #container {
+    flex-direction:column;
+  }
+
+  #sidebar {
+    width:100%;
+    height:40vh;
+    max-height:45vh;
+  }
+
+  #gl-wrap {
+    height:60vh;
+  }
 }
 
-input[type=range] { width:100%; }
+@media (max-width: 480px) {
+  /* tighter layout for small phones */
+  #sidebar {
+    font-size:11px;
+    padding:6px;
+  }
 
-button {
-  font-size:11px;
-  padding:4px 6px;
-  margin-right:4px;
+  button {
+    font-size:11px;
+  }
+
+  .section-title {
+    font-size:10px;
+  }
 }
