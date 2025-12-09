@@ -38,7 +38,6 @@
     text-transform:uppercase;
   }
 
-  /* FIX: label + slider alignment */
   #evf-ui label {
     display:block;
     margin-top:6px;
@@ -63,7 +62,6 @@
     <button id="evf-reset" style="width:80px;">Reset</button>
     <button id="diag-toggle" style="margin-left:6px;">Structure Map</button>
     <button id="mode-toggle" style="margin-left:6px;">Aesthetic Mode</button>
-    <button id="tone-toggle" style="margin-left:6px;">Aesthetic Mode</button>
 
     <div class="section-label">Noise</div>
     <label>Event Noise σₑ</label>
@@ -103,9 +101,9 @@
   </div>
 </div>
 
-<!-- ---------------------------------------
-     SIM SHADER INLINE
----------------------------------------- -->
+<!-- =========================================================
+     SIM SHADER
+========================================================= -->
 <script id="sim-shader" type="x-shader/x-fragment">
 precision highp float;
 
@@ -133,51 +131,51 @@ uniform vec2  uTexel;
 
 float fastTanh(float x){
     float e2 = exp(2.0*x);
-    return (e2 - 1.0) / (e2 + 1.0);
+    return (e2 - 1.0)/(e2 + 1.0);
 }
 
 float hash13(vec3 p){
     p = fract(p * 0.1031);
     p += dot(p, p.yzx + 33.33);
-    return fract((p.x + p.y) * p.z);
+    return fract((p.x+p.y)*p.z);
 }
 
 void main(){
     float vC = texture2D(uField, vUV).r;
     float uC = (vC - 0.5) * 2.0;
 
-    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r - 0.5) * 2.0;
-    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5) * 2.0;
-    float uD = (texture2D(uField, vUV + vec2(0.0,-uTexel.y)).r - 0.5) * 2.0;
-    float uU = (texture2D(uField, vUV + vec2(0.0, uTexel.y)).r - 0.5) * 2.0;
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5) * 2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5) * 2.0;
+    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5) * 2.0;
+    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5) * 2.0;
 
-    float lap = (uL + uR + uD + uU - 4.0 * uC);
+    float lap = (uL + uR + uD + uU - 4.0*uC);
 
-    float du_dx = 0.5 * (uR - uL);
-    float du_dy = 0.5 * (uU - uD);
-    float adv   = uG.x * du_dx + uG.y * du_dy;
+    float du_dx = 0.5*(uR - uL);
+    float du_dy = 0.5*(uU - uD);
+    float adv = uG.x * du_dx + uG.y * du_dy;
 
     vec2 d = vUV - uBasinCenter;
-    float w = exp(-dot(d,d) / (2.0 * uBasinRadius * uBasinRadius));
+    float w = exp(-dot(d,d)/(2.0*uBasinRadius*uBasinRadius));
     float attract = -uLambda * w * fastTanh(uC - uUstar);
 
-    float damp   = -uGamma * uC;
-    float rhythm = uRho * sin(uOmega * uTime) * exp(-2.0 * abs(uC));
+    float damp = -uGamma * uC;
+    float rhythm = uRho * sin(uOmega*uTime) * exp(-2.0*abs(uC));
 
-    float rhs = damp + uKappa * lap + uAlphaG * adv + attract + rhythm;
+    float rhs = damp + uKappa*lap + uAlphaG*adv + attract + rhythm;
 
-    float eta = hash13(vec3(gl_FragCoord.xy, uFrame)) * 2.0 - 1.0;
+    float eta = hash13(vec3(gl_FragCoord.xy, uFrame))*2.0 - 1.0;
     float noiseTerm = uSigma * sqrt(max(uDT,0.0)) * eta;
 
     float uNext = clamp(uC + uDT * rhs + noiseTerm, -1.0, 1.0);
 
-    gl_FragColor = vec4(0.5 + 0.5 * uNext, 0.0, 0.0, 1.0);
+    gl_FragColor = vec4(0.5 + 0.5*uNext, 0, 0, 1);
 }
 </script>
 
-<!-- ---------------------------------------
-     RENDER SHADER INLINE
----------------------------------------- -->
+<!-- =========================================================
+     RENDER SHADER — PURE + AESTHETIC
+========================================================= -->
 <script id="render-shader" type="x-shader/x-fragment">
 precision highp float;
 
@@ -185,99 +183,88 @@ varying vec2 vUV;
 
 uniform sampler2D uField;
 uniform float uShowStructure;
-uniform float uVisMode;  // 0 = PURE, 1 = AESTHETIC
-
+uniform float uVisMode;      // 0=PURE, 1=AESTHETIC
 uniform vec2  uBasinCenter;
 uniform float uBasinRadius;
 uniform vec2  uTexel;
 
 float fastTanh(float x){
     float e2 = exp(2.0*x);
-    return (e2-1.0)/(e2+1.0);
+    return (e2 - 1.0)/(e2 + 1.0);
 }
 
 void main(){
-
     float v = texture2D(uField, vUV).r;
     float u = (v - 0.5) * 2.0;
 
-    // --------------------------------------------------------
-    // MODE 0 — PURE (scientific)
-    // --------------------------------------------------------
+    // -----------------------------------------------------
+    // MODE 0 — PURE HARD GRAYSCALE
+    // -----------------------------------------------------
     if(uVisMode < 0.5){
-        float base = 0.5 + 0.5 * u;
-
-        gl_FragColor = vec4(vec3(base), 1.0);
+        float g = clamp(0.5 + 0.5*u, 0.0, 1.0);
+        gl_FragColor = vec4(vec3(g), 1.0);
         return;
     }
 
-    // --------------------------------------------------------
-    // MODE 1 — AESTHETIC MODE (designed to reveal dynamics)
-    // --------------------------------------------------------
+    // -----------------------------------------------------
+    // MODE 1 — AESTHETIC (clarity, dynamics, pop)
+    // -----------------------------------------------------
 
-    // 1. Controlled sigmoid contrast
-    float s = 0.5 + 0.5 * tanh(1.2 * u);
-
-    // 2. Midtone lift: reveals dynamics
+    float s = 0.5 + 0.5 * tanh(1.2*u);
     float c = pow(s, 0.75);
 
-    // 3. Gradient (edges = dynamics)
-    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
-    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r -0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r -0.5)*2.0;
+    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r -0.5)*2.0;
+    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r -0.5)*2.0;
 
-    float grad = length(vec2(uR - uL, uU - uD));
-    float def = smoothstep(0.015, 0.08, grad);   // clarity mask
+    float grad = length(vec2(uR-uL, uU-uD));
+    float def = smoothstep(0.015, 0.06, grad);
 
-    // 4. Warm structure color overlay
     vec3 baseColor = vec3(c);
     vec3 defColor = vec3(1.0, 0.65, 0.2);
+    vec3 color = mix(baseColor, defColor, 0.33 * def);
 
-    vec3 color = mix(baseColor, defColor, 0.25 * def);
-
-    // Optional vignette to focus
-    vec2 uv = vUV * 2.0 - 1.0;
-    float vign = 1.0 - 0.20 * dot(uv, uv);
+    vec2 uv = vUV*2.0 - 1.0;
+    float vign = 1.0 - 0.20*dot(uv,uv);
     color *= vign;
 
-    // 5. Basin mask (attractor region)
     vec2 d = vUV - uBasinCenter;
-    float mask = exp(-dot(d,d) / (2.0 * uBasinRadius * uBasinRadius));
-    color = mix(color, vec3(1.0, 0.3, 0.3), 0.25 * mask);
+    float mask = exp(-dot(d,d)/(2.0*uBasinRadius*uBasinRadius));
+    color = mix(color, vec3(1.0,0.3,0.3), 0.25 * mask);
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color,1.0);
 }
 </script>
-<!-- ---------------------------------------
-     FULL JS ENGINE (CLEAN)
----------------------------------------- -->
+
+<!-- =========================================================
+     JS ENGINE
+========================================================= -->
 <script>
 window.addEventListener("load", function(){
 
-  const SIM_FS    = document.getElementById("sim-shader").textContent;
-  const RENDER_FS = document.getElementById("render-shader").textContent;
+  const SIM_FS=document.getElementById("sim-shader").textContent;
+  const RENDER_FS=document.getElementById("render-shader").textContent;
 
-  const canvas = document.getElementById("glcanvas");
-  const gl = canvas.getContext("webgl", { alpha:false });
-  if(!gl) { alert("WebGL not supported"); return; }
+  const canvas=document.getElementById("glcanvas");
+  const gl=canvas.getContext("webgl",{alpha:false});
+  if(!gl){ alert("WebGL not supported"); return; }
 
   function resize(){
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.clientWidth*dpr;
-    const h = canvas.clientHeight*dpr;
-    canvas.width = w; canvas.height = h;
-    gl.viewport(0,0,w,h);
+    const dpr=window.devicePixelRatio||1;
+    canvas.width = canvas.clientWidth*dpr;
+    canvas.height= canvas.clientHeight*dpr;
+    gl.viewport(0,0,canvas.width,canvas.height);
   }
   resize();
-  window.addEventListener("resize", resize);
+  window.addEventListener("resize",resize);
 
   function compile(type,src){
-    const s = gl.createShader(type);
+    const s=gl.createShader(type);
     gl.shaderSource(s,src);
     gl.compileShader(s);
     if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
-      console.error(gl.getShaderInfoLog(s)); 
+      console.error(gl.getShaderInfoLog(s));
       console.log(src);
       return null;
     }
@@ -285,15 +272,13 @@ window.addEventListener("load", function(){
   }
 
   function makeProgram(vsSrc,fsSrc){
-    const vs = compile(gl.VERTEX_SHADER,vsSrc);
-    const fs = compile(gl.FRAGMENT_SHADER,fsSrc);
-    if(!vs || !fs) return null;
-
-    const p = gl.createProgram();
-    gl.attachShader(p,vs); 
+    const vs=compile(gl.VERTEX_SHADER,vsSrc);
+    const fs=compile(gl.FRAGMENT_SHADER,fsSrc);
+    if(!vs||!fs) return null;
+    const p=gl.createProgram();
+    gl.attachShader(p,vs);
     gl.attachShader(p,fs);
     gl.linkProgram(p);
-
     if(!gl.getProgramParameter(p,gl.LINK_STATUS)){
       console.error(gl.getProgramInfoLog(p));
       return null;
@@ -301,58 +286,55 @@ window.addEventListener("load", function(){
     return p;
   }
 
-  const VS = `
+  const VS=`
     attribute vec2 aPos;
     varying vec2 vUV;
     void main(){
-      vUV = (aPos + 1.0)*0.5;
-      gl_Position = vec4(aPos,0.0,1.0);
+      vUV = (aPos+1.0)*0.5;
+      gl_Position = vec4(aPos,0,1);
     }
   `;
 
-  const simProg    = makeProgram(VS, SIM_FS);
-  const renderProg = makeProgram(VS, RENDER_FS);
-  if(!simProg || !renderProg){
-    alert("Shader program failed to compile/link.");
-    return;
+  const simProg = makeProgram(VS,SIM_FS);
+  const renderProg = makeProgram(VS,RENDER_FS);
+  if(!simProg||!renderProg){
+    alert("Shader compile error."); return;
   }
 
-  const quad = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+  const quad=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,quad);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([
     -1,-1, 1,-1, -1,1,
      1,-1, 1,1, -1,1
-  ]), gl.STATIC_DRAW);
+  ]),gl.STATIC_DRAW);
 
-  const W = 128, H = 128;
+  const W=128, H=128;
 
   function initField(){
-    const a = new Uint8Array(W*H*4);
+    const a=new Uint8Array(W*H*4);
     for(let i=0;i<W*H;i++){
-      const x = Math.random()*2 - 1;
-      a[i*4]   = (0.5+0.5*x)*255; // R
-      a[i*4+1] = 0;               // G (unused)
-      a[i*4+2] = 0;               // B (unused)
-      a[i*4+3] = 255;             // A
+      const x=Math.random()*2-1;
+      a[i*4] = (0.5+0.5*x)*255;
+      a[i*4+3]=255;
     }
     return a;
   }
 
   function makeTex(data){
-    const t = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA,
-                  gl.UNSIGNED_BYTE, data);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const t=gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,
+                  gl.RGBA,gl.UNSIGNED_BYTE,data);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     return t;
   }
 
-  let fieldA = makeTex(initField());
-  let fieldB = makeTex(null);
-  const fbo = gl.createFramebuffer();
+  let fieldA=makeTex(initField());
+  let fieldB=makeTex(null);
+  const fbo=gl.createFramebuffer();
 
   const uiGamma=document.getElementById("ui-gamma");
   const uiSigma=document.getElementById("ui-sigma");
@@ -370,45 +352,37 @@ window.addEventListener("load", function(){
   const CsEl=document.getElementById("evf-coherence");
   const statusEl=document.getElementById("evf-status");
   const diagBtn=document.getElementById("diag-toggle");
-  const toneBtn=document.getElementById("tone-toggle");
   const resetBtn=document.getElementById("evf-reset");
-  const modeBtn = document.getElementById("mode-toggle");
-  let visMode = 0;
-  modeBtn.onclick = () => {
+  const modeBtn=document.getElementById("mode-toggle");
+
+  let visMode=0; // 0=PURE, 1=AESTHETIC
+  modeBtn.onclick=()=>{
     visMode = 1 - visMode;
     modeBtn.textContent = visMode ? "Pure Mode" : "Aesthetic Mode";
   };
-  let showStructure = false;
-  let toneMode = 1.0; // 1 = aesthetic, 0 = raw
 
-  diagBtn.onclick = ()=> { showStructure = !showStructure; };
-  toneBtn.onclick = ()=>{
-    toneMode = 1.0 - toneMode;
-    toneBtn.textContent = toneMode > 0.5 ? "Aesthetic Mode" : "Raw Mode";
-  };
+  let showStructure=false;
+  diagBtn.onclick = ()=> showStructure = !showStructure;
+
   resetBtn.onclick = ()=>{
-    fieldA = makeTex(initField());
-    fieldB = makeTex(null);
-    coherence = 1.0;
-    CsEl.textContent = "Cₛ ≈ 1.00";
+    fieldA=makeTex(initField());
+    fieldB=makeTex(null);
   };
 
-  let Gx = 0.3;
-  let noiseOn = -1, noiseOff = -1;
-  let sigmaEventTarget = +uiSigma.value;
+  let Gx=0.3;
+  let noiseOn=-1, noiseOff=-1;
+  let sigmaEventTarget=+uiSigma.value;
 
-  let coherence = 1;
-  const pixels = new Uint8Array(W*H*4);
+  let lastT=0, frame=0;
+  const pixels=new Uint8Array(W*H*4);
 
   function adsr(t,on,off,A,D,S,R){
-    if(on < 0.0) return 0.0;
-    const dt = t - on;
-
-    if(dt < A)   return dt/A;
-    if(dt < A+D) return 1.0 - (1.0-S)*((dt-A)/D);
-    if(off < 0.0 || t < off) return S;
-
-    return S * Math.exp(-(t-off)/R);
+    if(on<0) return 0.0;
+    const dt=t-on;
+    if(dt<A) return dt/A;
+    if(dt<A+D) return 1.0-(1.0-S)*((dt-A)/D);
+    if(off<0 || t<off) return S;
+    return S*exp(-(t-off)/R);
   }
 
   function updateCoherence(){
@@ -417,7 +391,7 @@ window.addEventListener("load", function(){
                             gl.TEXTURE_2D,fieldA,0);
     gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
 
-    let s=0, n=0;
+    let s=0,n=0;
     for(let y=1;y<H-1;y++){
       for(let x=1;x<W-1;x++){
         const i=(y*W+x)*4;
@@ -425,89 +399,85 @@ window.addEventListener("load", function(){
         const uR=(pixels[i+4]/255-0.5)*2;
         const uD=(pixels[i-W*4]/255-0.5)*2;
         const uU=(pixels[i+W*4]/255-0.5)*2;
-        const dx = 0.5*(uR-uL);
-        const dy = 0.5*(uU-uD);
-        s += Math.sqrt(dx*dx + dy*dy);
+        const dx=0.5*(uR-uL);
+        const dy=0.5*(uU-uD);
+        s+=sqrt(dx*dx+dy*dy);
         n++;
       }
     }
-    const avg = s/n;
-    coherence = 0.9*coherence + 0.1*(1 - Math.min(1, avg*2));
-    CsEl.textContent = "Cₛ ≈ " + coherence.toFixed(2);
+    const avg=s/n;
+    const c=1.0 - min(1.0,avg*2.0);
+    CsEl.textContent="Cₛ ≈ "+c.toFixed(2);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   }
-
-  let lastT = 0, frame = 0;
 
   function loop(t){
     requestAnimationFrame(loop);
     resize();
     frame++;
 
-    const time = t*0.001;
-    const dtw = lastT===0 ? 0.016 : (time-lastT);
-    lastT = time;
+    const time=t*0.001;
+    const dtw=lastT===0?0.016:(time-lastT);
+    lastT=time;
 
-    const gamma = +uiGamma.value;
-    const kappa = +uiKappa.value;
-    const rho   = +uiRho.value;
-    const omega = +uiOmega.value;
-    const lambda= +uiLambda.value;
-    const ustar = +uiUstar.value;
-    const R     = +uiBasin.value;
-    const beh   = +uiBeh.value;
-    const beta  = +uiBeta.value;
-    const chi   = +uiChi.value;
+    const gamma=+uiGamma.value;
+    const kappa=+uiKappa.value;
+    const rho=+uiRho.value;
+    const omega=+uiOmega.value;
+    const lambda=+uiLambda.value;
+    const ustar=+uiUstar.value;
+    const R=+uiBasin.value;
+    const beh=+uiBeh.value;
+    const beta=+uiBeta.value;
+    const chi=+uiChi.value;
 
-    const dtPhys = Math.min(dtw,0.05);
-    Gx += dtPhys * (-beta*Gx + chi*beh);
-    if(Math.abs(Gx)>5) Gx = 5*Math.sign(Gx);
+    const dtPhys=Math.min(dtw,0.05);
+    Gx+=dtPhys*(-beta*Gx + chi*beh);
+    if(abs(Gx)>5) Gx=5*sign(Gx);
 
-    const sigmaChronic = +uiSigma0.value;
-    const rawE = +uiSigma.value;
+    const sigmaChronic=+uiSigma0.value;
+    const rawE=+uiSigma.value;
 
     if(rawE !== sigmaEventTarget){
       if(rawE > sigmaEventTarget){
-        noiseOn = time; 
-        noiseOff = -1;
+        noiseOn=time; noiseOff=-1;
       } else if(noiseOn>=0 && noiseOff<0){
-        noiseOff = time;
+        noiseOff=time;
       }
-      sigmaEventTarget = rawE;
+      sigmaEventTarget=rawE;
     }
 
-    const sigmaEnv = adsr(time,noiseOn,noiseOff,0.05,0.15,0.0,0.25);
-    const sigma = sigmaChronic + sigmaEnv*sigmaEventTarget;
+    const sigmaEnv=adsr(time,noiseOn,noiseOff,0.05,0.15,0.0,0.25);
+    const sigma=sigmaChronic + sigmaEnv*sigmaEventTarget;
 
-    const denom = gamma + 8*kappa + lambda;
-    let dt = Math.min(2/denom, 1/Math.max(0.2,Math.abs(Gx)), 0.02);
-    if(!isFinite(dt) || dt<=0) dt=0.005;
+    const denom=gamma+8*kappa+lambda;
+    let dt=min(2/denom, 1/max(0.2,abs(Gx)), 0.02);
+    if(!isFinite(dt)||dt<=0) dt=0.005;
 
-    statusEl.textContent =
-      `dt ≈ ${dt.toFixed(4)}, γ=${gamma}, κ=${kappa}, λ=${lambda}`;
+    statusEl.textContent=`dt ≈ ${dt.toFixed(4)}, γ=${gamma}, κ=${kappa}, λ=${lambda}`;
 
-    // ---- SIM PASS ----
+    // SIM PASS
     gl.useProgram(simProg);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-                            gl.TEXTURE_2D, fieldB, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,
+                            gl.TEXTURE_2D,fieldB,0);
     gl.viewport(0,0,W,H);
 
-    const posLoc = gl.getAttribLocation(simProg, "aPos");
+    const posLoc=gl.getAttribLocation(simProg,"aPos");
     gl.enableVertexAttribArray(posLoc);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad);
     gl.vertexAttribPointer(posLoc,2,gl.FLOAT,false,0,0);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, fieldA);
+    gl.bindTexture(gl.TEXTURE_2D,fieldA);
     gl.uniform1i(gl.getUniformLocation(simProg,"uField"),0);
 
     gl.uniform1f(gl.getUniformLocation(simProg,"uDT"),dt);
     gl.uniform1f(gl.getUniformLocation(simProg,"uGamma"),gamma);
     gl.uniform1f(gl.getUniformLocation(simProg,"uKappa"),kappa);
     gl.uniform1f(gl.getUniformLocation(simProg,"uSigma"),sigma);
-    gl.uniform2f(gl.getUniformLocation(simProg,"uG"),Gx,0.0);
+    gl.uniform2f(gl.getUniformLocation(simProg,"uG"),Gx,0);
     gl.uniform1f(gl.getUniformLocation(simProg,"uAlphaG"),1.0);
     gl.uniform1f(gl.getUniformLocation(simProg,"uLambda"),lambda);
     gl.uniform1f(gl.getUniformLocation(simProg,"uUstar"),ustar);
@@ -526,7 +496,7 @@ window.addEventListener("load", function(){
 
     if(frame%12===0) updateCoherence();
 
-    // ---- RENDER PASS ----
+    // RENDER PASS
     gl.useProgram(renderProg);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     gl.viewport(0,0,canvas.width,canvas.height);
@@ -539,18 +509,17 @@ window.addEventListener("load", function(){
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,fieldA);
     gl.uniform1i(gl.getUniformLocation(renderProg,"uField"),0);
-    gl.uniform1f(gl.getUniformLocation(renderProg, "uVisMode"), visMode);
-    gl.uniform1f(gl.getUniformLocation(renderProg,"uShowStructure"), showStructure?1.0:0.0);
-    
-    gl.uniform2f(gl.getUniformLocation(renderProg,"uBasinCenter"), 0.5,0.5);
-    gl.uniform1f(gl.getUniformLocation(renderProg,"uBasinRadius"), R);
+
+    gl.uniform1f(gl.getUniformLocation(renderProg,"uVisMode"),visMode);
+    gl.uniform1f(gl.getUniformLocation(renderProg,"uShowStructure"),showStructure?1.0:0);
+    gl.uniform2f(gl.getUniformLocation(renderProg,"uBasinCenter"),0.5,0.5);
+    gl.uniform1f(gl.getUniformLocation(renderProg,"uBasinRadius"),R);
     gl.uniform2f(gl.getUniformLocation(renderProg,"uTexel"),1.0/W,1.0/H);
 
     gl.drawArrays(gl.TRIANGLES,0,6);
   }
 
   requestAnimationFrame(loop);
-
 });
 </script>
 
