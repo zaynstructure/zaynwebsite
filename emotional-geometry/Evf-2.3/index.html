@@ -531,64 +531,7 @@ void main() {
     gl_FragColor = vec4(color, 1.0);
 }
 `;
-  // PURE RENDER SHADER: grayscale + basin glow
-  //------------------------------------------------------
-// BOOSTED DIAGNOSTICS — Single Replacement Block
-//------------------------------------------------------
-
-// 1. Gradient |∇u|
-if (uShowGrad) {
-    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
-    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
-
-    float gmag = length(vec2(uR - uL, uU - uD));
-
-    // boost subtle gradients
-    float gradBoost = smoothstep(0.0, 0.04, gmag) * 1.6;
-    color = mix(color, colGrad, alpha * gradBoost);
-}
-
-// 2. Laplacian ∇²u
-if (uShowLap) {
-    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
-    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
-
-    float lap = uL + uR + uU + uD - 4.0 * u;
-
-    float lapBoost = clamp(abs(lap) * 2.8, 0.0, 1.0);
-    color = mix(color, colLap, alpha * lapBoost);
-}
-
-// 3. Drift influence
-if (uShowDrift) {
-    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-
-    float projBoost = clamp(abs(uR - uL) * 3.0, 0.0, 1.0);
-    color = mix(color, colDrift, alpha * projBoost);
-}
-
-// 4. Attractor influence
-if (uShowAttractor) {
-    vec2 d = vUV - uBasinCenter;
-    float w = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
-
-    float attractBoost = pow(w, 0.6);
-    color = mix(color, colAttractor, alpha * attractBoost);
-}
-
-// 5. Basin glow
-if (uShowBasin) {
-    vec2 d = vUV - uBasinCenter;
-    float glow = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
-
-    float glowBoost = pow(glow, 0.55);
-    color = mix(color, colBasin, alpha * glowBoost);
-}
+ 
   // -----------------------
   // Programs
   // -----------------------
