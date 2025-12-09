@@ -174,9 +174,43 @@
 
     <label>Drift Gain χ (how strongly behavior drives G)</label>
     <input id="ui-chi" type="range" min="0" max="3" step="0.01" value="1.0" style="width:100%;">
+<!-- =============== -->
+<!-- Diagnostics UI -->
+<!-- =============== -->
+<div class="section-label"
+     style="cursor:pointer; margin-top:14px;"
+     id="diag-header">Diagnostics ▼</div>
 
+<div id="diag-panel" style="display:none; margin-left:6px;">
+
+  <label><input type="checkbox" id="diag-grad"> Gradient |∇u|</label>
+  <label><input type="checkbox" id="diag-lap"> Laplacian ∇²u</label>
+  <label><input type="checkbox" id="diag-drift"> Drift Influence</label>
+  <label><input type="checkbox" id="diag-attractor"> Attractor Influence</label>
+  <label><input type="checkbox" id="diag-basin"> Basin Glow</label>
+  <label><input type="checkbox" id="diag-coherence"> Show Coherence Number</label>
+
+</div>
+
+
+
+    
     <div id="evf-status">dt ≈ 0.0100, γ = 0.80, κ = 0.25, λ = 0.70, |G| ≈ 0.30</div>
   </div>
+<script>
+document.getElementById("diag-header").onclick = function(){
+  const p = document.getElementById("diag-panel");
+  if (p.style.display === "none"){
+    p.style.display = "block";
+    this.textContent = "Diagnostics ▲";
+  } else {
+    p.style.display = "none";
+    this.textContent = "Diagnostics ▼";
+  }
+};
+</script>
+
+  
 </div>
 
 <script>
@@ -200,7 +234,13 @@ window.addEventListener('load', function () {
   const uiBehavior = document.getElementById('ui-behavior');
   const uiBeta     = document.getElementById('ui-beta');
   const uiChi      = document.getElementById('ui-chi');
-
+// Diagnostics checkboxes
+const diagGrad      = document.getElementById('diag-grad');
+const diagLap       = document.getElementById('diag-lap');
+const diagDrift     = document.getElementById('diag-drift');
+const diagAttractor = document.getElementById('diag-attractor');
+const diagBasin     = document.getElementById('diag-basin');
+const diagCoherence = document.getElementById('diag-coherence');
   const resetBtn  = document.getElementById('evf-reset');
   const statusEl  = document.getElementById('evf-status');
   const presetDescEl = document.getElementById('evf-preset-desc');
@@ -382,6 +422,19 @@ window.addEventListener('load', function () {
   const RENDER_FS = `
   precision highp float;
   varying vec2 vUV;
+uniform sampler2D uField;
+
+uniform bool uShowGrad;
+uniform bool uShowLap;
+uniform bool uShowDrift;
+uniform bool uShowAttractor;
+uniform bool uShowBasin;
+uniform bool uShowCoherence;
+
+uniform vec2  uBasinCenter;
+uniform float uBasinRadius;
+uniform vec2  uTexel;
+  
 
   uniform sampler2D uField;
   uniform vec2  uBasinCenter;
@@ -406,6 +459,63 @@ window.addEventListener('load', function () {
     float baseVal = clamp(g * vign, 0.0, 1.0);
     vec3 baseColor = vec3(baseVal);
 
+// ----------------------------
+// Diagnostic overlays
+// ----------------------------
+vec3 color = baseColor;
+float alpha = 0.25;
+
+// pastel colors
+vec3 colGrad      = vec3(0.95);
+vec3 colLap       = vec3(0.60, 0.75, 0.95);
+vec3 colDrift     = vec3(0.95, 0.80, 0.45);
+vec3 colAttractor = vec3(0.95, 0.60, 0.60);
+vec3 colBasin     = vec3(1.0, 0.7, 0.8);
+
+// 1. Gradient
+if (uShowGrad) {
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
+    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
+    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
+    float gmag = length(vec2(uR-uL, uU-uD));
+    color = mix(color, colGrad, alpha * smoothstep(0.0,1.0,gmag*2.0));
+}
+
+// 2. Laplacian
+if (uShowLap) {
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
+    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
+    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
+    float lap = uL + uR + uU + uD - 4.0*u;
+    color = mix(color, colLap, alpha * clamp(abs(lap),0.0,1.0));
+}
+
+// 3. Drift influence
+if (uShowDrift) {
+    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
+    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
+    float proj = abs(uR - uL);
+    color = mix(color, colDrift, alpha * clamp(proj,0.0,1.0));
+}
+
+// 4. Attractor influence
+if (uShowAttractor) {
+    vec2 d = vUV - uBasinCenter;
+    float w = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
+    color = mix(color, colAttractor, alpha * w);
+}
+
+// 5. Basin glow
+if (uShowBasin) {
+    vec2 d = vUV - uBasinCenter;
+    float glow = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
+    color = mix(color, colBasin, alpha * glow);
+}
+
+
+
     // basin glow (visual-only)
     vec2 d = vUV - uBasinCenter;
     float dist2 = dot(d, d);
@@ -416,7 +526,7 @@ window.addEventListener('load', function () {
     float basinAlpha = 0.35 * glowMask;
 
     vec3 finalColor = mix(baseColor, basinColor, basinAlpha);
-    gl_FragColor = vec4(finalColor, 1.0);
+    gl_FragColor = vec4(color, 1.0);
   }`;
 
   // -----------------------
@@ -869,6 +979,16 @@ window.addEventListener('load', function () {
     gl.bindTexture(gl.TEXTURE_2D, fieldA);
     gl.uniform1i(gl.getUniformLocation(renderProgram,'uField'), 0);
 
+// Diagnostics toggles → render shader
+gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowGrad'),      diagGrad.checked);
+gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowLap'),       diagLap.checked);
+gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowDrift'),     diagDrift.checked);
+gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowAttractor'), diagAttractor.checked);
+gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowBasin'),     diagBasin.checked);
+gl.uniform1i(gl.getUniformLocation(renderProgram,'uShowCoherence'), diagCoherence.checked);
+
+
+    
     gl.uniform2f(gl.getUniformLocation(renderProgram,'uBasinCenter'), basinCenterX, basinCenterY);
     gl.uniform1f(gl.getUniformLocation(renderProgram,'uBasinRadius'),  basinR);
 
