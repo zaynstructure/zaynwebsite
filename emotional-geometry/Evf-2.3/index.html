@@ -132,13 +132,8 @@
     <!-- Collapsible diagnostics panel (initially hidden) -->
     <div id="diag-panel" style="display:none; padding-left:4px;">
 
-      <label><input type="checkbox" id="diag-grad"> Gradient |∇u|</label>
-      <label><input type="checkbox" id="diag-lap"> Laplacian ∇²u</label>
-      <label><input type="checkbox" id="diag-drift"> Drift Influence</label>
-      <label><input type="checkbox" id="diag-attractor"> Attractor Influence</label>
-      <label><input type="checkbox" id="diag-basin"> Basin Glow</label>
-      <label><input type="checkbox" id="diag-coherence"> Show Coherence Number</label>
-
+      <label><input type="checkbox" id="diag-grad"> Structure Map</label>
+      
     </div>
 
     <!-- Presets -->
@@ -479,17 +474,10 @@ float GRAD_GAIN = 1.1;   // was 1.8
 float LAP_GAIN  = 1.6;   // was 3.0
 float DRIFT_GAIN= 1.7;   // was 3.0
 float ATTR_GAIN = 0.50;  // was 0.60 exponent
-float BASIN_GAIN= 0.45;  // softer basin influence
-
-      //------------------------------------------------------
-      // BOOSTED DIAGNOSTICS
-      //------------------------------------------------------
-
-      // ----------------------------------------------------
-// MULTI-BAND GRADIENT (EVF-true diagnostic)
-// ----------------------------------------------------
+float BASIN_GAIN= 0.45;  // softer basin -------------------------------------
 if (uShowGrad) {
 
+    // --- 1. gradient magnitude (local tension) ---
     float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r - 0.5)*2.0;
     float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5)*2.0;
     float uD = (texture2D(uField, vUV + vec2(0.0,-uTexel.y)).r - 0.5)*2.0;
@@ -497,75 +485,34 @@ if (uShowGrad) {
 
     float gmag = length(vec2(uR - uL, uU - uD));
 
-    float lowBand  = smoothstep(0.00, 0.015, gmag)
-                   * (1.0 - smoothstep(0.015, 0.035, gmag));
+    // soft boost for gradient tension
+    float gradSoft = smoothstep(0.00, 0.04, gmag);
 
-    float midBand  = smoothstep(0.015, 0.035, gmag)
-                   * (1.0 - smoothstep(0.035, 0.070, gmag));
+    // --- 2. drift influence (asymmetry along x) ---
+    float driftMag = abs(uR - uL);
+    float driftSoft = smoothstep(0.0, 0.04, driftMag);
 
-    float highBand = smoothstep(0.035, 0.090, gmag);
+    // --- 3. attractor influence (basin pull) ---
+    vec2 d = vUV - uBasinCenter;
+    float w = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
+    float attractSoft = pow(w, 0.6);
 
-    vec3 colLow  = vec3(0.78, 0.72, 1.00);
-    vec3 colMid  = vec3(0.38, 0.94, 0.82);
-    vec3 colHigh = vec3(1.00, 0.74, 0.40);
+    // --- color palette (soft + dreamy) ---
+    vec3 colGrad      = vec3(0.70, 0.75, 1.00); // soft blue
+    vec3 colDrift     = vec3(1.00, 0.85, 0.55); // soft amber
+    vec3 colAttractor = vec3(1.00, 0.60, 0.75); // rose
 
-    float A = 0.22;
+    // --- composite strength ---
+    float A = 0.22;  // global subtlety
 
     vec3 overlay =
-          colLow  * lowBand +
-          colMid  * midBand +
-          colHigh * highBand;
+          colGrad      * gradSoft +
+          colDrift     * driftSoft +
+          colAttractor * attractSoft;
 
-    color = mix(color, overlay, A * (lowBand + midBand + highBand));
+    color = mix(color, overlay, A * (gradSoft + driftSoft + attractSoft));
 }
-
-      // 2. Laplacian ∇²u
-      if (uShowLap) {
-          float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r - 0.5)*2.0;
-          float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5)*2.0;
-          float uD = (texture2D(uField, vUV + vec2(0.0,-uTexel.y)).r - 0.5)*2.0;
-          float uU = (texture2D(uField, vUV + vec2(0.0, uTexel.y)).r - 0.5)*2.0;
-
-          float lap = uL + uR + uU + uD - 4.0 * u;
-          float lapBoost = clamp(abs(lap) * LAP_GAIN, 0.0, 1.0);
-
-          color = mix(color, colLap, alpha * lapBoost);
-      }
-
-      // 3. Drift influence (projected gradient along x)
-      if (uShowDrift) {
-          float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0.0)).r - 0.5)*2.0;
-          float uR = (texture2D(uField, vUV + vec2( uTexel.x,0.0)).r - 0.5)*2.0;
-
-          float proj = abs(uR - uL);
-          float projBoost = clamp(abs(uR - uL) * DRIFT_GAIN, 0.0, 1.0);
-
-          color = mix(color, colDrift, alpha * projBoost);
-      }
-
-      // 4. Attractor influence
-      if (uShowAttractor) {
-          vec2 d = vUV - uBasinCenter;
-          float w = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
-
-          float attractBoost = pow(w, ATTR_GAIN);
-
-          color = mix(color, colAttractor, alpha * attractBoost);
-      }
-
-      // 5. Basin glow
-      if (uShowBasin) {
-          vec2 d = vUV - uBasinCenter;
-          float glow = exp(-dot(d,d) / (2.0 * uBasinRadius*uBasinRadius));
-
-          float glowBoost = pow(glow, BASIN_GAIN);
-
-          color = mix(color, colBasin, alpha * glowBoost);
-      }
-
-      // uShowCoherence is currently unused in shader (coherence is shown in UI),
-      // but we keep the uniform for future overlay logic.
-
+    
       gl_FragColor = vec4(color, 1.0);
   }
   `;
