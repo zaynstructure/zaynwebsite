@@ -541,7 +541,7 @@ window.addEventListener("load", function(){
     gl.uniform1i(gl.getUniformLocation(renderProg,"uField"),0);
     gl.uniform1f(gl.getUniformLocation(renderProg, "uVisMode"), visMode);
     gl.uniform1f(gl.getUniformLocation(renderProg,"uShowStructure"), showStructure?1.0:0.0);
-    gl.uniform1f(gl.getUniformLocation(renderProg,"uToneMode"), toneMode);
+    
     gl.uniform2f(gl.getUniformLocation(renderProg,"uBasinCenter"), 0.5,0.5);
     gl.uniform1f(gl.getUniformLocation(renderProg,"uBasinRadius"), R);
     gl.uniform2f(gl.getUniformLocation(renderProg,"uTexel"),1.0/W,1.0/H);
