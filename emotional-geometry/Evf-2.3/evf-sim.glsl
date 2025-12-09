@@ -3,24 +3,10 @@ precision highp float;
 varying vec2 vUV;
 
 uniform sampler2D uField;
+uniform float uShowStructure;
 
-uniform float uDT;
-uniform float uGamma;
-uniform float uKappa;
-uniform float uSigma;      // combined chronic + event
-uniform vec2  uG;
-uniform float uAlphaG;
-
-uniform float uLambda;
-uniform float uUstar;
 uniform vec2  uBasinCenter;
 uniform float uBasinRadius;
-
-uniform float uRho;
-uniform float uOmega;
-uniform float uTime;
-
-uniform float uFrame;
 uniform vec2  uTexel;
 
 float fastTanh(float x){
@@ -28,43 +14,45 @@ float fastTanh(float x){
     return (e2-1.0)/(e2+1.0);
 }
 
-float hash13(vec3 p){
-    p = fract(p * 0.1031);
-    p += dot(p, p.yzx+33.33);
-    return fract((p.x+p.y)*p.z);
-}
-
 void main(){
-    float vC = texture2D(uField, vUV).r;
-    float uC = (vC - 0.5) * 2.0;
+    // Read normalized field value
+    float v = texture2D(uField, vUV).r;
+    float u = (v - 0.5) * 2.0;
 
-    float uL = (texture2D(uField, vUV + vec2(-uTexel.x,0)).r - 0.5)*2.0;
-    float uR = (texture2D(uField, vUV + vec2( uTexel.x,0)).r - 0.5)*2.0;
-    float uD = (texture2D(uField, vUV + vec2(0,-uTexel.y)).r - 0.5)*2.0;
-    float uU = (texture2D(uField, vUV + vec2(0, uTexel.y)).r - 0.5)*2.0;
+    // EVF 2.1 dreamy tone mapping (use fastTanh, not tanh)
+    float g = 0.5 + 0.5 * fastTanh(0.6 * u);
 
-    // Laplacian
-    float lap = (uL+uR+uD+uU - 4.0*uC);
+    // Soft vignette
+    vec2 uv = vUV * 2.0 - 1.0;
+    float vign = 1.0 - 0.25 * dot(uv, uv);
 
-    // Drift advection
-    float du_dx = 0.5 * (uR - uL);
-    float du_dy = 0.5 * (uU - uD);
-    float adv   = uG.x * du_dx + uG.y * du_dy;
+    vec3 color = vec3(clamp(g * vign, 0.0, 1.0));
 
-    // Attractor weight
+    // -------------------------------
+    // Structure Map (toggle)
+    // -------------------------------
+    if (uShowStructure > 0.5) {
+        float uL = (texture2D(uField, vUV + vec2(-uTexel.x, 0.0)).r - 0.5) * 2.0;
+        float uR = (texture2D(uField, vUV + vec2( uTexel.x, 0.0)).r - 0.5) * 2.0;
+        float uD = (texture2D(uField, vUV + vec2(0.0, -uTexel.y)).r - 0.5) * 2.0;
+        float uU = (texture2D(uField, vUV + vec2(0.0,  uTexel.y)).r - 0.5) * 2.0;
+
+        float grad = length(vec2(uR - uL, uU - uD));
+        float gradSoft = smoothstep(0.00, 0.04, grad);
+
+        vec3 structureColor = mix(
+            vec3(0.7, 0.75, 1.0),   // gentle blue
+            vec3(1.0, 0.85, 0.55),  // amber
+            gradSoft
+        );
+
+        color = mix(color, structureColor, 0.18 * gradSoft);
+    }
+
+    // Attractor glow (subtle)
     vec2 d = vUV - uBasinCenter;
-    float w = exp(-dot(d,d)/(2.0*uBasinRadius*uBasinRadius));
-    float attract = -uLambda * w * fastTanh(uC - uUstar);
+    float mask = exp(-dot(d, d) / (2.0 * uBasinRadius * uBasinRadius));
+    color = mix(color, vec3(1.0, 0.3, 0.3), 0.35 * mask);
 
-    float damp   = -uGamma * uC;
-    float rhythm = uRho * sin(uOmega*uTime) * exp(-2.0*abs(uC));
-
-    float rhs = damp + uKappa*lap + uAlphaG*adv + attract + rhythm;
-
-    float eta = hash13(vec3(gl_FragCoord.xy, uFrame)) * 2.0 - 1.0;
-    float noiseTerm = uSigma * sqrt(max(uDT,0.0)) * eta;
-
-    float uNext = clamp(uC + uDT*rhs + noiseTerm, -1.0, 1.0);
-
-    gl_FragColor = vec4(0.5 + 0.5*uNext, 0,0,1);
+    gl_FragColor = vec4(color, 1.0);
 }
