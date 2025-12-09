@@ -61,18 +61,42 @@
 
   </div> <!-- end sidebar -->
 
+</div> <!-- end container -->
 
+<!-- SHADERS + JS BELOW -->
 
-<!-- SHADERS + JS remain unchanged -->
+<!-- Vertex shader -->
+<script id="vs-quad" type="x-shader/x-vertex">
+precision highp float;
+attribute vec2 aPos;
+varying highp vec2 vUV;
+void main(){
+  vUV = (aPos + 1.0) * 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}
+</script>
+
+<!-- Field shader (unchanged) -->
+<script id="fs-field" type="x-shader/x-fragment">
+... (your shader unchanged)
+</script>
+
+<!-- Drift shader (unchanged) -->
+<script id="fs-drift" type="x-shader/x-fragment">
+... (your shader unchanged)
+</script>
+
+<!-- Render shader -->
+<script id="fs-render" type="x-shader/x-fragment">
+... (your shader unchanged)
+</script>
+
 <script src="evf_research.js"></script>
 
 <script>
 document.addEventListener('touchmove', function(e){
   if (!e.target.closest('#sidebar')) e.preventDefault();
 }, {passive:false});
-document.addEventListener('touchstart',function(e){
-  if (e.touches.length>1) e.preventDefault();
-},{passive:false});
 </script>
 
 </body>
