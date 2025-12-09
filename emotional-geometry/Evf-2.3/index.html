@@ -307,7 +307,7 @@ window.addEventListener("load", async function(){
 
     // Chronic noise low-pass
     const rawC = parseFloat(uiSigma0.value);
-    sigmaChronic += (dtw / tauChronic) * (rawC - sigmaChronic);
+    sigmaChronic = rawC;
 
     // Event noise ADSR
     const rawE = parseFloat(uiSigma.value);
