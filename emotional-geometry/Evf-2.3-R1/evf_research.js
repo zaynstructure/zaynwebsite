@@ -49,14 +49,13 @@ btnPause.onclick = ()=>{
 // ======================================================
 document.addEventListener('touchmove', function(e){
   const sidebar = document.getElementById('sidebar');
-  if (sidebar.contains(e.target)) {
-    // allow scrolling inside sidebar
-    return;
-  }
-  // block scrolling outside sidebar
+
+  // allow scrolling inside the bottom panel
+  if (sidebar.contains(e.target)) return;
+
+  // block page scroll outside
   e.preventDefault();
 }, {passive:false});
-
 // ======================================================
 //  GLSL HELPERS
 // ======================================================
