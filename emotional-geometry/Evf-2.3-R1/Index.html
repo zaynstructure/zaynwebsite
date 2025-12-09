@@ -3,12 +3,16 @@
 <head>
 <meta charset="utf-8"/>
 <title>EVF-2.3 · Research Mode (R1)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="css/style.css">
-  <meta name="viewport"
+
+<!-- Proper mobile-safe viewport -->
+<meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<!-- Mobile web-app support -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
@@ -56,12 +60,23 @@
   </div>
 </div>
 
-  
 <script src="evf_research.js"></script>
-  <script>
-document.body.addEventListener('touchmove', function(e){
-  if(!e.target.closest('#sidebar')) e.preventDefault();
+
+<!-- Allow scrolling ONLY inside sidebar -->
+<script>
+document.addEventListener('touchmove', function(e){
+  if (!e.target.closest('#sidebar')) {
+    e.preventDefault();
+  }
 }, {passive:false});
 </script>
+
+<!-- Prevent Safari zoom on multi-touch -->
+<script>
+document.addEventListener('touchstart', function(e) {
+  if (e.touches.length > 1) e.preventDefault();
+}, {passive:false});
+</script>
+
 </body>
 </html>
