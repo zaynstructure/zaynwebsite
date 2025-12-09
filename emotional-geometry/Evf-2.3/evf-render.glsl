@@ -5,7 +5,7 @@ varying vec2 vUV;
 uniform sampler2D uField;
 uniform float uShowStructure;
 uniform vec2  uTexel;
-
+uniform float uAesthetic;
 void main(){
 
     // raw field → [-1,1]
