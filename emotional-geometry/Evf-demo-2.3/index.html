@@ -149,44 +149,48 @@ void main() {
 }
 `;
 
-const FRAG_SRC = `#version 300 es
+const FRAG_SRC = #version 300 es
 precision highp float;
+
 in vec2 v_uv;
 out vec4 outColor;
 
+// --- EVF uniforms ---
+// field + geometry
 uniform sampler2D u_field;
-uniform vec2  u_resolution;
-uniform float u_dt;
-uniform float u_kappa;
-uniform float u_gamma;
-uniform float u_lambda;
-uniform float u_rho;
-uniform float u_omega;
-uniform float u_time;
-uniform float u_sigma;
-uniform float u_alphaG;
-uniform float u_uStar;
-uniform float u_R;
-uniform vec2  u_G;
+uniform vec2  u_resolution;   // (W, H)
 
+// time + step
+uniform float u_dt;           // Δt
+uniform float u_time;         // t
+
+// core parameters
+uniform float u_kappa;        // diffusion κ
+uniform float u_gamma;        // damping γ
+uniform float u_lambda;       // attractor λ
+uniform float u_uStar;        // baseline u*
+uniform float u_rho;          // rhythm amplitude ρ
+uniform float u_omega;        // rhythm frequency ω
+uniform float u_sigma;        // total noise σ(t)
+uniform float u_alphaG;       // drift coupling α_g
+uniform float u_R;            // basin radius R
+uniform vec2  u_G;            // global drift vector G
+
+// ------------------------------------------------------------
+// Pseudo-random hash in [0,1]
+// ------------------------------------------------------------
 float rand(vec2 co) {
-  // simple hash-based pseudo-random
   return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-void main(){
+void main() {
   vec2 texel = 1.0 / u_resolution;
 
-  // periodic neighbours
-  vec2 uvL = v_uv + vec2(-texel.x, 0.0);
-  vec2 uvR = v_uv + vec2( texel.x, 0.0);
-  vec2 uvU = v_uv + vec2(0.0, -texel.y);
-  vec2 uvD = v_uv + vec2(0.0,  texel.y);
-
-  uvL = fract(uvL);
-  uvR = fract(uvR);
-  uvU = fract(uvU);
-  uvD = fract(uvD);
+  // --- Periodic neighbours (EVF domain Ω with periodic BCs) ---
+  vec2 uvL = fract(v_uv + vec2(-texel.x, 0.0));
+  vec2 uvR = fract(v_uv + vec2( texel.x, 0.0));
+  vec2 uvU = fract(v_uv + vec2(0.0, -texel.y));
+  vec2 uvD = fract(v_uv + vec2(0.0,  texel.y));
 
   float uC = texture(u_field, v_uv).r;
   float uL = texture(u_field, uvL).r;
@@ -194,32 +198,61 @@ void main(){
   float uU = texture(u_field, uvU).r;
   float uD = texture(u_field, uvD).r;
 
-  float lap = (uL + uR + uU + uD - 4.0*uC);
+  // --- Laplacian: κ ∇²u ---
+  float lap = (uL + uR + uU + uD - 4.0 * uC);
 
-  // local gradient for drift
+  // --- Local gradient for drift term G·∇u ---
   float gx = (uR - uL) * 0.5;
   float gy = (uD - uU) * 0.5;
-  float drift = u_alphaG * dot(u_G, vec2(gx, gy));
 
-  // radial Gaussian basin around center
+  // Dot with global drift vector G
+  float driftRaw = dot(u_G, vec2(gx, gy));
+
+  // Stabilized drift: keep it EVF-consistent but bounded
+  // EVF: α_g G·∇u  → here: α_g * tanh(G·∇u)
+  float drift = u_alphaG * tanh(driftRaw);
+
+  // --- Attractor basin w(x): Gaussian around center, stabilized ---
   vec2 p = v_uv - vec2(0.5);
   float r2 = dot(p, p);
-  float w = exp(-r2 / (2.0 * u_R * u_R));
 
+  // Avoid division by ~0 when R → 0
+  // EVF: w(x) = exp(-r² / (2 R²))
+  float R2 = max(u_R * u_R, 1e-4);
+  float w  = exp(-r2 / (2.0 * R2));
+
+  // Attractor: -λ w(x) tanh(u - u*)
   float attract = -u_lambda * w * tanh(uC - u_uStar);
-  float damp    = -u_gamma * uC;
-  float rhythm  = u_rho * sin(u_omega * u_time);
 
-  // pseudo-random noise in [-1,1]
-  float rnd = rand(v_uv * u_resolution + u_time * 123.4);
-  float noise = u_sigma * (2.0*rnd - 1.0) * sqrt(u_dt);
+  // Damping: -γ u
+  float damp = -u_gamma * uC;
 
-  float du = u_kappa*lap + damp + attract + drift + rhythm + noise;
+  // Rhythm: ρ sin(ω t)
+  float rhythm = u_rho * sin(u_omega * u_time);
+
+  // --- Noise: σ(t) ξ(x,t), with SPDE scaling √Δt ---
+  float eps = max(u_dt, 1e-6);
+  float rnd = rand(v_uv * u_resolution + u_time * 123.456);
+  float noise = u_sigma * (2.0 * rnd - 1.0) * sqrt(eps);
+
+  // --- EVF PDE core: u_t = κ∇²u + drift + damp + attract + rhythm + noise ---
+  float du = u_kappa * lap
+           + drift
+           + damp
+           + attract
+           + rhythm
+           + noise;
+
   float uNext = uC + u_dt * du;
 
+  // Optional soft clamp (safety only, not strictly necessary if parameters are sane)
+  // Keeps values in a reasonable band without hard clipping dynamics.
+  // Comment out if you want completely unbounded evolution.
+  uNext = clamp(uNext, -3.0, 3.0);
+
+  // Store in .r channel; other channels unused but kept stable
   outColor = vec4(uNext, 0.0, 0.0, 1.0);
 }
-`;
 
 // ---- JS / WEBGL SETUP ----
 (function(){
