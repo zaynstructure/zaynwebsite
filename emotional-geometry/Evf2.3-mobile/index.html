@@ -2,88 +2,87 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF-2.3 · Research Mode (Mobile Core)</title>
+<title>EVF-2.3 · Mobile CPU Sandbox</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
   html, body {
     margin:0; padding:0;
     background:#111; color:#eee;
-    font-family:system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family:system-ui, sans-serif;
     height:100%; overflow:hidden;
   }
+
   #container {
     display:flex;
     flex-direction:row;
     height:100%;
   }
-  #gl-wrap {
+
+  #canvas-wrap {
     flex:1 1 auto;
-    position:relative;
     background:#000;
-    min-height:220px;
+    min-height:250px;
   }
-  canvas {
+
+  #fieldCanvas {
     width:100%;
     height:100%;
+    image-rendering: pixelated;
     display:block;
+    background:#000;
   }
+
   #sidebar {
     flex:0 0 280px;
-    box-sizing:border-box;
     padding:10px;
     background:#181818;
     overflow-y:auto;
     font-size:12px;
   }
+
   .section {
     margin-bottom:10px;
     border-bottom:1px solid #333;
     padding-bottom:6px;
   }
+
   .section-title {
     text-transform:uppercase;
-    letter-spacing:0.05em;
     font-size:11px;
     color:#aaa;
-    margin-top:4px;
-    margin-bottom:2px;
+    margin-bottom:4px;
   }
+
   label {
     display:block;
     margin-top:4px;
     font-size:11px;
   }
+
   input[type=range] { width:100%; }
-  #status {
-    font-size:11px;
-    margin-top:6px;
-    color:#ccc;
-  }
-  #cs-label {
-    font-size:11px;
-    margin-top:4px;
-    color:#ccc;
-  }
+
   button {
     font-size:11px;
     padding:3px 6px;
-    margin-right:4px;
-    margin-top:4px;
+    margin-right:5px;
   }
 
-  /* Mobile: stack vertically */
+  #status, #cs-label {
+    margin-top:6px;
+    font-size:11px;
+  }
+
+  /* Mobile layout */
   @media (max-width: 700px) {
     #container {
       flex-direction:column;
     }
     #sidebar {
       width:100%;
-      flex:0 0 auto;
       max-height:40vh;
     }
-    #gl-wrap {
-      flex:1 1 auto;
+    #canvas-wrap {
       min-height:300px;
     }
   }
@@ -92,8 +91,8 @@
 <body>
 
 <div id="container">
-  <div id="gl-wrap">
-    <canvas id="glcanvas"></canvas>
+  <div id="canvas-wrap">
+    <canvas id="fieldCanvas"></canvas>
   </div>
 
   <div id="sidebar">
@@ -101,7 +100,7 @@
       <button id="btn-reset">Reset</button>
       <button id="btn-pause">Pause</button>
       <div id="status">dt ≈ …</div>
-      <div id="cs-label">Cₛ ≈ —</div>
+      <div id="cs-label">Cₛ ≈ …</div>
     </div>
 
     <div class="section">
@@ -112,7 +111,7 @@
       <label>Damping γ
         <input id="p-gamma" type="range" min="0.1" max="3" step="0.01" value="0.8">
       </label>
-      <label>Attractor Strength λ
+      <label>Attractor λ
         <input id="p-lambda" type="range" min="0" max="2" step="0.01" value="0.7">
       </label>
       <label>Baseline u*
@@ -121,437 +120,153 @@
       <label>Basin Radius R
         <input id="p-basinR" type="range" min="0.03" max="0.4" step="0.005" value="0.12">
       </label>
-      <label>Rhythm Amplitude ρ
+      <label>Rhythm ρ
         <input id="p-rho" type="range" min="0" max="1" step="0.01" value="0.3">
       </label>
-      <label>Rhythm Frequency ω
+      <label>ω
         <input id="p-omega" type="range" min="0.1" max="3" step="0.01" value="0.8">
       </label>
     </div>
 
     <div class="section">
-      <div class="section-title">Noise Parameters</div>
-      <label>Chronic σ₀ target
+      <div class="section-title">Noise</div>
+      <label>σ₀
         <input id="p-sigma0" type="range" min="0" max="0.5" step="0.01" value="0.05">
       </label>
-      <label>Event σₑ target
+      <label>σₑ
         <input id="p-sigmaE" type="range" min="0" max="1" step="0.01" value="0.15">
       </label>
     </div>
   </div>
 </div>
 
-<!-- ===================== SHADERS ===================== -->
-
-<script id="vs-quad" type="x-shader/x-vertex">
-attribute vec2 aPos;
-varying vec2 vUV;
-void main(){
-  vUV = (aPos + 1.0) * 0.5;
-  gl_Position = vec4(aPos, 0.0, 1.0);
-}
-</script>
-
-<!-- FIELD SIM: κ∇²u - γu - λw tanh(u-u*) + ρ sin(ωt) + σ(t) ξ -->
-<script id="fs-field" type="x-shader/x-fragment">
-precision highp float;
-
-varying vec2 vUV;
-
-uniform sampler2D uField;   // u^n
-uniform sampler2D uNoise;   // precomputed noise tile
-
-uniform float uDT;
-uniform float uGamma;
-uniform float uKappa;
-uniform float uLambda;
-uniform float uUstar;
-uniform float uSigmaTotal;
-uniform float uRho;
-uniform float uOmega;
-uniform float uTime;
-uniform vec2  uBasinCenter;
-uniform float uBasinRadius;
-uniform vec2  uTexel;
-
-float fastTanh(float x){
-  float e2 = exp(2.0*x);
-  return (e2 - 1.0)/(e2 + 1.0);
-}
-
-float basinWeight(vec2 uv, vec2 center, float R) {
-  vec2 d = uv - center;
-  float R2 = R * R;
-  return exp(-dot(d,d) / (2.0 * R2));
-}
-
-// periodic sampling
-float fetchU(vec2 uv){
-  vec2 wrapped = fract(uv);
-  float v = texture2D(uField, wrapped).r;
-  return (v - 0.5) * 2.0;
-}
-
-void main(){
-  // central value
-  float uC = fetchU(vUV);
-
-  // neighbors
-  float uL = fetchU(vUV + vec2(-uTexel.x, 0.0));
-  float uR = fetchU(vUV + vec2( uTexel.x, 0.0));
-  float uD = fetchU(vUV + vec2(0.0, -uTexel.y));
-  float uU = fetchU(vUV + vec2(0.0,  uTexel.y));
-
-  // Laplacian ∇²u
-  float lap = (uL + uR + uD + uU - 4.0 * uC);
-
-  // attractor
-  float w = basinWeight(vUV, uBasinCenter, uBasinRadius);
-  float attract = -uLambda * w * fastTanh(uC - uUstar);
-
-  // damping
-  float damp = -uGamma * uC;
-
-  // rhythm forcing
-  float rhythm = uRho * sin(uOmega * uTime);
-
-  // deterministic RHS
-  float rhs = damp + uKappa * lap + attract + rhythm;
-
-  // noise via precomputed texture
-  float eta = texture2D(uNoise, vUV * 64.0).r * 2.0 - 1.0;
-  float noiseTerm = uSigmaTotal * sqrt(max(uDT, 0.0)) * eta;
-
-  float uNext = clamp(uC + uDT * rhs + noiseTerm, -1.0, 1.0);
-
-  gl_FragColor = vec4(0.5 + 0.5 * uNext, 0.0, 0.0, 1.0);
-}
-</script>
-
-<!-- RENDER: grayscale mapping -->
-<script id="fs-render" type="x-shader/x-fragment">
-precision highp float;
-varying vec2 vUV;
-uniform sampler2D uField;
-
-void main(){
-  float v = texture2D(uField, vUV).r;
-  float g = clamp(v, 0.0, 1.0);
-  gl_FragColor = vec4(vec3(g), 1.0);
-}
-</script>
-
-<!-- ===================== JS ENGINE ===================== -->
-
 <script>
 (function(){
 
-  const canvas = document.getElementById("glcanvas");
-  const gl = canvas.getContext("webgl", {alpha:false});
-  if(!gl){ alert("WebGL not supported"); return; }
+  const canvas = document.getElementById("fieldCanvas");
+  const ctx = canvas.getContext("2d");
 
-  const statusEl = document.getElementById("status");
-  const csEl = document.getElementById("cs-label");
-  const btnReset = document.getElementById("btn-reset");
-  const btnPause = document.getElementById("btn-pause");
+  const W = 128, H = 128;
+  canvas.width = W;
+  canvas.height = H;
 
+  let field = new Float32Array(W*H);
+  let fieldNext = new Float32Array(W*H);
+
+  function initField(){
+    for(let i=0;i<W*H;i++){
+      field[i] = (Math.random()*0.2 - 0.1);
+    }
+  }
+
+  initField();
+
+  let paused = false;
+  document.getElementById("btn-pause").onclick =()=> {
+    paused = !paused;
+  };
+  document.getElementById("btn-reset").onclick =()=> {
+    initField();
+  };
+
+  // Parameters
   const pKappa  = document.getElementById("p-kappa");
   const pGamma  = document.getElementById("p-gamma");
   const pLambda = document.getElementById("p-lambda");
   const pUstar  = document.getElementById("p-ustar");
-  const pBasinR = document.getElementById("p-basinR");
+  const pR      = document.getElementById("p-basinR");
   const pRho    = document.getElementById("p-rho");
   const pOmega  = document.getElementById("p-omega");
 
   const pSigma0 = document.getElementById("p-sigma0");
   const pSigmaE = document.getElementById("p-sigmaE");
 
-  let paused = false;
-  btnPause.onclick = ()=> {
-    paused = !paused;
-    btnPause.textContent = paused ? "Resume" : "Pause";
-  };
+  // Fixed dt for mobile
+  const dt = 0.01;
 
-  // ------- Resize (mobile-safe) -------
-  function resize(){
-    const dpr = window.devicePixelRatio || 1;
-    const parent = canvas.parentElement;
-    const rect = parent ? parent.getBoundingClientRect() : null;
-    let w = rect && rect.width  ? rect.width  : window.innerWidth;
-    let h = rect && rect.height ? rect.height : window.innerHeight;
-
-    if (!w || !h) {
-      w = window.innerWidth  || 1;
-      h = window.innerHeight || 1;
-    }
-
-    canvas.width  = Math.max(1, Math.floor(w * dpr));
-    canvas.height = Math.max(1, Math.floor(h * dpr));
-    gl.viewport(0,0,canvas.width,canvas.height);
-  }
-  window.addEventListener("resize", resize);
-
-  // ------- GL helpers -------
-  function compileShader(type, srcId){
-    const src = document.getElementById(srcId).textContent;
-    const s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-      console.error(gl.getShaderInfoLog(s));
-      console.log(src);
-      return null;
-    }
-    return s;
-  }
-
-  function makeProgram(vsId, fsId){
-    const vs = compileShader(gl.VERTEX_SHADER, vsId);
-    const fs = compileShader(gl.FRAGMENT_SHADER, fsId);
-    if(!vs || !fs) return null;
-    const p = gl.createProgram();
-    gl.attachShader(p, vs);
-    gl.attachShader(p, fs);
-    gl.linkProgram(p);
-    if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
-      console.error(gl.getProgramInfoLog(p));
-      return null;
-    }
-    return p;
-  }
-
-  const progField  = makeProgram("vs-quad","fs-field");
-  const progRender = makeProgram("vs-quad","fs-render");
-  if(!progField || !progRender){
-    alert("Shader compile/link error.");
-    return;
-  }
-
-  const quad = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1,-1,  1,-1, -1, 1,
-     1,-1,  1, 1, -1, 1
-  ]), gl.STATIC_DRAW);
-
-  // ------- Simulation grid -------
-  const W = 128, H = 128;
-  const texel = [1.0/W, 1.0/H];
-
-  function makeTexture(initialData){
-  const t = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, t);
-
-  // iOS-safe FBO attachment
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA4,                 // IMPORTANT CHANGE
-    W, H,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    initialData || null
-  );
-
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  return t;
-}
-  function initFieldData(){
-    const a = new Uint8Array(W*H*4);
-    for(let i=0;i<W*H;i++){
-      const u = (Math.random()*0.2 - 0.1); // [-0.1,0.1]
-      a[i*4]   = (0.5 + 0.5*u) * 255;
-      a[i*4+1] = 0;
-      a[i*4+2] = 0;
-      a[i*4+3] = 255;
-    }
-    return a;
-  }
-
-  function initNoiseData(){
-    const N = 64;
-    const a = new Uint8Array(N*N*4);
-    for(let i=0;i<N*N;i++){
-      const v = Math.random()*255;
-      a[i*4]   = v;
-      a[i*4+1] = v;
-      a[i*4+2] = v;
-      a[i*4+3] = 255;
-    }
-    return {data:a, size:N};
-  }
-
-  let texFieldA = makeTexture(initFieldData());
-  let texFieldB = makeTexture(null);
-
-  // noise texture (smaller)
-  const noiseInfo = initNoiseData();
-  const noiseTex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, noiseTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
-                noiseInfo.size, noiseInfo.size, 0,
-                gl.RGBA, gl.UNSIGNED_BYTE, noiseInfo.data);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-
-  const fbo = gl.createFramebuffer();
-
-  function resetField(){
-    gl.bindTexture(gl.TEXTURE_2D, texFieldA);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0,
-                  gl.RGBA, gl.UNSIGNED_BYTE, initFieldData());
-  }
-
-  btnReset.onclick = ()=> {
-    resetField();
-    sigma0 = 0.0;
-    sigma0Target = +pSigma0.value;
-    eventOn = -1;
-    eventOff = -1;
-    sigmaEventTarget = +pSigmaE.value;
-  };
-
-  // ------- Noise system (σ0 + ADSR σE) -------
-  let sigma0 = 0.0;
-  let sigma0Target = +pSigma0.value;
-  let sigmaEventTarget = +pSigmaE.value;
-  let eventOn = -1, eventOff = -1;
-
-  const ADSR_A = 0.05;
-  const ADSR_D = 0.15;
-  const ADSR_S = 0.0;
-  const ADSR_R = 0.25;
-  const TAU_SIGMA0 = 1.5;
-
-  function adsr(t, on, off, A,D,S,R){
-    if(on < 0.0) return 0.0;
-    const tau = t - on;
-    if(tau < 0.0) return 0.0;
-    if(tau < A) return tau / A;
-    if(tau < A + D) return 1.0 - (1.0 - S)*((tau - A)/D);
-    if(off < 0.0 || t < off) return S;
-    return S * Math.exp(-(t - off)/R);
-  }
-
-  function updateSigmas(time, dt){
-    sigma0Target = +pSigma0.value;
-    const alpha = dt / TAU_SIGMA0;
-    sigma0 += alpha * (sigma0Target - sigma0);
-
-    const rawEvent = +pSigmaE.value;
-    if(rawEvent !== sigmaEventTarget){
-      if(rawEvent > sigmaEventTarget){
-        eventOn = time;
-        eventOff = -1;
-      } else if(eventOn >= 0 && eventOff < 0){
-        eventOff = time;
-      }
-      sigmaEventTarget = rawEvent;
-    }
-
-    const env = adsr(time, eventOn, eventOff, ADSR_A,ADSR_D,ADSR_S,ADSR_R);
-    const sigmaEvent = env * sigmaEventTarget;
-
-    return sigma0 + sigmaEvent;
-  }
-
-  // ------- Main loop -------
-  let lastTime = 0;
-  let frame = 0;
-
-  resize();
-
-  function loop(tMs){
-    requestAnimationFrame(loop);
-    if(paused) return;
-
-    const t = tMs * 0.001;
-    const dtPhys = lastTime === 0 ? 0.016 : Math.min(t - lastTime, 0.05);
-    lastTime = t;
-
+  function update(){
     const gamma  = +pGamma.value;
     const kappa  = +pKappa.value;
     const lambda = +pLambda.value;
     const ustar  = +pUstar.value;
-    const R      = +pBasinR.value;
+    const R      = +pR.value;
     const rho    = +pRho.value;
     const omega  = +pOmega.value;
 
-    const sigmaTotal = updateSigmas(t, dtPhys);
-    // Override CFL for mobile visual sandbox
-    let dt = 0.005;   // force dt up to a visible range
+    const sigma0 = +pSigma0.value;
+    const sigmaE = +pSigmaE.value;
 
-    // ---- FIELD PASS ----
-    gl.useProgram(progField);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-                            gl.TEXTURE_2D, texFieldB, 0);
-    gl.viewport(0,0,W,H);
+    const time = performance.now()*0.001;
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    let loc = gl.getAttribLocation(progField, "aPos");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    for(let y=0;y<H;y++){
+      const yU = (y-1+H)%H;
+      const yD = (y+1)%H;
+      for(let x=0;x<W;x++){
+        const xL = (x-1+W)%W;
+        const xR = (x+1)%W;
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texFieldA);
-    gl.uniform1i(gl.getUniformLocation(progField,"uField"), 0);
+        const i = y*W + x;
+        const u = field[i];
 
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, noiseTex);
-    gl.uniform1i(gl.getUniformLocation(progField,"uNoise"), 1);
+        const uL = field[y*W + xL];
+        const uRr= field[y*W + xR];
+        const uU = field[yU*W + x];
+        const uD = field[yD*W + x];
 
-    gl.uniform1f(gl.getUniformLocation(progField,"uDT"), dt);
-    gl.uniform1f(gl.getUniformLocation(progField,"uGamma"), gamma);
-    gl.uniform1f(gl.getUniformLocation(progField,"uKappa"), kappa);
-    gl.uniform1f(gl.getUniformLocation(progField,"uLambda"), lambda);
-    gl.uniform1f(gl.getUniformLocation(progField,"uUstar"), ustar);
-    gl.uniform1f(gl.getUniformLocation(progField,"uSigmaTotal"), sigmaTotal);
-    gl.uniform1f(gl.getUniformLocation(progField,"uRho"), rho);
-    gl.uniform1f(gl.getUniformLocation(progField,"uOmega"), omega);
-    gl.uniform1f(gl.getUniformLocation(progField,"uTime"), t);
-    gl.uniform2f(gl.getUniformLocation(progField,"uBasinCenter"), 0.5, 0.5);
-    gl.uniform1f(gl.getUniformLocation(progField,"uBasinRadius"), R);
-    gl.uniform2f(gl.getUniformLocation(progField,"uTexel"), texel[0], texel[1]);
+        const lap = (uL + uRr + uU + uD - 4*u);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+        const dx = x/W - 0.5;
+        const dy = y/H - 0.5;
+        const r2 = dx*dx + dy*dy;
+        const w = Math.exp(-r2/(2*R*R));
 
-    // swap field textures
-    let tmp = texFieldA; texFieldA = texFieldB; texFieldB = tmp;
+        const attract = -lambda * w * Math.tanh(u - ustar);
 
-    // ---- RENDER PASS ----
-    gl.useProgram(progRender);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0,0,canvas.width,canvas.height);
+        const damp = -gamma * u;
+        const rhythm = rho * Math.sin(omega * time);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    loc = gl.getAttribLocation(progRender, "aPos");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+        const noise = (sigma0 + sigmaE) * (Math.random()*2 - 1);
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texFieldA);
-    gl.uniform1i(gl.getUniformLocation(progRender,"uField"), 0);
+        const du = damp + kappa*lap + attract + rhythm + noise;
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+        fieldNext[i] = Math.max(-1, Math.min(1, u + dt*du));
+      }
+    }
 
-    statusEl.textContent =
-      "dt ≈ " + dt.toFixed(4) +
-      ", γ=" + gamma.toFixed(2) +
-      ", κ=" + kappa.toFixed(2) +
-      ", λ=" + lambda.toFixed(2);
-
-    frame++;
+    let tmp = field;
+    field = fieldNext;
+    fieldNext = tmp;
   }
 
-  requestAnimationFrame(loop);
+  function draw(){
+    const image = ctx.createImageData(W,H);
+    const data = image.data;
+
+    for(let i=0;i<W*H;i++){
+      const v = (field[i]*0.5 + 0.5)*255;
+      const idx = i*4;
+      data[idx] = v;
+      data[idx+1] = v;
+      data[idx+2] = v;
+      data[idx+3] = 255;
+    }
+
+    ctx.putImageData(image,0,0);
+  }
+
+  function loop(){
+    requestAnimationFrame(loop);
+
+    if(!paused){
+      update();
+      draw();
+    }
+
+    document.getElementById("status").textContent =
+      "dt ≈ 0.01";
+  }
+
+  loop();
 
 })();
 </script>
