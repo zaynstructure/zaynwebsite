@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF-2.3 · Mobile CPU Sandbox</title>
+<title>EVF-2.3 · Mobile CPU Full</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
   html, body {
     margin:0; padding:0;
     background:#111; color:#eee;
-    font-family:system-ui, sans-serif;
+    font-family:system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     height:100%; overflow:hidden;
   }
 
@@ -34,11 +34,12 @@
   }
 
   #sidebar {
-    flex:0 0 280px;
+    flex:0 0 300px;
     padding:10px;
     background:#181818;
     overflow-y:auto;
     font-size:12px;
+    box-sizing:border-box;
   }
 
   .section {
@@ -60,15 +61,18 @@
     font-size:11px;
   }
 
-  input[type=range] { width:100%; }
+  input[type=range] {
+    width:100%;
+  }
 
   button {
     font-size:11px;
     padding:3px 6px;
     margin-right:5px;
+    margin-top:2px;
   }
 
-  #status, #cs-label {
+  #status, #coherence-label, #drift-label {
     margin-top:6px;
     font-size:11px;
   }
@@ -80,7 +84,7 @@
     }
     #sidebar {
       width:100%;
-      max-height:40vh;
+      max-height:45vh;
     }
     #canvas-wrap {
       min-height:300px;
@@ -99,20 +103,23 @@
     <div class="section">
       <button id="btn-reset">Reset</button>
       <button id="btn-pause">Pause</button>
+      <button id="btn-event">Trigger Event Noise</button>
+      <button id="btn-release">Release Event</button>
       <div id="status">dt ≈ …</div>
-      <div id="cs-label">Cₛ ≈ …</div>
+      <div id="coherence-label">Co ≈ … (Cs, Ct, Ch)</div>
+      <div id="drift-label">‖G‖ ≈ …</div>
     </div>
 
     <div class="section">
       <div class="section-title">Field Parameters</div>
-      <label>Diffusion κ
-        <input id="p-kappa" type="range" min="0" max="1" step="0.01" value="0.25">
+      <label>Diffusion κ (baseline)
+        <input id="p-kappa0" type="range" min="0" max="1" step="0.01" value="0.25">
       </label>
-      <label>Damping γ
-        <input id="p-gamma" type="range" min="0.1" max="3" step="0.01" value="0.8">
+      <label>Damping γ<sub>max</sub>
+        <input id="p-gammaMax" type="range" min="0.2" max="3" step="0.01" value="0.8">
       </label>
-      <label>Attractor λ
-        <input id="p-lambda" type="range" min="0" max="2" step="0.01" value="0.7">
+      <label>Attractor λ (baseline)
+        <input id="p-lambda0" type="range" min="0" max="2" step="0.01" value="0.7">
       </label>
       <label>Baseline u*
         <input id="p-ustar" type="range" min="-1" max="1" step="0.01" value="0">
@@ -123,18 +130,33 @@
       <label>Rhythm ρ
         <input id="p-rho" type="range" min="0" max="1" step="0.01" value="0.3">
       </label>
-      <label>ω
+      <label>Rhythm ω
         <input id="p-omega" type="range" min="0.1" max="3" step="0.01" value="0.8">
+      </label>
+      <label>Drift coupling α<sub>g</sub>
+        <input id="p-alphaG" type="range" min="0" max="3" step="0.01" value="1.0">
       </label>
     </div>
 
     <div class="section">
-      <div class="section-title">Noise</div>
-      <label>σ₀
+      <div class="section-title">Noise (Chronic + Event)</div>
+      <label>Chronic σ₀ target
         <input id="p-sigma0" type="range" min="0" max="0.5" step="0.01" value="0.05">
       </label>
-      <label>σₑ
-        <input id="p-sigmaE" type="range" min="0" max="1" step="0.01" value="0.15">
+      <label>Event σ<sub>E</sub> peak
+        <input id="p-sigmaEpeak" type="range" min="0" max="1" step="0.01" value="0.15">
+      </label>
+      <label>ADSR Attack A (s)
+        <input id="p-attack" type="range" min="0.05" max="1" step="0.01" value="0.2">
+      </label>
+      <label>ADSR Decay D (s)
+        <input id="p-decay" type="range" min="0.05" max="1" step="0.01" value="0.3">
+      </label>
+      <label>ADSR Sustain S
+        <input id="p-sustain" type="range" min="0" max="1" step="0.01" value="0.5">
+      </label>
+      <label>ADSR Release R (s)
+        <input id="p-releaseTime" type="range" min="0.05" max="2" step="0.01" value="0.5">
       </label>
     </div>
   </div>
@@ -150,53 +172,314 @@
   canvas.width = W;
   canvas.height = H;
 
-  let field = new Float32Array(W*H);
-  let fieldNext = new Float32Array(W*H);
+  // Field arrays
+  let u      = new Float32Array(W*H);
+  let uNext  = new Float32Array(W*H);
+  let uPrev  = new Float32Array(W*H);
+  let wBasin = new Float32Array(W*H);
+
+  // Time + dt
+  let tGlobal = 0.0;
+  let dt = 0.01;             // current dt
+  const dtBase = 0.01;       // requested baseline dt
+
+  // Baseline parameters
+  let kappa0   = 0.25;
+  let gammaMin = 0.1;
+  let gammaMax = 0.8;
+  let lambda0  = 0.7;
+  let uStar    = 0.0;
+  let rho      = 0.3;
+  let omega    = 0.8;
+  let alphaG   = 1.0;
+
+  // Drift (global)
+  let Gx = 0.0, Gy = 0.0;
+  let betaG  = 1.0;
+  let etaG   = 0.5;
+  let chiG   = 0.0;
+  let deltaG = 0.0;
+
+  // Noise: chronic
+  let sigma0Target = 0.05;
+  let sigma0State  = 0.05;
+  let tauSigma0    = 1.0;
+
+  // Noise: event ADSR
+  let sigmaEPeak  = 0.15;
+  let sigmaEState = 0.0;
+  let A = 0.2;
+  let D = 0.3;
+  let S = 0.5;
+  let Rtime = 0.5;
+  let adsrPhase = "idle";   // "idle" | "attack" | "decay" | "sustain" | "release"
+  let adsrT = 0.0;
+  let sigmaTotal = 0.0;
+
+  // Coherence
+  let Cs = 1.0, Ct = 1.0, Ch = 1.0, Co = 1.0;
+  const alpha_s = 1.0, alpha_t = 1.0, alpha_h = 1.0;
+  const w_s = 1.0, w_t = 1.0, w_h = 1.0;
+
+  // Reference parameters for thematic coherence
+  const thetaRef = {
+    gamma: 0.8,
+    kappa: 0.25,
+    lambda: 0.7,
+    rho: 0.3,
+    omega: 0.8,
+    sigma: 0.1
+  };
+
+  // Effective parameters after coherence modulation
+  let gammaEff  = 0.8;
+  let kappaEff  = 0.25;
+  let lambdaEff = 0.7;
+  let sigmaEff  = 0.1;
+
+  let paused = false;
+
+  // UI elements
+  const statusLabel     = document.getElementById("status");
+  const coherenceLabel  = document.getElementById("coherence-label");
+  const driftLabel      = document.getElementById("drift-label");
+
+  const pKappa0    = document.getElementById("p-kappa0");
+  const pGammaMax  = document.getElementById("p-gammaMax");
+  const pLambda0   = document.getElementById("p-lambda0");
+  const pUstar     = document.getElementById("p-ustar");
+  const pR         = document.getElementById("p-basinR");
+  const pRho       = document.getElementById("p-rho");
+  const pOmega     = document.getElementById("p-omega");
+  const pAlphaG    = document.getElementById("p-alphaG");
+
+  const pSigma0       = document.getElementById("p-sigma0");
+  const pSigmaEPeak   = document.getElementById("p-sigmaEpeak");
+  const pAttack       = document.getElementById("p-attack");
+  const pDecay        = document.getElementById("p-decay");
+  const pSustain      = document.getElementById("p-sustain");
+  const pReleaseTime  = document.getElementById("p-releaseTime");
 
   function initField(){
     for(let i=0;i<W*H;i++){
-      field[i] = (Math.random()*0.2 - 0.1);
+      const v = (Math.random()*0.2 - 0.1);
+      u[i] = v;
+      uPrev[i] = v;
+    }
+    Gx = 0.0; Gy = 0.0;
+    sigma0State = sigma0Target;
+    sigmaEState = 0.0;
+    adsrPhase = "idle";
+    adsrT = 0.0;
+    tGlobal = 0.0;
+  }
+
+  function updateBasin(R){
+    const cx = 0.5, cy = 0.5;
+    for(let y=0; y<H; y++){
+      const yy = y / H;
+      for(let x=0; x<W; x++){
+        const xx = x / W;
+        const dx = xx - cx;
+        const dy = yy - cy;
+        const r2 = dx*dx + dy*dy;
+        wBasin[y*W + x] = Math.exp(-r2 / (2*R*R));
+      }
     }
   }
 
-  initField();
+  // Coherence computation
+  function computeCoherence(){
+    // Spatial roughness
+    let Es = 0.0;
+    for(let y=0;y<H;y++){
+      const yU = (y-1+H)%H;
+      const yD = (y+1)%H;
+      for(let x=0;x<W;x++){
+        const xL = (x-1+W)%W;
+        const xR = (x+1)%W;
+        const i  = y*W + x;
 
-  let paused = false;
-  document.getElementById("btn-pause").onclick =()=> {
-    paused = !paused;
-  };
-  document.getElementById("btn-reset").onclick =()=> {
-    initField();
-  };
+        const uC = u[i];
+        const uL = u[y*W + xL];
+        const uR = u[y*W + xR];
+        const uU = u[yU*W + x];
+        const uD = u[yD*W + x];
 
-  // Parameters
-  const pKappa  = document.getElementById("p-kappa");
-  const pGamma  = document.getElementById("p-gamma");
-  const pLambda = document.getElementById("p-lambda");
-  const pUstar  = document.getElementById("p-ustar");
-  const pR      = document.getElementById("p-basinR");
-  const pRho    = document.getElementById("p-rho");
-  const pOmega  = document.getElementById("p-omega");
+        const gx = (uR - uL) * 0.5;
+        const gy = (uD - uU) * 0.5;
+        Es += gx*gx + gy*gy;
+      }
+    }
+    Es /= (W*H);
+    Cs = Math.exp(-alpha_s * Es);
 
-  const pSigma0 = document.getElementById("p-sigma0");
-  const pSigmaE = document.getElementById("p-sigmaE");
+    // Temporal roughness
+    let Et = 0.0;
+    const invDt = 1.0 / dt;
+    for(let i=0;i<W*H;i++){
+      const ut = (u[i] - uPrev[i]) * invDt;
+      Et += ut*ut;
+    }
+    Et /= (W*H);
+    Ct = Math.exp(-alpha_t * Et);
 
-  // Fixed dt for mobile
-  const dt = 0.01;
+    // Thematic coherence: parameter distance
+    const theta = {
+      gamma: gammaEff,
+      kappa: kappaEff,
+      lambda: lambdaEff,
+      rho:   rho,
+      omega: omega,
+      sigma: sigmaTotal
+    };
 
-  function update(){
-    const gamma  = +pGamma.value;
-    const kappa  = +pKappa.value;
-    const lambda = +pLambda.value;
-    const ustar  = +pUstar.value;
-    const R      = +pR.value;
-    const rho    = +pRho.value;
-    const omega  = +pOmega.value;
+    let Eh = 0.0;
+    Eh += Math.pow(theta.gamma - thetaRef.gamma, 2);
+    Eh += Math.pow(theta.kappa - thetaRef.kappa, 2);
+    Eh += Math.pow(theta.lambda- thetaRef.lambda, 2);
+    Eh += Math.pow(theta.rho   - thetaRef.rho,   2);
+    Eh += Math.pow(theta.omega - thetaRef.omega, 2);
+    Eh += Math.pow(theta.sigma - thetaRef.sigma, 2);
 
-    const sigma0 = +pSigma0.value;
-    const sigmaE = +pSigmaE.value;
+    Ch = Math.exp(-alpha_h * Eh);
 
-    const time = performance.now()*0.001;
+    // Global coherence
+    const wsNorm = w_s + w_t + w_h;
+    const logCo = (w_s*Math.log(Cs) + w_t*Math.log(Ct) + w_h*Math.log(Ch)) / wsNorm;
+    Co = Math.exp(logCo);
+  }
+
+  // Parameter modulation by coherence
+  function updateEffectiveParameters(){
+    // Damping: stronger at high coherence
+    gammaEff = gammaMin + (gammaMax - gammaMin) * Co;
+
+    // Diffusion: mild boost with spatial coherence
+    const beta_s = 0.5;
+    kappaEff = kappa0 * (1.0 + beta_s * Cs);
+
+    // Attractor: stronger with thematic coherence
+    const beta_h = 0.5;
+    lambdaEff = lambda0 * (1.0 + beta_h * Ch);
+
+    // Noise: inversely scaled by coherence
+    const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
+    sigmaTotal = sigmaBase;
+    sigmaEff = sigmaBase * (1.0 - Co);
+  }
+
+  // Stability bound for dt
+  function updateDtFromStability(dtRequested){
+    const h = 1.0;
+    const LA = 1.0; // tanh Lipschitz
+    const denom = gammaEff + 8.0 * kappaEff/(h*h) + lambdaEff * LA;
+    const dtMax = 2.0 / denom;
+    dt = Math.min(dtRequested, 0.9*dtMax);
+  }
+
+  // Drift evolution (global)
+  function updateDrift(){
+    // Approximate global gradient by comparing halves
+    let leftSum=0, rightSum=0, topSum=0, bottomSum=0;
+
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W;x++){
+        const i = y*W + x;
+        const v = u[i];
+        if(x < W/2) leftSum += v; else rightSum += v;
+        if(y < H/2) topSum  += v; else bottomSum += v;
+      }
+    }
+    const invHalf = 2.0 / (W*H);
+    const gradXGlobal = (rightSum - leftSum)*invHalf;
+    const gradYGlobal = (bottomSum - topSum)*invHalf;
+
+    const Fx = etaG * gradXGlobal;
+    const Fy = etaG * gradYGlobal;
+
+    const Bx = 0.0, By = 0.0;
+    const Cx = 0.0, Cy = 0.0;
+
+    const dGx = -betaG*Gx + Fx + chiG*Bx + deltaG*Cx;
+    const dGy = -betaG*Gy + Fy + chiG*By + deltaG*Cy;
+
+    Gx += dt * dGx;
+    Gy += dt * dGy;
+  }
+
+  // Noise envelope: chronic + ADSR
+  function updateNoiseEnvelope(){
+    // Chronic noise leaky integrator
+    const ds0 = (sigma0Target - sigma0State) * (dt / tauSigma0);
+    sigma0State += ds0;
+
+    updateADSR();
+  }
+
+  function triggerEventNoise(){
+    adsrPhase = "attack";
+    adsrT = 0.0;
+  }
+
+  function releaseEventNoise(){
+    if(adsrPhase === "sustain" || adsrPhase === "decay"){
+      adsrPhase = "release";
+      adsrT = 0.0;
+    }
+  }
+
+  function updateADSR(){
+    if(adsrPhase === "idle"){
+      sigmaEState = 0.0;
+      return;
+    }
+
+    adsrT += dt;
+
+    switch(adsrPhase){
+      case "attack": {
+        const tau = adsrT;
+        if(tau < A){
+          sigmaEState = tau / A;
+        } else {
+          sigmaEState = 1.0;
+          adsrPhase = "decay";
+          adsrT = 0.0;
+        }
+        break;
+      }
+      case "decay": {
+        const tau = adsrT;
+        if(tau < D){
+          const frac = tau / D;
+          sigmaEState = 1.0 - (1.0 - S) * frac;
+        } else {
+          sigmaEState = S;
+          adsrPhase = "sustain";
+          adsrT = 0.0;
+        }
+        break;
+      }
+      case "sustain": {
+        sigmaEState = S;
+        break;
+      }
+      case "release": {
+        const tau = adsrT;
+        sigmaEState = S * Math.exp(-tau / Rtime);
+        if(sigmaEState < 1e-3){
+          sigmaEState = 0.0;
+          adsrPhase = "idle";
+        }
+        break;
+      }
+    }
+  }
+
+  // Field update: PDE step
+  function updateField(){
+    const time = tGlobal;
 
     for(let y=0;y<H;y++){
       const yU = (y-1+H)%H;
@@ -205,37 +488,33 @@
         const xL = (x-1+W)%W;
         const xR = (x+1)%W;
 
-        const i = y*W + x;
-        const u = field[i];
+        const i  = y*W + x;
+        const uC = u[i];
 
-        const uL = field[y*W + xL];
-        const uRr= field[y*W + xR];
-        const uU = field[yU*W + x];
-        const uD = field[yD*W + x];
+        const uL = u[y*W + xL];
+        const uR = u[y*W + xR];
+        const uU = u[yU*W + x];
+        const uD = u[yD*W + x];
 
-        const lap = (uL + uRr + uU + uD - 4*u);
+        const lap = (uL + uR + uU + uD - 4.0*uC);
 
-        const dx = x/W - 0.5;
-        const dy = y/H - 0.5;
-        const r2 = dx*dx + dy*dy;
-        const w = Math.exp(-r2/(2*R*R));
+        // Local gradient for drift
+        const gx = (uR - uL) * 0.5;
+        const gy = (uD - uU) * 0.5;
+        const drift = alphaG * (Gx*gx + Gy*gy);
 
-        const attract = -lambda * w * Math.tanh(u - ustar);
+        const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
+        const damp    = -gammaEff * uC;
+        const rhythm  = rho * Math.sin(omega * time);
 
-        const damp = -gamma * u;
-        const rhythm = rho * Math.sin(omega * time);
+        const rand  = (Math.random()*2.0 - 1.0);
+        const noise = sigmaEff * rand * Math.sqrt(dt);
 
-        const noise = (sigma0 + sigmaE) * (Math.random()*2 - 1);
+        const du = kappaEff*lap + damp + attract + drift + rhythm + noise;
 
-        const du = damp + kappa*lap + attract + rhythm + noise;
-
-        fieldNext[i] = Math.max(-1, Math.min(1, u + dt*du));
+        uNext[i] = uC + dt*du;
       }
     }
-
-    let tmp = field;
-    field = fieldNext;
-    fieldNext = tmp;
   }
 
   function draw(){
@@ -243,29 +522,121 @@
     const data = image.data;
 
     for(let i=0;i<W*H;i++){
-      const v = (field[i]*0.5 + 0.5)*255;
+      const v = (u[i]*0.5 + 0.5)*255;
+      const c = Math.max(0, Math.min(255, v));
       const idx = i*4;
-      data[idx] = v;
-      data[idx+1] = v;
-      data[idx+2] = v;
+      data[idx]   = c;
+      data[idx+1] = c;
+      data[idx+2] = c;
       data[idx+3] = 255;
     }
 
     ctx.putImageData(image,0,0);
   }
 
+  function stepEVF(){
+    // 1) coherence based on previous dt
+    computeCoherence();
+
+    // 2) noise envelopes (chronic + ADSR)
+    updateNoiseEnvelope();
+
+    // 3) coherence-regulated parameters (includes sigmaTotal)
+    updateEffectiveParameters();
+
+    // 4) dt via stability bound
+    updateDtFromStability(dtBase);
+
+    // 5) advance time
+    tGlobal += dt;
+
+    // 6) drift update
+    updateDrift();
+
+    // 7) field update
+    updateField();
+
+    // 8) swap u and uPrev
+    let tmp = uPrev;
+    uPrev = u;
+    u = uNext;
+    uNext = tmp;
+  }
+
   function loop(){
     requestAnimationFrame(loop);
 
     if(!paused){
-      update();
+      stepEVF();
       draw();
-    }
 
-    document.getElementById("status").textContent =
-      "dt ≈ 0.01";
+      // UI labels
+      statusLabel.textContent =
+        "dt ≈ " + dt.toFixed(4);
+
+      coherenceLabel.textContent =
+        "Co ≈ " + Co.toFixed(3) +
+        " (Cs=" + Cs.toFixed(3) +
+        ", Ct=" + Ct.toFixed(3) +
+        ", Ch=" + Ch.toFixed(3) + ")";
+
+      const Gmag = Math.sqrt(Gx*Gx + Gy*Gy);
+      driftLabel.textContent =
+        "‖G‖ ≈ " + Gmag.toFixed(3) +
+        "  σ_total ≈ " + sigmaTotal.toFixed(3);
+    }
   }
 
+  // Hook up UI
+  document.getElementById("btn-pause").onclick = () => {
+    paused = !paused;
+  };
+
+  document.getElementById("btn-reset").onclick = () => {
+    initField();
+  };
+
+  document.getElementById("btn-event").onclick = () => {
+    triggerEventNoise();
+  };
+
+  document.getElementById("btn-release").onclick = () => {
+    releaseEventNoise();
+  };
+
+  function syncParamsFromUI(){
+    kappa0   = +pKappa0.value;
+    gammaMax = +pGammaMax.value;
+    lambda0  = +pLambda0.value;
+    uStar    = +pUstar.value;
+    rho      = +pRho.value;
+    omega    = +pOmega.value;
+    alphaG   = +pAlphaG.value;
+
+    sigma0Target = +pSigma0.value;
+    sigmaEPeak   = +pSigmaEPeak.value;
+    A            = +pAttack.value;
+    D            = +pDecay.value;
+    S            = +pSustain.value;
+    Rtime        = +pReleaseTime.value;
+
+    const R = +pR.value;
+    updateBasin(R);
+  }
+
+  // Listen to all sliders
+  [
+    pKappa0, pGammaMax, pLambda0, pUstar, pR,
+    pRho, pOmega, pAlphaG,
+    pSigma0, pSigmaEPeak,
+    pAttack, pDecay, pSustain, pReleaseTime
+  ].forEach(el => {
+    el.addEventListener("input", syncParamsFromUI);
+  });
+
+  // Initial setup
+  syncParamsFromUI();
+  initField();
   loop();
 
 })();
