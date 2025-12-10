@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>EVF-2.3 · Hybrid WebGL + CPU (Cleaned)</title>
+<title>EVF-2.3 · CPU PDE + WebGL Display</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
@@ -112,40 +112,29 @@
 </div>
 
 <script>
-// ---- GLSL SHADERS ----
+// ---------- WebGL display shaders (no PDE in GLSL) ----------
 const VERT_SRC = `#version 300 es
 layout(location = 0) in vec2 a_position;
 out vec2 v_uv;
 void main() {
-    v_uv = (a_position + 1.0) * 0.5;
-    gl_Position = vec4(a_position, 0.0, 1.0);
+  v_uv = (a_position + 1.0) * 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
 }
 `;
 
-const FRAG_SRC = `#version 300 es
-precision highp float;
-
-in vec2 v_uv;
-out vec4 outColor;
-
-void main() {
-    // red test output
-    outColor = vec4(1.0, 0.0, 0.0, 1.0);
-}
-`;
-
+// Grayscale display
 const DISPLAY_FRAG_GRAY = `#version 300 es
 precision highp float;
 in vec2 v_uv;
 out vec4 outColor;
 uniform sampler2D u_tex;
 void main() {
-  float u = texture(u_tex, v_uv).r;
-  float g = u*0.5 + 0.5;
-  outColor = vec4(g,g,g,1);
+  float t = texture(u_tex, v_uv).r;
+  outColor = vec4(t, t, t, 1.0);
 }
 `;
 
+// False color display
 const DISPLAY_FRAG_COLOR = `#version 300 es
 precision highp float;
 in vec2 v_uv;
@@ -154,401 +143,432 @@ uniform sampler2D u_tex;
 vec3 colormap(float x) {
   x = clamp(x,0.0,1.0);
   float r = smoothstep(0.5,1.0,x);
-  float g = (x<0.5)?smoothstep(0.0,0.5,x):smoothstep(1.0,0.5,1.0-x);
+  float g = (x<0.5)
+      ? smoothstep(0.0,0.5,x)
+      : smoothstep(1.0,0.5,1.0-x);
   float b = smoothstep(1.0,0.5,1.0-x);
   return vec3(r,g,b);
 }
 void main() {
-  float u = texture(u_tex,v_uv).r;
-  float t = u*0.5 + 0.5;
-  outColor = vec4(colormap(t),1);
+  float t = texture(u_tex, v_uv).r;
+  outColor = vec4(colormap(t),1.0);
 }
 `;
 
 (function(){
-const canvas = document.getElementById('glCanvas');
-const gl = canvas.getContext('webgl2');
-if (!gl) { alert("WebGL2 not supported"); return; }
+  const canvas = document.getElementById('glCanvas');
+  const gl = canvas.getContext('webgl2');
+  if (!gl) { alert("WebGL2 not supported"); return; }
 
-const W=128,H=128;
-canvas.width=W;canvas.height=H;
+  const W = 128, H = 128;
+  canvas.width = W;
+  canvas.height = H;
 
-function compileShader(type,src){
-  const sh=gl.createShader(type);
-  gl.shaderSource(sh,src);
-  gl.compileShader(sh);
-  if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)){
-    console.error(gl.getShaderInfoLog(sh)); throw "shader error";
+  function compileShader(type,src){
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh,src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh,gl.COMPILE_STATUS)){
+      console.error(gl.getShaderInfoLog(sh));
+      throw "shader error";
+    }
+    return sh;
   }
-  return sh;
-}
 
-// ---- PDE program ----
-const vs=compileShader(gl.VERTEX_SHADER,VERT_SRC);
-const fs=compileShader(gl.FRAGMENT_SHADER,FRAG_SRC);
-const prog=gl.createProgram();
-gl.attachShader(prog,vs);
-gl.attachShader(prog,fs);
-gl.linkProgram(prog);
-if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){
-  console.error(gl.getProgramInfoLog(prog)); throw "link error";
-}
+  // Display programs (no PDE program now)
+  const vsG = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+  const fsG = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_GRAY);
+  const progDispGray = gl.createProgram();
+  gl.attachShader(progDispGray, vsG);
+  gl.attachShader(progDispGray, fsG);
+  gl.linkProgram(progDispGray);
 
-// ---- display programs ----
-const vsG=compileShader(gl.VERTEX_SHADER,VERT_SRC);
-const fsG=compileShader(gl.FRAGMENT_SHADER,DISPLAY_FRAG_GRAY);
-const progDispGray=gl.createProgram();
-gl.attachShader(progDispGray,vsG);
-gl.attachShader(progDispGray,fsG);
-gl.linkProgram(progDispGray);
+  const vsC = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+  const fsC = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_COLOR);
+  const progDispColor = gl.createProgram();
+  gl.attachShader(progDispColor, vsC);
+  gl.attachShader(progDispColor, fsC);
+  gl.linkProgram(progDispColor);
 
-const vsC=compileShader(gl.VERTEX_SHADER,VERT_SRC);
-const fsC=compileShader(gl.FRAGMENT_SHADER,DISPLAY_FRAG_COLOR);
-const progDispColor=gl.createProgram();
-gl.attachShader(progDispColor,vsC);
-gl.attachShader(progDispColor,fsC);
-gl.linkProgram(progDispColor);
+  const u_dispGrayTexLoc  = gl.getUniformLocation(progDispGray,"u_tex");
+  const u_dispColorTexLoc = gl.getUniformLocation(progDispColor,"u_tex");
 
-const u_dispGrayTexLoc=gl.getUniformLocation(progDispGray,"u_tex");
-const u_dispColorTexLoc=gl.getUniformLocation(progDispColor,"u_tex");
+  // Fullscreen quad
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1,   1,-1,   -1,1,
+    -1, 1,   1,-1,    1,1
+  ]), gl.STATIC_DRAW);
 
-// ---- fullscreen quad ----
-const quad=gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER,quad);
-gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([
-  -1,-1,   1,-1,   -1,1,
-  -1, 1,   1,-1,    1,1
-]),gl.STATIC_DRAW);
+  // Single, global attribute binding (location 0)
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-// *** The ONE global binding ***
-gl.bindBuffer(gl.ARRAY_BUFFER,quad);
-gl.enableVertexAttribArray(0);
-gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  // Texture for display (8-bit, no FBO)
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.R8, W, H, 0,
+    gl.RED, gl.UNSIGNED_BYTE, null
+  );
 
-gl.useProgram(prog);
+  // ---------- EVF CPU state ----------
+  let field    = new Float32Array(W*H);
+  let fieldNext= new Float32Array(W*H);
+  let fieldPrev= new Float32Array(W*H);
+  let wBasin   = new Float32Array(W*H);
 
-// ---- PDE uniforms ----
-const u_fieldLoc=gl.getUniformLocation(prog,'u_field');
-const u_resLoc=gl.getUniformLocation(prog,'u_resolution');
-const u_dtLoc=gl.getUniformLocation(prog,'u_dt');
-const u_kappaLoc=gl.getUniformLocation(prog,'u_kappa');
-const u_gammaLoc=gl.getUniformLocation(prog,'u_gamma');
-const u_lambdaLoc=gl.getUniformLocation(prog,'u_lambda');
-const u_rhoLoc=gl.getUniformLocation(prog,'u_rho');
-const u_omegaLoc=gl.getUniformLocation(prog,'u_omega');
-const u_timeLoc=gl.getUniformLocation(prog,'u_time');
-const u_sigmaLoc=gl.getUniformLocation(prog,'u_sigma');
-const u_alphaGLoc=gl.getUniformLocation(prog,'u_alphaG');
-const u_uStarLoc=gl.getUniformLocation(prog,'u_uStar');
-const u_RLoc=gl.getUniformLocation(prog,'u_R');
-const u_GLoc=gl.getUniformLocation(prog,'u_G');
+  let tGlobal = 0;
+  let dt      = 0.01;
+  const dtBase = 0.01;
 
-gl.uniform2f(u_resLoc,W,H);
-gl.uniform1i(u_fieldLoc,0);
+  // Baseline EVF params
+  let kappa0   = 0.25;
+  let gammaMin = 0.1;
+  let gammaMax = 0.8;
+  let lambda0  = 0.7;
+  let uStar    = 0.0;
+  let rho      = 0.3;
+  let omega    = 0.8;
+  let alphaG   = 1.0;
 
-// ---- textures ----
-function createFloatTex(){
-  const tex=gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D,tex);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,W,H,0,gl.RGBA,gl.FLOAT,null);
-  return tex;
-}
-let texA=createFloatTex();
-let texB=createFloatTex();
-let srcTex=texA, dstTex=texB;
+  // Drift
+  let Gx = 0, Gy = 0;
+  let betaG  = 1.0;
+  let etaG   = 0.5;
 
-const fbo=gl.createFramebuffer();
-let fieldCPU=new Float32Array(W*H);
-let fieldPrevCPU=new Float32Array(W*H);
+  // Noise (chronic + event)
+  let sigma0Target = 0.05;
+  let sigma0State  = 0.05;
+  let sigmaEPeak   = 0.15;
+  let sigmaEState  = 0.0;
+  let A = 0.2, D = 0.3, S = 0.5, Rtime = 0.5;
+  let adsrPhase = "idle";
+  let adsrT = 0.0;
+  let sigmaTotal = 0.0;
 
-// ---- EVF CPU state ----
-let tGlobal=0,dt=0.01;
-const dtBase=0.01;
+  // Coherence
+  let Cs=1.0, Ct=1.0, Ch=1.0, Co=1.0;
+  const alpha_s = 1.0, alpha_t = 1.0, alpha_h = 1.0;
+  const w_s = 1.0, w_t = 1.0, w_h = 1.0;
 
-let kappa0=0.25, gammaMin=0.1, gammaMax=0.8;
-let lambda0=0.7, uStar=0.0;
-let rho=0.3, omega=0.8;
-let alphaG=1.0;
+  const thetaRef = {
+    gamma: 0.8, kappa: 0.25,
+    lambda: 0.7, rho: 0.3,
+    omega: 0.8, sigma: 0.1
+  };
 
-let Gx=0,Gy=0;
-let betaG=1.0, etaG=0.5;
+  let gammaEff = 0.8, kappaEff = 0.25, lambdaEff = 0.7, sigmaEff = 0.1;
+  let basinR = 0.12;
+  let paused = false;
+  let viewMode = 'gray';
 
-let sigma0Target=0.05, sigma0State=0.05;
-let sigmaEPeak=0.15, sigmaEState=0;
-let A=0.2,D=0.3,S=0.5,Rtime=0.5;
-let adsrPhase="idle", adsrT=0;
-let sigmaTotal=0;
+  // ---------- UI ----------
+  const statusLabel    = document.getElementById("status");
+  const coherenceLabel = document.getElementById("coherence-label");
+  const driftLabel     = document.getElementById("drift-label");
+  const btnView        = document.getElementById("btn-view");
 
-let Cs=1,Ct=1,Ch=1,Co=1;
-const alpha_s=1,alpha_t=1,alpha_h=1;
-const w_s=1,w_t=1,w_h=1;
+  const pKappa0    = document.getElementById("p-kappa0");
+  const pGammaMax  = document.getElementById("p-gammaMax");
+  const pLambda0   = document.getElementById("p-lambda0");
+  const pUstar     = document.getElementById("p-ustar");
+  const pR         = document.getElementById("p-basinR");
+  const pRho       = document.getElementById("p-rho");
+  const pOmega     = document.getElementById("p-omega");
+  const pAlphaG    = document.getElementById("p-alphaG");
+  const pSigma0    = document.getElementById("p-sigma0");
+  const pSigmaEPeak= document.getElementById("p-sigmaEpeak");
+  const pAttack    = document.getElementById("p-attack");
+  const pDecay     = document.getElementById("p-decay");
+  const pSustain   = document.getElementById("p-sustain");
+  const pReleaseTime = document.getElementById("p-releaseTime");
 
-const thetaRef={gamma:0.8,kappa:0.25,lambda:0.7,rho:0.3,omega:0.8,sigma:0.1};
-let gammaEff=0.8,kappaEff=0.25,lambdaEff=0.7,sigmaEff=0.1;
-let basinR=0.12;
-
-let paused=false, viewMode='gray';
-
-// ---- UI elements ----
-const statusLabel=document.getElementById("status");
-const coherenceLabel=document.getElementById("coherence-label");
-const driftLabel=document.getElementById("drift-label");
-const btnView=document.getElementById("btn-view");
-
-const pKappa0=document.getElementById("p-kappa0");
-const pGammaMax=document.getElementById("p-gammaMax");
-const pLambda0=document.getElementById("p-lambda0");
-const pUstar=document.getElementById("p-ustar");
-const pR=document.getElementById("p-basinR");
-const pRho=document.getElementById("p-rho");
-const pOmega=document.getElementById("p-omega");
-const pAlphaG=document.getElementById("p-alphaG");
-const pSigma0=document.getElementById("p-sigma0");
-const pSigmaEPeak=document.getElementById("p-sigmaEpeak");
-const pAttack=document.getElementById("p-attack");
-const pDecay=document.getElementById("p-decay");
-const pSustain=document.getElementById("p-sustain");
-const pReleaseTime=document.getElementById("p-releaseTime");
-
-// ---- init ----
-function initFieldCPU(){
-  for(let i=0;i<W*H;i++){
-    const v=Math.random()*0.2 - 0.1;
-    fieldCPU[i]=v;
-    fieldPrevCPU[i]=v;
+  function initField(){
+    for(let i=0;i<W*H;i++){
+      const v = Math.random()*0.2 - 0.1;
+      field[i] = v;
+      fieldPrev[i] = v;
+    }
+    Gx = Gy = 0;
+    sigma0State = sigma0Target;
+    sigmaEState = 0.0;
+    adsrPhase = "idle";
+    adsrT = 0.0;
+    tGlobal = 0;
   }
-}
-function uploadFieldToTexture(tex,arr){
-  const rgba=new Float32Array(W*H*4);
-  for(let i=0;i<W*H;i++){
-    rgba[i*4]=arr[i];
-    rgba[i*4+3]=1.0;
-  }
-  gl.bindTexture(gl.TEXTURE_2D,tex);
-  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,W,H,gl.RGBA,gl.FLOAT,rgba);
-}
-function readFieldFromTexture(tex){
-  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
-  const rgba=new Float32Array(W*H*4);
-  gl.readPixels(0,0,W,H,gl.RGBA,gl.FLOAT,rgba);
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-  for(let i=0;i<W*H;i++) fieldCPU[i]=rgba[i*4];
-}
 
-// ---- coherence ----
-function computeCoherence(){
-  let Es=0;
-  for(let y=0;y<H;y++){
-    const yU=(y-1+H)%H, yD=(y+1)%H;
-    for(let x=0;x<W;x++){
-      const xL=(x-1+W)%W, xR=(x+1)%W;
-      const i=y*W+x;
-      const uC=fieldCPU[i];
-      const uL=fieldCPU[y*W+xL];
-      const uR=fieldCPU[y*W+xR];
-      const uU=fieldCPU[yU*W+x];
-      const uD=fieldCPU[yD*W+x];
-      const gx=(uR-uL)*0.5;
-      const gy=(uD-uU)*0.5;
-      Es+=gx*gx+gy*gy;
+  function updateBasin(R){
+    const cx = 0.5, cy = 0.5;
+    for(let y=0;y<H;y++){
+      const yy = y/H;
+      for(let x=0;x<W;x++){
+        const xx = x/W;
+        const dx = xx - cx;
+        const dy = yy - cy;
+        const r2 = dx*dx + dy*dy;
+        wBasin[y*W + x] = Math.exp(-r2/(2*R*R));
+      }
     }
   }
-  Es/=W*H;
-  Cs=Math.exp(-alpha_s*Es);
 
-  let Et=0;
-  const invDt=(dt>0)?1/dt:0;
-  for(let i=0;i<W*H;i++){
-    const ut=(fieldCPU[i]-fieldPrevCPU[i])*invDt;
-    Et+=ut*ut;
+  // ---------- Coherence ----------
+  function computeCoherence(){
+    // spatial
+    let Es = 0.0;
+    for(let y=0;y<H;y++){
+      const yU=(y-1+H)%H, yD=(y+1)%H;
+      for(let x=0;x<W;x++){
+        const xL=(x-1+W)%W, xR=(x+1)%W;
+        const i = y*W+x;
+        const uC = field[i];
+        const uL = field[y*W + xL];
+        const uR = field[y*W + xR];
+        const uU = field[yU*W + x];
+        const uD = field[yD*W + x];
+        const gx = (uR-uL)*0.5;
+        const gy = (uD-uU)*0.5;
+        Es += gx*gx + gy*gy;
+      }
+    }
+    Es /= (W*H);
+    Cs = Math.exp(-alpha_s * Es);
+
+    // temporal
+    let Et = 0.0;
+    const invDt = 1.0/dt;
+    for(let i=0;i<W*H;i++){
+      const ut = (field[i] - fieldPrev[i]) * invDt;
+      Et += ut*ut;
+    }
+    Et /= (W*H);
+    Ct = Math.exp(-alpha_t * Et);
+
+    // thematic
+    const theta = {
+      gamma: gammaEff,
+      kappa: kappaEff,
+      lambda: lambdaEff,
+      rho:   rho,
+      omega: omega,
+      sigma: sigmaTotal
+    };
+    let Eh = 0.0;
+    Eh += (theta.gamma - thetaRef.gamma)**2;
+    Eh += (theta.kappa - thetaRef.kappa)**2;
+    Eh += (theta.lambda- thetaRef.lambda)**2;
+    Eh += (theta.rho   - thetaRef.rho)**2;
+    Eh += (theta.omega - thetaRef.omega)**2;
+    Eh += (theta.sigma - thetaRef.sigma)**2;
+    Ch = Math.exp(-alpha_h * Eh);
+
+    const wsNorm = w_s + w_t + w_h;
+    const logCo = (w_s*Math.log(Cs)+w_t*Math.log(Ct)+w_h*Math.log(Ch))/wsNorm;
+    Co = Math.exp(logCo);
   }
-  Et/=W*H;
-  Ct=Math.exp(-alpha_t*Et);
 
-  const theta={gamma:gammaEff,kappa:kappaEff,lambda:lambdaEff,rho:rho,omega:omega,sigma:sigmaTotal};
-  let Eh=0;
-  Eh+=(theta.gamma-thetaRef.gamma)**2;
-  Eh+=(theta.kappa-thetaRef.kappa)**2;
-  Eh+=(theta.lambda-thetaRef.lambda)**2;
-  Eh+=(theta.rho-thetaRef.rho)**2;
-  Eh+=(theta.omega-thetaRef.omega)**2;
-  Eh+=(theta.sigma-thetaRef.sigma)**2;
-  Ch=Math.exp(-alpha_h*Eh);
+  function updateEffectiveParameters(){
+    gammaEff = gammaMin + (gammaMax - gammaMin) * Co;
+    kappaEff = kappa0 * (1.0 + 0.5*Cs);
+    lambdaEff= lambda0 * (1.0 + 0.5*Ch);
+    const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
+    sigmaTotal = sigmaBase;
+    sigmaEff   = sigmaBase * (1.0 - Co);
+  }
 
-  const ws=w_s+w_t+w_h;
-  const logCo=(w_s*Math.log(Cs)+w_t*Math.log(Ct)+w_h*Math.log(Ch))/ws;
-  Co=Math.exp(logCo);
-}
+  function updateDtFromStability(dtRequested){
+    const denom = gammaEff + 8.0*kappaEff + lambdaEff;
+    const dtMax = 2.0 / denom;
+    dt = Math.min(dtRequested, 0.9*dtMax);
+  }
 
-function updateEffectiveParameters(){
-  gammaEff=gammaMin + (gammaMax-gammaMin)*Co;
-  kappaEff=kappa0*(1+0.5*Cs);
-  lambdaEff=lambda0*(1+0.5*Ch);
-  const sigmaBase=sigma0State + sigmaEState*sigmaEPeak;
-  sigmaTotal=sigmaBase;
-  sigmaEff=sigmaBase*(1-Co);
-}
+  function updateDrift(){
+    let left=0,right=0,top=0,bottom=0;
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W;x++){
+        const i = y*W + x;
+        const v = field[i];
+        if(x < W/2) left += v; else right += v;
+        if(y < H/2) top  += v; else bottom += v;
+      }
+    }
+    const invHalf = 2.0/(W*H);
+    const gradXGlobal = (right-left)*invHalf;
+    const gradYGlobal = (bottom-top)*invHalf;
+    const Fx = etaG * gradXGlobal;
+    const Fy = etaG * gradYGlobal;
+    Gx += dt * (-betaG*Gx + Fx);
+    Gy += dt * (-betaG*Gy + Fy);
+  }
 
-function updateDtFromStability(dtReq){
-  const denom=gammaEff + 8*kappaEff + lambdaEff;
-  const dtMax=2/denom;
-  dt=Math.min(dtReq,0.9*dtMax);
-}
-
-function updateDrift(){
-  let left=0,right=0,top=0,bottom=0;
-  for(let y=0;y<H;y++){
-    for(let x=0;x<W;x++){
-      const i=y*W+x;
-      const v=fieldCPU[i];
-      if(x<W/2)left+=v; else right+=v;
-      if(y<H/2)top+=v; else bottom+=v;
+  // ---------- Noise ----------
+  function updateADSR(){
+    if(adsrPhase==="idle"){ sigmaEState = 0.0; return; }
+    adsrT += dt;
+    switch(adsrPhase){
+      case "attack":
+        if(adsrT < A) sigmaEState = adsrT/A;
+        else { sigmaEState = 1.0; adsrPhase="decay"; adsrT=0; }
+        break;
+      case "decay":
+        if(adsrT < D){
+          const frac = adsrT/D;
+          sigmaEState = 1.0 - (1.0-S)*frac;
+        } else { sigmaEState=S; adsrPhase="sustain"; adsrT=0; }
+        break;
+      case "sustain":
+        sigmaEState = S; break;
+      case "release":
+        sigmaEState = S * Math.exp(-adsrT/Rtime);
+        if(sigmaEState < 1e-3){ sigmaEState=0; adsrPhase="idle"; }
+        break;
     }
   }
-  const invHalf=2/(W*H);
-  const gradX=(right-left)*invHalf;
-  const gradY=(bottom-top)*invHalf;
-  const Fx=etaG*gradX, Fy=etaG*gradY;
-  Gx+=dt*(-betaG*Gx + Fx);
-  Gy+=dt*(-betaG*Gy + Fy);
-}
 
-function updateADSR(){
-  if(adsrPhase==="idle"){ sigmaEState=0; return; }
-  adsrT+=dt;
-  switch(adsrPhase){
-    case "attack":
-      if(adsrT<A) sigmaEState=adsrT/A;
-      else { sigmaEState=1; adsrPhase="decay"; adsrT=0; }
-      break;
-    case "decay":
-      if(adsrT<D){
-        sigmaEState=1-(1-S)*(adsrT/D);
-      } else { sigmaEState=S; adsrPhase="sustain"; adsrT=0; }
-      break;
-    case "sustain": sigmaEState=S; break;
-    case "release":
-      sigmaEState=S*Math.exp(-adsrT/Rtime);
-      if(sigmaEState<1e-3){ sigmaEState=0; adsrPhase="idle"; }
-      break;
-  }
-}
-
-function updateNoiseEnvelope(){
-  sigma0State += (sigma0Target-sigma0State)*(dt/1.0);
-  updateADSR();
-}
-
-// ---- PDE step ----
-function renderStep(){
-  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,dstTex,0);
-
-  gl.useProgram(prog);
-  gl.viewport(0,0,W,H);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D,srcTex);
-
-  gl.uniform1f(u_dtLoc,dt);
-  gl.uniform1f(u_kappaLoc,kappaEff);
-  gl.uniform1f(u_gammaLoc,gammaEff);
-  gl.uniform1f(u_lambdaLoc,lambdaEff);
-  gl.uniform1f(u_rhoLoc,rho);
-  gl.uniform1f(u_omegaLoc,omega);
-  gl.uniform1f(u_timeLoc,tGlobal);
-  gl.uniform1f(u_sigmaLoc,sigmaEff);
-  gl.uniform1f(u_alphaGLoc,alphaG);
-  gl.uniform1f(u_uStarLoc,uStar);
-  gl.uniform1f(u_RLoc,basinR);
-  gl.uniform2f(u_GLoc,Gx,Gy);
-
-  gl.drawArrays(gl.TRIANGLES,0,6);
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-}
-
-function swapTextures(){ const tmp=srcTex; srcTex=dstTex; dstTex=tmp; }
-
-// ---- UI ----
-document.getElementById("btn-reset").onclick=()=>{
-  initFieldCPU(); uploadFieldToTexture(srcTex,fieldCPU);
-  Gx=Gy=0; sigma0State=sigma0Target; sigmaEState=0;
-  adsrPhase="idle"; adsrT=0; tGlobal=0;
-};
-document.getElementById("btn-pause").onclick=()=>{ paused=!paused; };
-document.getElementById("btn-event").onclick=()=>{ adsrPhase="attack"; adsrT=0; };
-document.getElementById("btn-release").onclick=()=>{
-  if(adsrPhase==="sustain"||adsrPhase==="decay"){ adsrPhase="release"; adsrT=0; }
-};
-btnView.onclick=()=>{
-  viewMode = (viewMode==="gray")?"color":"gray";
-  btnView.textContent=(viewMode==="gray")?"View: Grayscale":"View: False Color";
-};
-
-[
-  pKappa0,pGammaMax,pLambda0,pUstar,pR,
-  pRho,pOmega,pAlphaG,pSigma0,pSigmaEPeak,
-  pAttack,pDecay,pSustain,pReleaseTime
-].forEach(el=>el.addEventListener("input",()=>{
-  kappa0=+pKappa0.value; gammaMax=+pGammaMax.value;
-  lambda0=+pLambda0.value; uStar=+pUstar.value;
-  basinR=+pR.value; rho=+pRho.value; omega=+pOmega.value;
-  alphaG=+pAlphaG.value; sigma0Target=+pSigma0.value;
-  sigmaEPeak=+pSigmaEPeak.value; A=+pAttack.value;
-  D=+pDecay.value; S=+pSustain.value; Rtime=+pReleaseTime.value;
-}));
-
-initFieldCPU();
-uploadFieldToTexture(srcTex,fieldCPU);
-
-// ---- animation loop ----
-function loop(){
-  requestAnimationFrame(loop);
-  if(paused) return;
-
-  readFieldFromTexture(srcTex);
-  computeCoherence();
-  updateNoiseEnvelope();
-  updateEffectiveParameters();
-  updateDtFromStability(dtBase);
-
-  tGlobal += dt;
-  updateDrift();
-
-  renderStep();
-  swapTextures();
-
-  for(let i=0;i<W*H;i++) fieldPrevCPU[i]=fieldCPU[i];
-
-  // display
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-  gl.viewport(0,0,W,H);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D,srcTex);
-
-  if(viewMode==="gray"){
-    gl.useProgram(progDispGray);
-    gl.uniform1i(u_dispGrayTexLoc,0);
-  } else {
-    gl.useProgram(progDispColor);
-    gl.uniform1i(u_dispColorTexLoc,0);
+  function updateNoiseEnvelope(){
+    sigma0State += (sigma0Target - sigma0State)*(dt/1.0);
+    updateADSR();
   }
 
-  // *** CLEANED: no duplicate attribute binding here ***
-  gl.drawArrays(gl.TRIANGLES,0,6);
+  // ---------- CPU PDE step ----------
+  function updateField(){
+    const time = tGlobal;
+    for(let y=0;y<H;y++){
+      const yU=(y-1+H)%H, yD=(y+1)%H;
+      for(let x=0;x<W;x++){
+        const xL=(x-1+W)%W, xR=(x+1)%W;
+        const i = y*W + x;
+        const uC = field[i];
+        const uL = field[y*W + xL];
+        const uR = field[y*W + xR];
+        const uU = field[yU*W + x];
+        const uD = field[yD*W + x];
+        const lap = (uL + uR + uU + uD - 4*uC);
 
-  statusLabel.textContent="dt ≈ "+dt.toFixed(4);
-  coherenceLabel.textContent="Co ≈ "+Co.toFixed(3)+
-    " (Cs="+Cs.toFixed(3)+", Ct="+Ct.toFixed(3)+", Ch="+Ch.toFixed(3)+")";
-  driftLabel.textContent="‖G‖ ≈ "+Math.sqrt(Gx*Gx+Gy*Gy).toFixed(3)+
-    "  σ_total ≈ "+sigmaTotal.toFixed(3);
-}
+        const gx = (uR - uL)*0.5;
+        const gy = (uD - uU)*0.5;
+        const drift = alphaG * (Gx*gx + Gy*gy);
 
-loop();
+        const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
+        const damp    = -gammaEff * uC;
+        const rhythm  = rho * Math.sin(omega * time);
+        const noise   = sigmaEff * (Math.random()*2-1) * Math.sqrt(dt);
+
+        const du = kappaEff*lap + damp + attract + drift + rhythm + noise;
+        fieldNext[i] = uC + dt*du;
+      }
+    }
+
+    // swap
+    const tmp = fieldPrev;
+    fieldPrev = field;
+    field = fieldNext;
+    fieldNext = tmp;
+  }
+
+  // ---------- Upload field to texture ----------
+  const texBuffer = new Uint8Array(W*H);
+  function uploadFieldToTexture(){
+    for(let i=0;i<W*H;i++){
+      const v = field[i]*0.5 + 0.5;     // [-1,1] -> [0,1]
+      texBuffer[i] = Math.max(0, Math.min(255, Math.floor(v*255)));
+    }
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RED, gl.UNSIGNED_BYTE, texBuffer);
+  }
+
+  // ---------- UI handlers ----------
+  document.getElementById("btn-reset").onclick = () => { initField(); };
+  document.getElementById("btn-pause").onclick = () => { paused = !paused; };
+  document.getElementById("btn-event").onclick = () => { adsrPhase="attack"; adsrT=0; };
+  document.getElementById("btn-release").onclick = () => {
+    if(adsrPhase==="sustain"||adsrPhase==="decay"){ adsrPhase="release"; adsrT=0; }
+  };
+
+  btnView.onclick = () => {
+    viewMode = (viewMode === "gray") ? "color" : "gray";
+    btnView.textContent = (viewMode === "gray") ? "View: Grayscale" : "View: False Color";
+  };
+
+  function syncParamsFromUI(){
+    kappa0   = +pKappa0.value;
+    gammaMax = +pGammaMax.value;
+    lambda0  = +pLambda0.value;
+    uStar    = +pUstar.value;
+    basinR   = +pR.value;
+    rho      = +pRho.value;
+    omega    = +pOmega.value;
+    alphaG   = +pAlphaG.value;
+    sigma0Target = +pSigma0.value;
+    sigmaEPeak   = +pSigmaEPeak.value;
+    A       = +pAttack.value;
+    D       = +pDecay.value;
+    S       = +pSustain.value;
+    Rtime   = +pReleaseTime.value;
+    updateBasin(basinR);
+  }
+
+  [
+    pKappa0,pGammaMax,pLambda0,pUstar,pR,
+    pRho,pOmega,pAlphaG,
+    pSigma0,pSigmaEPeak,
+    pAttack,pDecay,pSustain,pReleaseTime
+  ].forEach(el => el.addEventListener("input", syncParamsFromUI));
+
+  // ---------- init & loop ----------
+  syncParamsFromUI();
+  initField();
+
+  function loop(){
+    requestAnimationFrame(loop);
+    if (paused) return;
+
+    // EVF core
+    computeCoherence();
+    updateNoiseEnvelope();
+    updateEffectiveParameters();
+    updateDtFromStability(dtBase);
+    tGlobal += dt;
+    updateDrift();
+    updateField();
+
+    // upload to texture
+    uploadFieldToTexture();
+
+    // draw
+    gl.viewport(0,0,W,H);
+    gl.activeTexture(gl.TEXTURE_2D);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+
+    if(viewMode === "gray"){
+      gl.useProgram(progDispGray);
+      gl.uniform1i(u_dispGrayTexLoc,0);
+    } else {
+      gl.useProgram(progDispColor);
+      gl.uniform1i(u_dispColorTexLoc,0);
+    }
+    gl.drawArrays(gl.TRIANGLES,0,6);
+
+    // labels
+    statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
+    coherenceLabel.textContent =
+      "Co ≈ " + Co.toFixed(3) +
+      " (Cs=" + Cs.toFixed(3) +
+      ", Ct=" + Ct.toFixed(3) +
+      ", Ch=" + Ch.toFixed(3) + ")";
+    const Gmag = Math.sqrt(Gx*Gx + Gy*Gy);
+    driftLabel.textContent =
+      "‖G‖ ≈ " + Gmag.toFixed(3) +
+      "  σ_total ≈ " + sigmaTotal.toFixed(3);
+  }
+
+  loop();
 })();
 </script>
 </body>
