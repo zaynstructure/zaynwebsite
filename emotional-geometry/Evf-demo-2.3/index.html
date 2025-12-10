@@ -81,6 +81,7 @@
       <button id="btn-pause">Pause</button>
       <button id="btn-event">Trigger Event Noise</button>
       <button id="btn-release">Release Event</button>
+      <button id="btn-view">View: Grayscale</button>
       <div id="status">dt ≈ …</div>
       <div id="coherence-label">Co ≈ … (Cs, Ct, Ch)</div>
       <div id="drift-label">‖G‖ ≈ …</div>
@@ -149,13 +150,13 @@ void main() {
 }
 `;
 
-const FRAG_SRC = #version 300 es
+// EVF PDE fragment shader
+const FRAG_SRC = `#version 300 es
 precision highp float;
 
 in vec2 v_uv;
 out vec4 outColor;
 
-// --- EVF uniforms ---
 // field + geometry
 uniform sampler2D u_field;
 uniform vec2  u_resolution;   // (W, H)
@@ -174,9 +175,78 @@ uniform float u_omega;        // rhythm frequency ω
 uniform float u_sigma;        // total noise σ(t)
 uniform float u_alphaG;       // drift coupling α_g
 uniform float u_R;            // basin radius R
-uniform vec2  u_G;            // global drift vector G
+uniform vec2  u_G;            // global drift vector G;
 
-const DISPLAY_FRAG = `#version 300 es
+// pseudo-random in [0,1]
+float rand(vec2 co) {
+  return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
+}
+
+void main() {
+  vec2 texel = 1.0 / u_resolution;
+
+  // periodic neighbours
+  vec2 uvL = fract(v_uv + vec2(-texel.x, 0.0));
+  vec2 uvR = fract(v_uv + vec2( texel.x, 0.0));
+  vec2 uvU = fract(v_uv + vec2(0.0, -texel.y));
+  vec2 uvD = fract(v_uv + vec2(0.0,  texel.y));
+
+  float uC = texture(u_field, v_uv).r;
+  float uL = texture(u_field, uvL).r;
+  float uR = texture(u_field, uvR).r;
+  float uU = texture(u_field, uvU).r;
+  float uD = texture(u_field, uvD).r;
+
+  // Laplacian
+  float lap = (uL + uR + uU + uD - 4.0 * uC);
+
+  // local gradient
+  float gx = (uR - uL) * 0.5;
+  float gy = (uD - uU) * 0.5;
+
+  // drift term with tanh bounding
+  float driftRaw = dot(u_G, vec2(gx, gy));
+  float drift = u_alphaG * tanh(driftRaw);
+
+  // attractor basin
+  vec2 p = v_uv - vec2(0.5);
+  float r2 = dot(p, p);
+  float R2 = max(u_R * u_R, 1e-4);
+  float w  = exp(-r2 / (2.0 * R2));
+
+  // attractor: -λ w tanh(u - u*)
+  float attract = -u_lambda * w * tanh(uC - u_uStar);
+
+  // damping
+  float damp = -u_gamma * uC;
+
+  // rhythm
+  float rhythm = u_rho * sin(u_omega * u_time);
+
+  // noise with √dt scaling
+  float eps = max(u_dt, 1e-6);
+  float rnd = rand(v_uv * u_resolution + u_time * 123.456);
+  float noise = u_sigma * (2.0 * rnd - 1.0) * sqrt(eps);
+
+  // PDE
+  float du = u_kappa * lap
+           + drift
+           + damp
+           + attract
+           + rhythm
+           + noise;
+
+  float uNext = uC + u_dt * du;
+
+  // soft clamp for safety
+  uNext = clamp(uNext, -3.0, 3.0);
+
+  outColor = vec4(uNext, 0.0, 0.0, 1.0);
+}
+`;
+
+// Display shader: grayscale
+const DISPLAY_FRAG_GRAY = `#version 300 es
 precision highp float;
 
 in vec2 v_uv;
@@ -191,86 +261,34 @@ void main() {
 }
 `;
 
-  
-// ------------------------------------------------------------
-// Pseudo-random hash in [0,1]
-// ------------------------------------------------------------
-float rand(vec2 co) {
-  return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
+// Display shader: false-color
+const DISPLAY_FRAG_COLOR = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+out vec4 outColor;
+
+uniform sampler2D u_tex;
+
+// simple blue → cyan → green → yellow → red map
+vec3 colormap(float x) {
+  x = clamp(x, 0.0, 1.0);
+  float r = smoothstep(0.5, 1.0, x);
+  float g = (x < 0.5)
+      ? smoothstep(0.0, 0.5, x)
+      : smoothstep(1.0, 0.5, 1.0 - x);
+  float b = smoothstep(1.0, 0.5, 1.0 - x);
+  return vec3(r, g, b);
 }
 
 void main() {
-  vec2 texel = 1.0 / u_resolution;
-
-  // --- Periodic neighbours (EVF domain Ω with periodic BCs) ---
-  vec2 uvL = fract(v_uv + vec2(-texel.x, 0.0));
-  vec2 uvR = fract(v_uv + vec2( texel.x, 0.0));
-  vec2 uvU = fract(v_uv + vec2(0.0, -texel.y));
-  vec2 uvD = fract(v_uv + vec2(0.0,  texel.y));
-
-  float uC = texture(u_field, v_uv).r;
-  float uL = texture(u_field, uvL).r;
-  float uR = texture(u_field, uvR).r;
-  float uU = texture(u_field, uvU).r;
-  float uD = texture(u_field, uvD).r;
-
-  // --- Laplacian: κ ∇²u ---
-  float lap = (uL + uR + uU + uD - 4.0 * uC);
-
-  // --- Local gradient for drift term G·∇u ---
-  float gx = (uR - uL) * 0.5;
-  float gy = (uD - uU) * 0.5;
-
-  // Dot with global drift vector G
-  float driftRaw = dot(u_G, vec2(gx, gy));
-
-  // Stabilized drift: keep it EVF-consistent but bounded
-  // EVF: α_g G·∇u  → here: α_g * tanh(G·∇u)
-  float drift = u_alphaG * tanh(driftRaw);
-
-  // --- Attractor basin w(x): Gaussian around center, stabilized ---
-  vec2 p = v_uv - vec2(0.5);
-  float r2 = dot(p, p);
-
-  // Avoid division by ~0 when R → 0
-  // EVF: w(x) = exp(-r² / (2 R²))
-  float R2 = max(u_R * u_R, 1e-4);
-  float w  = exp(-r2 / (2.0 * R2));
-
-  // Attractor: -λ w(x) tanh(u - u*)
-  float attract = -u_lambda * w * tanh(uC - u_uStar);
-
-  // Damping: -γ u
-  float damp = -u_gamma * uC;
-
-  // Rhythm: ρ sin(ω t)
-  float rhythm = u_rho * sin(u_omega * u_time);
-
-  // --- Noise: σ(t) ξ(x,t), with SPDE scaling √Δt ---
-  float eps = max(u_dt, 1e-6);
-  float rnd = rand(v_uv * u_resolution + u_time * 123.456);
-  float noise = u_sigma * (2.0 * rnd - 1.0) * sqrt(eps);
-
-  // --- EVF PDE core: u_t = κ∇²u + drift + damp + attract + rhythm + noise ---
-  float du = u_kappa * lap
-           + drift
-           + damp
-           + attract
-           + rhythm
-           + noise;
-
-  float uNext = uC + u_dt * du;
-
-  // Optional soft clamp (safety only, not strictly necessary if parameters are sane)
-  // Keeps values in a reasonable band without hard clipping dynamics.
-  // Comment out if you want completely unbounded evolution.
-  uNext = clamp(uNext, -3.0, 3.0);
-
-  // Store in .r channel; other channels unused but kept stable
-  outColor = vec4(uNext, 0.0, 0.0, 1.0);
+  float u = texture(u_tex, v_uv).r;
+  float t = u * 0.5 + 0.5; // map [-1,1] → [0,1]
+  vec3 c = colormap(t);
+  outColor = vec4(c, 1.0);
 }
+`;
 
-// ---- JS / WEBGL SETUP ----
 (function(){
   const canvas = document.getElementById('glCanvas');
   const gl = canvas.getContext('webgl2');
@@ -283,7 +301,6 @@ void main() {
   canvas.width = W;
   canvas.height = H;
 
-  // Compile shaders
   function compileShader(type, src) {
     const sh = gl.createShader(type);
     gl.shaderSource(sh, src);
@@ -295,6 +312,7 @@ void main() {
     return sh;
   }
 
+  // PDE program
   const vs = compileShader(gl.VERTEX_SHADER, VERT_SRC);
   const fs = compileShader(gl.FRAGMENT_SHADER, FRAG_SRC);
   const prog = gl.createProgram();
@@ -306,22 +324,23 @@ void main() {
     throw new Error('Program link error');
   }
 
-// ===========================================================
-//  DISPLAY PROGRAM (simple texture → screen)
-// ===========================================================
-const vsDisp = compileShader(gl.VERTEX_SHADER, VERT_SRC);
-const fsDisp = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG);
-const progDisp = gl.createProgram();
-gl.attachShader(progDisp, vsDisp);
-gl.attachShader(progDisp, fsDisp);
-gl.linkProgram(progDisp);
+  // Display programs
+  const vsDispGray = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+  const fsDispGray = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_GRAY);
+  const progDispGray = gl.createProgram();
+  gl.attachShader(progDispGray, vsDispGray);
+  gl.attachShader(progDispGray, fsDispGray);
+  gl.linkProgram(progDispGray);
 
-const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
+  const vsDispColor = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+  const fsDispColor = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_COLOR);
+  const progDispColor = gl.createProgram();
+  gl.attachShader(progDispColor, vsDispColor);
+  gl.attachShader(progDispColor, fsDispColor);
+  gl.linkProgram(progDispColor);
 
-  
-
-
-  gl.useProgram(prog);
+  const u_dispGrayTexLoc  = gl.getUniformLocation(progDispGray, 'u_tex');
+  const u_dispColorTexLoc = gl.getUniformLocation(progDispColor, 'u_tex');
 
   // Fullscreen quad
   const quad = gl.createBuffer();
@@ -332,11 +351,12 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
   ]);
   gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
 
+  gl.useProgram(prog);
   const locPos = gl.getAttribLocation(prog, 'a_position');
   gl.enableVertexAttribArray(locPos);
   gl.vertexAttribPointer(locPos, 2, gl.FLOAT, false, 0, 0);
 
-  // Uniform locations
+  // Uniform locations for PDE program
   const u_fieldLoc = gl.getUniformLocation(prog, 'u_field');
   const u_resLoc   = gl.getUniformLocation(prog, 'u_resolution');
   const u_dtLoc    = gl.getUniformLocation(prog, 'u_dt');
@@ -355,7 +375,7 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
   gl.uniform2f(u_resLoc, W, H);
   gl.uniform1i(u_fieldLoc, 0); // texture unit 0
 
-  // Create two float textures for ping-pong
+  // Float textures for ping-pong
   function createFloatTex() {
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -378,16 +398,15 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
   // FBO
   const fbo = gl.createFramebuffer();
 
-  // CPU-side field buffers for coherence
-  let fieldCPU = new Float32Array(W*H);       // current u
-  let fieldPrevCPU = new Float32Array(W*H);   // previous u
+  // CPU buffers
+  let fieldCPU = new Float32Array(W*H);
+  let fieldPrevCPU = new Float32Array(W*H);
 
   // ----- EVF STATE (CPU) -----
   let tGlobal = 0.0;
   let dt = 0.01;
   const dtBase = 0.01;
 
-  // Baseline params
   let kappa0   = 0.25;
   let gammaMin = 0.1;
   let gammaMax = 0.8;
@@ -440,10 +459,12 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
   let basinR = 0.12;
 
   let paused = false;
+  let viewMode = 'gray'; // 'gray' or 'color'
 
   const statusLabel     = document.getElementById("status");
   const coherenceLabel  = document.getElementById("coherence-label");
   const driftLabel      = document.getElementById("drift-label");
+  const btnView         = document.getElementById("btn-view");
 
   // UI elements
   const pKappa0    = document.getElementById("p-kappa0");
@@ -461,7 +482,7 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
   const pSustain   = document.getElementById("p-sustain");
   const pReleaseTime = document.getElementById("p-releaseTime");
 
-  // Initialize CPU field and upload to GPU
+  // init CPU field
   function initFieldCPU(){
     for(let i=0;i<W*H;i++){
       const v = (Math.random()*0.2 - 0.1);
@@ -482,7 +503,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RGBA, gl.FLOAT, rgba);
   }
 
-  // Read back current field from srcTex into fieldCPU
   function readFieldFromTexture(tex){
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
@@ -490,15 +510,13 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     const rgba = new Float32Array(W*H*4);
     gl.readPixels(0,0,W,H, gl.RGBA, gl.FLOAT, rgba);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
     for(let i=0;i<W*H;i++){
       fieldCPU[i] = rgba[i*4+0];
     }
   }
 
-  // Coherence computation on CPU
+  // coherence
   function computeCoherence(){
-    // Spatial
     let Es = 0.0;
     for(let y=0;y<H;y++){
       const yU = (y-1+H)%H;
@@ -520,7 +538,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     Es /= (W*H);
     Cs = Math.exp(-alpha_s * Es);
 
-    // Temporal
     let Et = 0.0;
     const invDt = dt>0 ? 1.0/dt : 0.0;
     for(let i=0;i<W*H;i++){
@@ -530,7 +547,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     Et /= (W*H);
     Ct = Math.exp(-alpha_t * Et);
 
-    // Thematic
     const theta = {
       gamma: gammaEff,
       kappa: kappaEff,
@@ -553,7 +569,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     Co = Math.exp(logCo);
   }
 
-  // Coherence → parameters
   function updateEffectiveParameters(){
     gammaEff = gammaMin + (gammaMax - gammaMin) * Co;
     const beta_s = 0.5;
@@ -566,7 +581,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     sigmaEff = sigmaBase * (1.0 - Co);
   }
 
-  // dt from stability bound
   function updateDtFromStability(dtRequested){
     const h = 1.0;
     const LA = 1.0;
@@ -575,7 +589,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     dt = Math.min(dtRequested, 0.9*dtMax);
   }
 
-  // Drift evolution from global gradient
   function updateDrift(){
     let leftSum=0, rightSum=0, topSum=0, bottomSum=0;
     for(let y=0;y<H;y++){
@@ -601,7 +614,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     Gy += dt * dGy;
   }
 
-  // Noise envelope
   function updateNoiseEnvelope(){
     const ds0 = (sigma0Target - sigma0State) * (dt / tauSigma0);
     sigma0State += ds0;
@@ -666,7 +678,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     }
   }
 
-  // Render PDE step: srcTex → dstTex
   function renderStep(){
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
@@ -732,6 +743,13 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
   document.getElementById("btn-event").onclick = () => { triggerEventNoise(); };
   document.getElementById("btn-release").onclick = () => { releaseEventNoise(); };
 
+  btnView.onclick = () => {
+    viewMode = (viewMode === 'gray') ? 'color' : 'gray';
+    btnView.textContent = (viewMode === 'gray')
+      ? 'View: Grayscale'
+      : 'View: False Color';
+  };
+
   [
     pKappa0, pGammaMax, pLambda0, pUstar, pR,
     pRho, pOmega, pAlphaG,
@@ -739,7 +757,6 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     pAttack, pDecay, pSustain, pReleaseTime
   ].forEach(el => el.addEventListener("input", syncParamsFromUI));
 
-  // Initial setup
   syncParamsFromUI();
   initFieldCPU();
   uploadFieldToTexture(srcTex, fieldCPU);
@@ -748,44 +765,40 @@ const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
     requestAnimationFrame(loop);
     if (paused) return;
 
-    // 1. Read back current field (srcTex) → CPU
     readFieldFromTexture(srcTex);
-
-    // 2. Coherence
     computeCoherence();
-
-    // 3. Noise + parameters
     updateNoiseEnvelope();
     updateEffectiveParameters();
     updateDtFromStability(dtBase);
 
-    // 4. Time + drift
     tGlobal += dt;
     updateDrift();
 
-    // 5. PDE step on GPU
     renderStep();
     swapTextures();
 
-    // 6. Save current field as prev for next Ct
     for(let i=0;i<W*H;i++) fieldPrevCPU[i] = fieldCPU[i];
 
-  // =========================
-// DISPLAY PASS (correct)
-// =========================
-gl.bindFramebuffer(gl.FRAMEBUFFER, null);   // draw to screen
-gl.viewport(0, 0, W, H);                    // match canvas size
+    // DISPLAY PASS
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, srcTex);
 
-gl.useProgram(progDisp);                    // <--- USE DISPLAY SHADER
+    if (viewMode === 'gray') {
+      gl.useProgram(progDispGray);
+      gl.uniform1i(u_dispGrayTexLoc, 0);
+    } else {
+      gl.useProgram(progDispColor);
+      gl.uniform1i(u_dispColorTexLoc, 0);
+    }
 
-gl.activeTexture(gl.TEXTURE0);
-gl.bindTexture(gl.TEXTURE_2D, srcTex);      // sample most recent PDE texture
+    // reuse same quad buffer + attrib 0
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-gl.uniform1i(u_dispTexLoc, 0);              // bind tex to sampler
-
-gl.drawArrays(gl.TRIANGLES, 0, 6);          // fullscreen quad
-
-    // 8. UI labels
     statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
     coherenceLabel.textContent =
       "Co ≈ " + Co.toFixed(3) +
