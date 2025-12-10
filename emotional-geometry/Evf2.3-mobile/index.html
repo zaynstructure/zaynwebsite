@@ -473,6 +473,7 @@ void main(){
     const rho    = +pRho.value;
     const omega  = +pOmega.value;
 
+    const sigmaTotal = updateSigmas(t, dtPhys);
     // Override CFL for mobile visual sandbox
     let dt = 0.005;   // force dt up to a visible range
 
