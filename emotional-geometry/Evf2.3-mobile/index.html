@@ -473,14 +473,8 @@ void main(){
     const rho    = +pRho.value;
     const omega  = +pOmega.value;
 
-    const h = 1.0 / W;
-    const LA = 1.0; // tanh Lipschitz
-
-    const denom = gamma + 8.0*kappa/(h*h) + lambda*LA;
-    let dtCFL = 2.0 / Math.max(denom, 1e-4);
-    let dt = Math.min(dtCFL, dtPhys, 0.02);
-
-    const sigmaTotal = updateSigmas(t, dtPhys);
+    // Override CFL for mobile visual sandbox
+    let dt = Math.min(dtPhys, 0.02);    // force dt up to a visible range
 
     // ---- FIELD PASS ----
     gl.useProgram(progField);
