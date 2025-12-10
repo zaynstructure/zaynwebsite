@@ -613,16 +613,14 @@ void main(){
     const cx     = +pCx.value;
     const cy     = +pCy.value;
 
-    const h = 1.0 / W;
-    const LA = 1.0;
+    // Treat κ as already scaled to the grid (visual sandbox mode)
+// CFL: dt <= 2 / (γ + 8κ + λ)
+const LA = 1.0;
+const denom = gamma + 8.0 * kappa + lambda * LA;
+let dtCFL = 2.0 / Math.max(denom, 1e-4);
 
-    const denom = gamma + 8.0*kappa/(h*h) + lambda*LA;
-    let dtCFL = 2.0 / Math.max(denom, 1e-4);
-
-    let dt = Math.min(dtCFL, dtPhys, 0.02);
-
-    const sigmaTotal = updateSigmas(t, dtPhys);
-
+// Use the smaller of physical dt and CFL, with a visual upper bound
+let dt = Math.min(dtCFL, dtPhys, 0.02);
     // ------------ DRIFT PASS ------------
     gl.useProgram(progDrift);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
