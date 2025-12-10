@@ -339,17 +339,28 @@ void main(){
   const texel = [1.0/W, 1.0/H];
 
   function makeTexture(initialData){
-    const t = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0,
-                  gl.RGBA, gl.UNSIGNED_BYTE, initialData || null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    return t;
-  }
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
 
+  // iOS-safe FBO attachment
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA4,                 // IMPORTANT CHANGE
+    W, H,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    initialData || null
+  );
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  return t;
+}
   function initFieldData(){
     const a = new Uint8Array(W*H*4);
     for(let i=0;i<W*H;i++){
