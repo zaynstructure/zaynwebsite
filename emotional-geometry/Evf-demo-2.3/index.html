@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>WebGL2 Capability Test · EVF-2.3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    background:#111; color:#eee; margin:0; padding:20px;
+    font-family:system-ui, -apple-system, sans-serif;
+  }
+  h2 { color:#7cf; }
+  .ok { color:#6f6; }
+  .fail { color:#f66; }
+  .warn { color:#fc6; }
+</style>
+</head>
+<body>
+
+<h2>WebGL2 Capability Test (EVF-2.3 Requirements)</h2>
+<div id="output"></div>
+
+<script>
+(function(){
+  const out = document.getElementById("output");
+  function log(msg, cls="") {
+    const el = document.createElement("div");
+    if (cls) el.className = cls;
+    el.textContent = msg;
+    out.appendChild(el);
+  }
+
+  // 1. Try to get WebGL2
+  const canvas = document.createElement("canvas");
+  const gl = canvas.getContext("webgl2");
+
+  if (!gl) {
+    log("✘ WebGL2: NOT supported", "fail");
+    log("This device/browser cannot run EVF-2.3 hybrid.", "fail");
+    return;
+  }
+  log("✔ WebGL2: supported", "ok");
+
+  // 2. Check float texture extension (WebGL2 usually has it built-in)
+  const extColorBufferFloat = gl.getExtension("EXT_color_buffer_float");
+  if (extColorBufferFloat) {
+    log("✔ EXT_color_buffer_float: supported", "ok");
+  } else {
+    log("✘ EXT_color_buffer_float: NOT supported", "fail");
+  }
+
+  const extTexFloat = gl.getExtension("OES_texture_float") || true; 
+  if (extTexFloat) log("✔ Float textures: supported", "ok");
+  else log("✘ Float textures: NOT supported", "fail");
+
+  // 3. Test RGBA32F texture creation
+  let tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  try {
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA32F,
+      16,
+      16,
+      0,
+      gl.RGBA,
+      gl.FLOAT,
+      null
+    );
+    log("✔ RGBA32F texture allocation: OK", "ok");
+  } catch (e) {
+    log("✘ RGBA32F allocation FAILED", "fail");
+  }
+
+  // 4. Test framebuffer renderability
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER,
+    gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D,
+    tex,
+    0
+  );
+
+  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if (status === gl.FRAMEBUFFER_COMPLETE) {
+    log("✔ RGBA32F render target: OK", "ok");
+  } else {
+    log("✘ RGBA32F render target: FAILED", "fail");
+    log("Status: 0x" + status.toString(16), "warn");
+  }
+
+  // 5. Test float readback
+  let readbackOK = true;
+  try {
+    const buf = new Float32Array(4);
+    gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT, buf);
+  } catch (e) {
+    readbackOK = false;
+  }
+
+  if (readbackOK) log("✔ Float readPixels(): supported", "ok");
+  else log("✘ Float readPixels(): NOT supported", "fail");
+
+  // 6. iOS / WebKit warning
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) {
+    log("⚠ iOS detected: WebKit has known float framebuffer issues on iOS < 15.", "warn");
+  }
+
+  // 7. Summarize recommendation
+  const allGood = (
+    gl &&
+    extColorBufferFloat &&
+    readbackOK &&
+    status === gl.FRAMEBUFFER_COMPLETE
+  );
+
+  if (allGood) {
+    log("✔ This device can run EVF-2.3 hybrid WebGL2 version.", "ok");
+  } else {
+    log("✘ This device is NOT fully compatible with EVF-2.3 hybrid.", "fail");
+  }
+
+})();
+</script>
+
+</body>
+</html>
