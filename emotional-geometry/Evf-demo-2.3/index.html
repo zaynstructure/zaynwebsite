@@ -146,38 +146,8 @@ float rand(vec2 co) {
 }
 
 void main() {
-  vec2 texel = 1.0 / u_resolution;
-  vec2 uvL = fract(v_uv + vec2(-texel.x, 0.0));
-  vec2 uvR = fract(v_uv + vec2( texel.x, 0.0));
-  vec2 uvU = fract(v_uv + vec2(0.0, -texel.y));
-  vec2 uvD = fract(v_uv + vec2(0.0,  texel.y));
-
-  float uC = texture(u_field, v_uv).r;
-  float uL = texture(u_field, uvL).r;
-  float uR = texture(u_field, uvR).r;
-  float uU = texture(u_field, uvU).r;
-  float uD = texture(u_field, uvD).r;
-
-  float lap = (uL + uR + uU + uD - 4.0*uC);
-  float gx  = 0.5*(uR - uL);
-  float gy  = 0.5*(uD - uU);
-  float drift = u_alphaG * tanh(dot(u_G, vec2(gx,gy)));
-
-  vec2 p = v_uv - vec2(0.5);
-  float r2 = dot(p,p);
-  float w  = exp(-r2/(2.0*max(u_R*u_R,1e-4)));
-
-  float attract = -u_lambda * w * tanh(uC - u_uStar);
-  float damp = -u_gamma * uC;
-  float rhythm = u_rho * sin(u_omega * u_time);
-
-  float eps = max(u_dt, 1e-6);
-  float noise = u_sigma * (2.0*rand(v_uv*u_resolution+u_time*123.456)-1.0) * sqrt(eps);
-
-  float du = u_kappa*lap + drift + damp + attract + rhythm + noise;
-  float uNext = clamp(uC + u_dt*du, -3.0, 3.0);
-
-  outColor = vec4(uNext,0,0,1);
+void main() {
+    outColor = vec4(1.0, 0.0, 0.0, 1.0); // bright red
 }
 `;
 
