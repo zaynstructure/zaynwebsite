@@ -142,11 +142,11 @@
 <script>
 // ---- GLSL SHADERS ----
 const VERT_SRC = `#version 300 es
-in vec2 a_position;
+layout(location = 0) in vec2 a_position;
 out vec2 v_uv;
 void main() {
-  v_uv = (a_position + 1.0) * 0.5;
-  gl_Position = vec4(a_position, 0.0, 1.0);
+    v_uv = (a_position + 1.0) * 0.5;
+    gl_Position = vec4(a_position, 0.0, 1.0);
 }
 `;
 
@@ -351,11 +351,14 @@ void main() {
   ]);
   gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
 
-  gl.useProgram(prog);
-  const locPos = gl.getAttribLocation(prog, 'a_position');
-  gl.enableVertexAttribArray(locPos);
-  gl.vertexAttribPointer(locPos, 2, gl.FLOAT, false, 0, 0);
+  // Force attribute 0 for ALL programs (PDE + display)
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
+  
+  gl.useProgram(prog);
+  
   // Uniform locations for PDE program
   const u_fieldLoc = gl.getUniformLocation(prog, 'u_field');
   const u_resLoc   = gl.getUniformLocation(prog, 'u_resolution');
