@@ -176,6 +176,22 @@ uniform float u_alphaG;       // drift coupling α_g
 uniform float u_R;            // basin radius R
 uniform vec2  u_G;            // global drift vector G
 
+const DISPLAY_FRAG = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+out vec4 outColor;
+
+uniform sampler2D u_tex;
+
+void main() {
+  float u = texture(u_tex, v_uv).r;
+  float g = u * 0.5 + 0.5;
+  outColor = vec4(g, g, g, 1.0);
+}
+`;
+
+  
 // ------------------------------------------------------------
 // Pseudo-random hash in [0,1]
 // ------------------------------------------------------------
@@ -289,6 +305,21 @@ void main() {
     console.error(gl.getProgramInfoLog(prog));
     throw new Error('Program link error');
   }
+
+// ===========================================================
+//  DISPLAY PROGRAM (simple texture → screen)
+// ===========================================================
+const vsDisp = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+const fsDisp = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG);
+const progDisp = gl.createProgram();
+gl.attachShader(progDisp, vsDisp);
+gl.attachShader(progDisp, fsDisp);
+gl.linkProgram(progDisp);
+
+const u_dispTexLoc = gl.getUniformLocation(progDisp, 'u_tex');
+
+  
+
 
   gl.useProgram(prog);
 
@@ -739,15 +770,20 @@ void main() {
     // 6. Save current field as prev for next Ct
     for(let i=0;i<W*H;i++) fieldPrevCPU[i] = fieldCPU[i];
 
-    // 7. Draw to screen by blitting srcTex to canvas (already done via FBO result)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0,0,W,H);
-    gl.useProgram(prog);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, srcTex);
-    // We can run a "display-only" program, but for simplicity we reuse and treat dt≈0
-    gl.uniform1f(u_dtLoc, 0.0);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  // =========================
+// DISPLAY PASS (correct)
+// =========================
+gl.bindFramebuffer(gl.FRAMEBUFFER, null);   // draw to screen
+gl.viewport(0, 0, W, H);                    // match canvas size
+
+gl.useProgram(progDisp);                    // <--- USE DISPLAY SHADER
+
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D, srcTex);      // sample most recent PDE texture
+
+gl.uniform1i(u_dispTexLoc, 0);              // bind tex to sampler
+
+gl.drawArrays(gl.TRIANGLES, 0, 6);          // fullscreen quad
 
     // 8. UI labels
     statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
