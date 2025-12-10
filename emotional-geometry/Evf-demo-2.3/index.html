@@ -2,131 +2,734 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>WebGL2 Capability Test · EVF-2.3</title>
+<title>EVF-2.3 · Hybrid WebGL + CPU</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  body {
-    background:#111; color:#eee; margin:0; padding:20px;
-    font-family:system-ui, -apple-system, sans-serif;
+  html, body {
+    margin:0; padding:0;
+    background:#111; color:#eee;
+    font-family:system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    height:100%; overflow:hidden;
   }
-  h2 { color:#7cf; }
-  .ok { color:#6f6; }
-  .fail { color:#f66; }
-  .warn { color:#fc6; }
+  #container {
+    display:flex;
+    flex-direction:row;
+    height:100%;
+  }
+  #gl-wrap {
+    flex:1 1 auto;
+    background:#000;
+    min-height:250px;
+  }
+  canvas {
+    width:100%;
+    height:100%;
+    display:block;
+    background:#000;
+  }
+  #sidebar {
+    flex:0 0 300px;
+    padding:10px;
+    background:#181818;
+    overflow-y:auto;
+    font-size:12px;
+    box-sizing:border-box;
+  }
+  .section {
+    margin-bottom:10px;
+    border-bottom:1px solid #333;
+    padding-bottom:6px;
+  }
+  .section-title {
+    text-transform:uppercase;
+    font-size:11px;
+    color:#aaa;
+    margin-bottom:4px;
+  }
+  label {
+    display:block;
+    margin-top:4px;
+    font-size:11px;
+  }
+  input[type=range] { width:100%; }
+  button {
+    font-size:11px;
+    padding:3px 6px;
+    margin-right:5px;
+    margin-top:2px;
+  }
+  #status, #coherence-label, #drift-label {
+    margin-top:6px;
+    font-size:11px;
+  }
+  @media (max-width: 700px) {
+    #container { flex-direction:column; }
+    #sidebar { width:100%; max-height:45vh; }
+    #gl-wrap { min-height:300px; }
+  }
 </style>
 </head>
 <body>
 
-<h2>WebGL2 Capability Test (EVF-2.3 Requirements)</h2>
-<div id="output"></div>
+<div id="container">
+  <div id="gl-wrap">
+    <canvas id="glCanvas"></canvas>
+  </div>
+  <div id="sidebar">
+    <div class="section">
+      <button id="btn-reset">Reset</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-event">Trigger Event Noise</button>
+      <button id="btn-release">Release Event</button>
+      <div id="status">dt ≈ …</div>
+      <div id="coherence-label">Co ≈ … (Cs, Ct, Ch)</div>
+      <div id="drift-label">‖G‖ ≈ …</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Field Parameters</div>
+      <label>Diffusion κ (baseline)
+        <input id="p-kappa0" type="range" min="0" max="1" step="0.01" value="0.25">
+      </label>
+      <label>Damping γ<sub>max</sub>
+        <input id="p-gammaMax" type="range" min="0.2" max="3" step="0.01" value="0.8">
+      </label>
+      <label>Attractor λ (baseline)
+        <input id="p-lambda0" type="range" min="0" max="2" step="0.01" value="0.7">
+      </label>
+      <label>Baseline u*
+        <input id="p-ustar" type="range" min="-1" max="1" step="0.01" value="0">
+      </label>
+      <label>Basin Radius R
+        <input id="p-basinR" type="range" min="0.03" max="0.4" step="0.005" value="0.12">
+      </label>
+      <label>Rhythm ρ
+        <input id="p-rho" type="range" min="0" max="1" step="0.01" value="0.3">
+      </label>
+      <label>Rhythm ω
+        <input id="p-omega" type="range" min="0.1" max="3" step="0.01" value="0.8">
+      </label>
+      <label>Drift coupling α<sub>g</sub>
+        <input id="p-alphaG" type="range" min="0" max="3" step="0.01" value="1.0">
+      </label>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Noise (Chronic + Event)</div>
+      <label>Chronic σ₀ target
+        <input id="p-sigma0" type="range" min="0" max="0.5" step="0.01" value="0.05">
+      </label>
+      <label>Event σ<sub>E</sub> peak
+        <input id="p-sigmaEpeak" type="range" min="0" max="1" step="0.01" value="0.15">
+      </label>
+      <label>ADSR Attack A (s)
+        <input id="p-attack" type="range" min="0.05" max="1" step="0.01" value="0.2">
+      </label>
+      <label>ADSR Decay D (s)
+        <input id="p-decay" type="range" min="0.05" max="1" step="0.01" value="0.3">
+      </label>
+      <label>ADSR Sustain S
+        <input id="p-sustain" type="range" min="0" max="1" step="0.01" value="0.5">
+      </label>
+      <label>ADSR Release R (s)
+        <input id="p-releaseTime" type="range" min="0.05" max="2" step="0.01" value="0.5">
+      </label>
+    </div>
+  </div>
+</div>
 
 <script>
+// ---- GLSL SHADERS ----
+const VERT_SRC = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+void main() {
+  v_uv = (a_position + 1.0) * 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+const FRAG_SRC = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 outColor;
+
+uniform sampler2D u_field;
+uniform vec2  u_resolution;
+uniform float u_dt;
+uniform float u_kappa;
+uniform float u_gamma;
+uniform float u_lambda;
+uniform float u_rho;
+uniform float u_omega;
+uniform float u_time;
+uniform float u_sigma;
+uniform float u_alphaG;
+uniform float u_uStar;
+uniform float u_R;
+uniform vec2  u_G;
+
+float rand(vec2 co) {
+  // simple hash-based pseudo-random
+  return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
+}
+
+void main(){
+  vec2 texel = 1.0 / u_resolution;
+
+  // periodic neighbours
+  vec2 uvL = v_uv + vec2(-texel.x, 0.0);
+  vec2 uvR = v_uv + vec2( texel.x, 0.0);
+  vec2 uvU = v_uv + vec2(0.0, -texel.y);
+  vec2 uvD = v_uv + vec2(0.0,  texel.y);
+
+  uvL = fract(uvL);
+  uvR = fract(uvR);
+  uvU = fract(uvU);
+  uvD = fract(uvD);
+
+  float uC = texture(u_field, v_uv).r;
+  float uL = texture(u_field, uvL).r;
+  float uR = texture(u_field, uvR).r;
+  float uU = texture(u_field, uvU).r;
+  float uD = texture(u_field, uvD).r;
+
+  float lap = (uL + uR + uU + uD - 4.0*uC);
+
+  // local gradient for drift
+  float gx = (uR - uL) * 0.5;
+  float gy = (uD - uU) * 0.5;
+  float drift = u_alphaG * dot(u_G, vec2(gx, gy));
+
+  // radial Gaussian basin around center
+  vec2 p = v_uv - vec2(0.5);
+  float r2 = dot(p, p);
+  float w = exp(-r2 / (2.0 * u_R * u_R));
+
+  float attract = -u_lambda * w * tanh(uC - u_uStar);
+  float damp    = -u_gamma * uC;
+  float rhythm  = u_rho * sin(u_omega * u_time);
+
+  // pseudo-random noise in [-1,1]
+  float rnd = rand(v_uv * u_resolution + u_time * 123.4);
+  float noise = u_sigma * (2.0*rnd - 1.0) * sqrt(u_dt);
+
+  float du = u_kappa*lap + damp + attract + drift + rhythm + noise;
+  float uNext = uC + u_dt * du;
+
+  outColor = vec4(uNext, 0.0, 0.0, 1.0);
+}
+`;
+
+// ---- JS / WEBGL SETUP ----
 (function(){
-  const out = document.getElementById("output");
-  function log(msg, cls="") {
-    const el = document.createElement("div");
-    if (cls) el.className = cls;
-    el.textContent = msg;
-    out.appendChild(el);
-  }
-
-  // 1. Try to get WebGL2
-  const canvas = document.createElement("canvas");
-  const gl = canvas.getContext("webgl2");
-
+  const canvas = document.getElementById('glCanvas');
+  const gl = canvas.getContext('webgl2');
   if (!gl) {
-    log("✘ WebGL2: NOT supported", "fail");
-    log("This device/browser cannot run EVF-2.3 hybrid.", "fail");
+    alert('WebGL2 not supported');
     return;
   }
-  log("✔ WebGL2: supported", "ok");
 
-  // 2. Check float texture extension (WebGL2 usually has it built-in)
-  const extColorBufferFloat = gl.getExtension("EXT_color_buffer_float");
-  if (extColorBufferFloat) {
-    log("✔ EXT_color_buffer_float: supported", "ok");
-  } else {
-    log("✘ EXT_color_buffer_float: NOT supported", "fail");
+  const W = 128, H = 128;
+  canvas.width = W;
+  canvas.height = H;
+
+  // Compile shaders
+  function compileShader(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(sh));
+      throw new Error('Shader compile error');
+    }
+    return sh;
   }
 
-  const extTexFloat = gl.getExtension("OES_texture_float") || true; 
-  if (extTexFloat) log("✔ Float textures: supported", "ok");
-  else log("✘ Float textures: NOT supported", "fail");
+  const vs = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+  const fs = compileShader(gl.FRAGMENT_SHADER, FRAG_SRC);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(prog));
+    throw new Error('Program link error');
+  }
 
-  // 3. Test RGBA32F texture creation
-  let tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.useProgram(prog);
 
-  try {
+  // Fullscreen quad
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  const quadVerts = new Float32Array([
+    -1,-1,   1,-1,   -1,1,
+    -1, 1,   1,-1,    1,1
+  ]);
+  gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+
+  const locPos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(locPos);
+  gl.vertexAttribPointer(locPos, 2, gl.FLOAT, false, 0, 0);
+
+  // Uniform locations
+  const u_fieldLoc = gl.getUniformLocation(prog, 'u_field');
+  const u_resLoc   = gl.getUniformLocation(prog, 'u_resolution');
+  const u_dtLoc    = gl.getUniformLocation(prog, 'u_dt');
+  const u_kappaLoc = gl.getUniformLocation(prog, 'u_kappa');
+  const u_gammaLoc = gl.getUniformLocation(prog, 'u_gamma');
+  const u_lambdaLoc= gl.getUniformLocation(prog, 'u_lambda');
+  const u_rhoLoc   = gl.getUniformLocation(prog, 'u_rho');
+  const u_omegaLoc = gl.getUniformLocation(prog, 'u_omega');
+  const u_timeLoc  = gl.getUniformLocation(prog, 'u_time');
+  const u_sigmaLoc = gl.getUniformLocation(prog, 'u_sigma');
+  const u_alphaGLoc= gl.getUniformLocation(prog, 'u_alphaG');
+  const u_uStarLoc = gl.getUniformLocation(prog, 'u_uStar');
+  const u_RLoc     = gl.getUniformLocation(prog, 'u_R');
+  const u_GLoc     = gl.getUniformLocation(prog, 'u_G');
+
+  gl.uniform2f(u_resLoc, W, H);
+  gl.uniform1i(u_fieldLoc, 0); // texture unit 0
+
+  // Create two float textures for ping-pong
+  function createFloatTex() {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA32F,
-      16,
-      16,
-      0,
-      gl.RGBA,
-      gl.FLOAT,
-      null
+      gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0,
+      gl.RGBA, gl.FLOAT, null
     );
-    log("✔ RGBA32F texture allocation: OK", "ok");
-  } catch (e) {
-    log("✘ RGBA32F allocation FAILED", "fail");
+    return tex;
   }
 
-  // 4. Test framebuffer renderability
+  const texA = createFloatTex();
+  const texB = createFloatTex();
+  let srcTex = texA;
+  let dstTex = texB;
+
+  // FBO
   const fbo = gl.createFramebuffer();
-  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-  gl.framebufferTexture2D(
-    gl.FRAMEBUFFER,
-    gl.COLOR_ATTACHMENT0,
-    gl.TEXTURE_2D,
-    tex,
-    0
-  );
 
-  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-  if (status === gl.FRAMEBUFFER_COMPLETE) {
-    log("✔ RGBA32F render target: OK", "ok");
-  } else {
-    log("✘ RGBA32F render target: FAILED", "fail");
-    log("Status: 0x" + status.toString(16), "warn");
+  // CPU-side field buffers for coherence
+  let fieldCPU = new Float32Array(W*H);       // current u
+  let fieldPrevCPU = new Float32Array(W*H);   // previous u
+
+  // ----- EVF STATE (CPU) -----
+  let tGlobal = 0.0;
+  let dt = 0.01;
+  const dtBase = 0.01;
+
+  // Baseline params
+  let kappa0   = 0.25;
+  let gammaMin = 0.1;
+  let gammaMax = 0.8;
+  let lambda0  = 0.7;
+  let uStar    = 0.0;
+  let rho      = 0.3;
+  let omega    = 0.8;
+  let alphaG   = 1.0;
+
+  // Drift
+  let Gx = 0.0, Gy = 0.0;
+  let betaG  = 1.0;
+  let etaG   = 0.5;
+  let chiG   = 0.0;
+  let deltaG = 0.0;
+
+  // Noise (chronic + event)
+  let sigma0Target = 0.05;
+  let sigma0State  = 0.05;
+  let tauSigma0    = 1.0;
+  let sigmaEPeak   = 0.15;
+  let sigmaEState  = 0.0;
+  let A = 0.2;
+  let D = 0.3;
+  let S = 0.5;
+  let Rtime = 0.5;
+  let adsrPhase = "idle";
+  let adsrT = 0.0;
+  let sigmaTotal = 0.0;
+
+  // Coherence
+  let Cs=1.0, Ct=1.0, Ch=1.0, Co=1.0;
+  const alpha_s = 1.0, alpha_t = 1.0, alpha_h = 1.0;
+  const w_s = 1.0, w_t = 1.0, w_h = 1.0;
+
+  const thetaRef = {
+    gamma: 0.8,
+    kappa: 0.25,
+    lambda: 0.7,
+    rho:   0.3,
+    omega: 0.8,
+    sigma: 0.1
+  };
+
+  let gammaEff = 0.8;
+  let kappaEff = 0.25;
+  let lambdaEff= 0.7;
+  let sigmaEff = 0.1;
+
+  let basinR = 0.12;
+
+  let paused = false;
+
+  const statusLabel     = document.getElementById("status");
+  const coherenceLabel  = document.getElementById("coherence-label");
+  const driftLabel      = document.getElementById("drift-label");
+
+  // UI elements
+  const pKappa0    = document.getElementById("p-kappa0");
+  const pGammaMax  = document.getElementById("p-gammaMax");
+  const pLambda0   = document.getElementById("p-lambda0");
+  const pUstar     = document.getElementById("p-ustar");
+  const pR         = document.getElementById("p-basinR");
+  const pRho       = document.getElementById("p-rho");
+  const pOmega     = document.getElementById("p-omega");
+  const pAlphaG    = document.getElementById("p-alphaG");
+  const pSigma0    = document.getElementById("p-sigma0");
+  const pSigmaEPeak= document.getElementById("p-sigmaEpeak");
+  const pAttack    = document.getElementById("p-attack");
+  const pDecay     = document.getElementById("p-decay");
+  const pSustain   = document.getElementById("p-sustain");
+  const pReleaseTime = document.getElementById("p-releaseTime");
+
+  // Initialize CPU field and upload to GPU
+  function initFieldCPU(){
+    for(let i=0;i<W*H;i++){
+      const v = (Math.random()*0.2 - 0.1);
+      fieldCPU[i] = v;
+      fieldPrevCPU[i] = v;
+    }
   }
 
-  // 5. Test float readback
-  let readbackOK = true;
-  try {
-    const buf = new Float32Array(4);
-    gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT, buf);
-  } catch (e) {
-    readbackOK = false;
+  function uploadFieldToTexture(tex, arr){
+    const rgba = new Float32Array(W*H*4);
+    for(let i=0;i<W*H;i++){
+      rgba[i*4+0] = arr[i];
+      rgba[i*4+1] = 0.0;
+      rgba[i*4+2] = 0.0;
+      rgba[i*4+3] = 1.0;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RGBA, gl.FLOAT, rgba);
   }
 
-  if (readbackOK) log("✔ Float readPixels(): supported", "ok");
-  else log("✘ Float readPixels(): NOT supported", "fail");
+  // Read back current field from srcTex into fieldCPU
+  function readFieldFromTexture(tex){
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D, tex, 0);
+    const rgba = new Float32Array(W*H*4);
+    gl.readPixels(0,0,W,H, gl.RGBA, gl.FLOAT, rgba);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-  // 6. iOS / WebKit warning
-  const ua = navigator.userAgent.toLowerCase();
-  if (/iphone|ipad|ipod/.test(ua)) {
-    log("⚠ iOS detected: WebKit has known float framebuffer issues on iOS < 15.", "warn");
+    for(let i=0;i<W*H;i++){
+      fieldCPU[i] = rgba[i*4+0];
+    }
   }
 
-  // 7. Summarize recommendation
-  const allGood = (
-    gl &&
-    extColorBufferFloat &&
-    readbackOK &&
-    status === gl.FRAMEBUFFER_COMPLETE
-  );
+  // Coherence computation on CPU
+  function computeCoherence(){
+    // Spatial
+    let Es = 0.0;
+    for(let y=0;y<H;y++){
+      const yU = (y-1+H)%H;
+      const yD = (y+1)%H;
+      for(let x=0;x<W;x++){
+        const xL = (x-1+W)%W;
+        const xR = (x+1)%W;
+        const i  = y*W + x;
+        const uC = fieldCPU[i];
+        const uL = fieldCPU[y*W + xL];
+        const uR = fieldCPU[y*W + xR];
+        const uU = fieldCPU[yU*W + x];
+        const uD = fieldCPU[yD*W + x];
+        const gx = (uR - uL)*0.5;
+        const gy = (uD - uU)*0.5;
+        Es += gx*gx + gy*gy;
+      }
+    }
+    Es /= (W*H);
+    Cs = Math.exp(-alpha_s * Es);
 
-  if (allGood) {
-    log("✔ This device can run EVF-2.3 hybrid WebGL2 version.", "ok");
-  } else {
-    log("✘ This device is NOT fully compatible with EVF-2.3 hybrid.", "fail");
+    // Temporal
+    let Et = 0.0;
+    const invDt = dt>0 ? 1.0/dt : 0.0;
+    for(let i=0;i<W*H;i++){
+      const ut = (fieldCPU[i] - fieldPrevCPU[i]) * invDt;
+      Et += ut*ut;
+    }
+    Et /= (W*H);
+    Ct = Math.exp(-alpha_t * Et);
+
+    // Thematic
+    const theta = {
+      gamma: gammaEff,
+      kappa: kappaEff,
+      lambda: lambdaEff,
+      rho: rho,
+      omega: omega,
+      sigma: sigmaTotal
+    };
+    let Eh = 0.0;
+    Eh += Math.pow(theta.gamma - thetaRef.gamma, 2);
+    Eh += Math.pow(theta.kappa - thetaRef.kappa, 2);
+    Eh += Math.pow(theta.lambda- thetaRef.lambda,2);
+    Eh += Math.pow(theta.rho   - thetaRef.rho,  2);
+    Eh += Math.pow(theta.omega - thetaRef.omega,2);
+    Eh += Math.pow(theta.sigma - thetaRef.sigma,2);
+    Ch = Math.exp(-alpha_h * Eh);
+
+    const wsNorm = w_s + w_t + w_h;
+    const logCo = (w_s*Math.log(Cs) + w_t*Math.log(Ct) + w_h*Math.log(Ch))/wsNorm;
+    Co = Math.exp(logCo);
   }
 
+  // Coherence → parameters
+  function updateEffectiveParameters(){
+    gammaEff = gammaMin + (gammaMax - gammaMin) * Co;
+    const beta_s = 0.5;
+    kappaEff = kappa0 * (1.0 + beta_s * Cs);
+    const beta_h = 0.5;
+    lambdaEff = lambda0 * (1.0 + beta_h * Ch);
+
+    const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
+    sigmaTotal = sigmaBase;
+    sigmaEff = sigmaBase * (1.0 - Co);
+  }
+
+  // dt from stability bound
+  function updateDtFromStability(dtRequested){
+    const h = 1.0;
+    const LA = 1.0;
+    const denom = gammaEff + 8.0 * kappaEff/(h*h) + lambdaEff*LA;
+    const dtMax = 2.0/denom;
+    dt = Math.min(dtRequested, 0.9*dtMax);
+  }
+
+  // Drift evolution from global gradient
+  function updateDrift(){
+    let leftSum=0, rightSum=0, topSum=0, bottomSum=0;
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W;x++){
+        const i = y*W + x;
+        const v = fieldCPU[i];
+        if(x < W/2) leftSum += v; else rightSum += v;
+        if(y < H/2) topSum  += v; else bottomSum += v;
+      }
+    }
+    const invHalf = 2.0/(W*H);
+    const gradXGlobal = (rightSum - leftSum)*invHalf;
+    const gradYGlobal = (bottomSum - topSum)*invHalf;
+
+    const Fx = etaG * gradXGlobal;
+    const Fy = etaG * gradYGlobal;
+    const Bx = 0.0, By = 0.0;
+    const Cx = 0.0, Cy = 0.0;
+
+    const dGx = -betaG*Gx + Fx + chiG*Bx + deltaG*Cx;
+    const dGy = -betaG*Gy + Fy + chiG*By + deltaG*Cy;
+    Gx += dt * dGx;
+    Gy += dt * dGy;
+  }
+
+  // Noise envelope
+  function updateNoiseEnvelope(){
+    const ds0 = (sigma0Target - sigma0State) * (dt / tauSigma0);
+    sigma0State += ds0;
+    updateADSR();
+  }
+
+  function triggerEventNoise(){
+    adsrPhase = "attack";
+    adsrT = 0.0;
+  }
+
+  function releaseEventNoise(){
+    if(adsrPhase === "sustain" || adsrPhase === "decay"){
+      adsrPhase = "release";
+      adsrT = 0.0;
+    }
+  }
+
+  function updateADSR(){
+    if(adsrPhase === "idle"){
+      sigmaEState = 0.0;
+      return;
+    }
+    adsrT += dt;
+    switch(adsrPhase){
+      case "attack": {
+        const tau = adsrT;
+        if(tau < A){
+          sigmaEState = tau / A;
+        } else {
+          sigmaEState = 1.0;
+          adsrPhase = "decay";
+          adsrT = 0.0;
+        }
+        break;
+      }
+      case "decay": {
+        const tau = adsrT;
+        if(tau < D){
+          const frac = tau / D;
+          sigmaEState = 1.0 - (1.0 - S)*frac;
+        } else {
+          sigmaEState = S;
+          adsrPhase = "sustain";
+          adsrT = 0.0;
+        }
+        break;
+      }
+      case "sustain": {
+        sigmaEState = S;
+        break;
+      }
+      case "release": {
+        const tau = adsrT;
+        sigmaEState = S * Math.exp(-tau / Rtime);
+        if(sigmaEState < 1e-3){
+          sigmaEState = 0.0;
+          adsrPhase = "idle";
+        }
+        break;
+      }
+    }
+  }
+
+  // Render PDE step: srcTex → dstTex
+  function renderStep(){
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D, dstTex, 0);
+
+    gl.viewport(0,0,W,H);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, srcTex);
+
+    gl.uniform1f(u_dtLoc, dt);
+    gl.uniform1f(u_kappaLoc, kappaEff);
+    gl.uniform1f(u_gammaLoc, gammaEff);
+    gl.uniform1f(u_lambdaLoc, lambdaEff);
+    gl.uniform1f(u_rhoLoc, rho);
+    gl.uniform1f(u_omegaLoc, omega);
+    gl.uniform1f(u_timeLoc, tGlobal);
+    gl.uniform1f(u_sigmaLoc, sigmaEff);
+    gl.uniform1f(u_alphaGLoc, alphaG);
+    gl.uniform1f(u_uStarLoc, uStar);
+    gl.uniform1f(u_RLoc, basinR);
+    gl.uniform2f(u_GLoc, Gx, Gy);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  function swapTextures(){
+    const tmp = srcTex;
+    srcTex = dstTex;
+    dstTex = tmp;
+  }
+
+  function syncParamsFromUI(){
+    kappa0   = +pKappa0.value;
+    gammaMax = +pGammaMax.value;
+    lambda0  = +pLambda0.value;
+    uStar    = +pUstar.value;
+    rho      = +pRho.value;
+    omega    = +pOmega.value;
+    alphaG   = +pAlphaG.value;
+    sigma0Target = +pSigma0.value;
+    sigmaEPeak   = +pSigmaEPeak.value;
+    A       = +pAttack.value;
+    D       = +pDecay.value;
+    S       = +pSustain.value;
+    Rtime   = +pReleaseTime.value;
+    basinR  = +pR.value;
+  }
+
+  document.getElementById("btn-pause").onclick = () => { paused = !paused; };
+  document.getElementById("btn-reset").onclick = () => {
+    initFieldCPU();
+    uploadFieldToTexture(srcTex, fieldCPU);
+    Gx = Gy = 0.0;
+    sigma0State = sigma0Target;
+    sigmaEState = 0.0;
+    adsrPhase = "idle";
+    adsrT = 0.0;
+    tGlobal = 0.0;
+  };
+  document.getElementById("btn-event").onclick = () => { triggerEventNoise(); };
+  document.getElementById("btn-release").onclick = () => { releaseEventNoise(); };
+
+  [
+    pKappa0, pGammaMax, pLambda0, pUstar, pR,
+    pRho, pOmega, pAlphaG,
+    pSigma0, pSigmaEPeak,
+    pAttack, pDecay, pSustain, pReleaseTime
+  ].forEach(el => el.addEventListener("input", syncParamsFromUI));
+
+  // Initial setup
+  syncParamsFromUI();
+  initFieldCPU();
+  uploadFieldToTexture(srcTex, fieldCPU);
+
+  function loop(){
+    requestAnimationFrame(loop);
+    if (paused) return;
+
+    // 1. Read back current field (srcTex) → CPU
+    readFieldFromTexture(srcTex);
+
+    // 2. Coherence
+    computeCoherence();
+
+    // 3. Noise + parameters
+    updateNoiseEnvelope();
+    updateEffectiveParameters();
+    updateDtFromStability(dtBase);
+
+    // 4. Time + drift
+    tGlobal += dt;
+    updateDrift();
+
+    // 5. PDE step on GPU
+    renderStep();
+    swapTextures();
+
+    // 6. Save current field as prev for next Ct
+    for(let i=0;i<W*H;i++) fieldPrevCPU[i] = fieldCPU[i];
+
+    // 7. Draw to screen by blitting srcTex to canvas (already done via FBO result)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0,0,W,H);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, srcTex);
+    // We can run a "display-only" program, but for simplicity we reuse and treat dt≈0
+    gl.uniform1f(u_dtLoc, 0.0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // 8. UI labels
+    statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
+    coherenceLabel.textContent =
+      "Co ≈ " + Co.toFixed(3) +
+      " (Cs=" + Cs.toFixed(3) +
+      ", Ct=" + Ct.toFixed(3) +
+      ", Ch=" + Ch.toFixed(3) + ")";
+    const Gmag = Math.sqrt(Gx*Gx + Gy*Gy);
+    driftLabel.textContent =
+      "‖G‖ ≈ " + Gmag.toFixed(3) +
+      "  σ_total ≈ " + sigmaTotal.toFixed(3);
+  }
+
+  loop();
 })();
 </script>
 
