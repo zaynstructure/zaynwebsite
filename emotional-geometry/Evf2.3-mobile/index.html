@@ -474,7 +474,7 @@ void main(){
     const omega  = +pOmega.value;
 
     // Override CFL for mobile visual sandbox
-    let dt = Math.min(dtPhys, 0.02);    // force dt up to a visible range
+    let dt = 0.005;   // force dt up to a visible range
 
     // ---- FIELD PASS ----
     gl.useProgram(progField);
