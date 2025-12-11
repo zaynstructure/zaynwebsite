@@ -219,7 +219,11 @@ void main() {
   let field     = new Float32Array(W*H);
   let fieldNext = new Float32Array(W*H);
   let fieldPrev = new Float32Array(W*H);
-  let wBasin    = new Float32Array(W*H);
+
+  // Geometry masks: attractor, coupling, repulsion
+  let wBasin   = new Float32Array(W*H);
+  let wCouple  = new Float32Array(W*H);
+  let wRepulse = new Float32Array(W*H);
 
   let tGlobal = 0;
   let dt      = 0.01;
@@ -262,10 +266,16 @@ void main() {
     omega: 0.8, sigma: 0.1
   };
 
+  // Effective params
   let gammaEff = 0.8, kappaEff = 0.25, lambdaEff = 0.7;
   let basinR = 0.12;
   let paused = false;
   let viewMode = 'gray';
+
+  // New effective parameters
+  let xiEff       = 0.0;  // nonlinear containment
+  let cEff        = 0.0;  // coupling strength
+  let lambdaREff  = 0.0;  // repulsion strength
 
   // ---------- UI ----------
   const statusLabel    = document.getElementById("status");
@@ -302,16 +312,21 @@ void main() {
     tGlobal = 0;
   }
 
-  function updateBasin(R){
+  // Geometry masks: for now, same shape but distinct arrays
+  function updateGeometryMasks(R){
     const cx = 0.5, cy = 0.5;
     for(let y=0;y<H;y++){
-      const yy = y/H;
+      const yy = y / H;
       for(let x=0;x<W;x++){
-        const xx = x/W;
+        const xx = x / W;
         const dx = xx - cx;
         const dy = yy - cy;
         const r2 = dx*dx + dy*dy;
-        wBasin[y*W + x] = Math.exp(-r2/(2*R*R));
+
+        const basin = Math.exp(-r2/(2*R*R));
+        wBasin[y*W + x]   = basin;
+        wCouple[y*W + x]  = basin;  // same now, separable later
+        wRepulse[y*W + x] = basin;  // same now, separable later
       }
     }
   }
@@ -373,10 +388,8 @@ void main() {
 
   // ---------- Hybrid coherence-regulated parameters ----------
   function updateEffectiveParameters() {
-    // Base volatility (chronic + event)
     const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
 
-    // Clamp coherence channels to [0,1]
     const CoC = Math.max(0.0, Math.min(1.0, Co));
     const CsC = Math.max(0.0, Math.min(1.0, Cs));
     const ChC = Math.max(0.0, Math.min(1.0, Ch));
@@ -410,10 +423,19 @@ void main() {
     sigmaEff = (1.0 - S) * sigmaSmooth + S * sigmaCollapse;
 
     sigmaTotal = sigmaBase;
+
+    // New: nonlinear containment ξ (grows as coherence drops)
+    xiEff = 0.1 * (1.0 + 2.0 * (1.0 - CoC));
+
+    // New: coupling cEff (stronger when spatial coherence is low)
+    cEff = 0.05 * (1.0 + 3.0 * (1.0 - CsC));
+
+    // New: repulsion strength (stronger when thematic coherence is low)
+    lambdaREff = 0.5 * lambdaEff * (1.0 - ChC);
   }
 
   function updateDtFromStability(dtRequested){
-    const denom = gammaEff + 8.0*kappaEff + lambdaEff;
+    const denom = gammaEff + 8.0*kappaEff + lambdaEff + lambdaREff;
     const dtMax = 2.0 / denom;
     const safety = 0.9;
     dt = Math.min(dtRequested, safety*dtMax);
@@ -480,21 +502,57 @@ void main() {
         const uR = field[y*W + xR];
         const uU = field[yU*W + x];
         const uD = field[yD*W + x];
+
         const lap = (uL + uR + uU + uD - 4*uC);
 
-        const gx = (uR - uL)*0.5;
-        const gy = (uD - uU)*0.5;
-        const drift = alphaG * (Gx*gx + Gy*gy);
+        const gx = (uR - uL) * 0.5;
+        const gy = (uD - uU) * 0.5;
 
+        // ----- coupling mask gradients
+        const wcC = wCouple[i];
+        const wcL = wCouple[y*W + xL];
+        const wcR = wCouple[y*W + xR];
+        const wcU = wCouple[yU*W + x];
+        const wcD = wCouple[yD*W + x];
+
+        const wcx = (wcR - wcL) * 0.5;
+        const wcy = (wcD - wcU) * 0.5;
+
+        const div_wc_grad_u = wcC * lap + (wcx * gx + wcy * gy);
+
+        // ----- drift
+        const drift = alphaG * (Gx * gx + Gy * gy);
+
+        // ----- attractor
         const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
-        const damp    = -gammaEff * uC;
-        const rhythm  = rho * Math.sin(omega * time);
 
-        const baseRand = (Math.random()*2-1);
-        const noise   = sigmaEff * baseRand * Math.sqrt(dt);
+        // ----- repulsion
+        const uRepBaseline = -uStar;
+        const mismatch = 1.0 - Ch;
+        const repLocal = Math.tanh(uC - uRepBaseline);
+        const repulsion = lambdaREff * wRepulse[i] * repLocal * mismatch;
 
-        const du = kappaEff*lap + damp + attract + drift + rhythm + noise;
-        fieldNext[i] = uC + dt*du;
+        // ----- containment (linear + nonlinear)
+        const dampLin = -gammaEff * uC;
+        const dampNon = -xiEff * uC * uC * uC;
+
+        // ----- synchronization (diffusion + coupling)
+        const syncDiff     = kappaEff * lap;
+        const syncCoupling = cEff * div_wc_grad_u;
+
+        // ----- rhythm + noise
+        const rhythm   = rho * Math.sin(omega * time);
+        const baseRand = (Math.random()*2 - 1);
+        const noise    = sigmaEff * baseRand * Math.sqrt(dt);
+
+        const du =
+          dampLin + dampNon +
+          syncDiff + syncCoupling +
+          drift +
+          attract + repulsion +
+          rhythm + noise;
+
+        fieldNext[i] = uC + dt * du;
       }
     }
 
@@ -544,7 +602,7 @@ void main() {
     D       = +pDecay.value;
     S       = +pSustain.value;
     Rtime   = +pReleaseTime.value;
-    updateBasin(basinR);
+    updateGeometryMasks(basinR);
   }
 
   [
