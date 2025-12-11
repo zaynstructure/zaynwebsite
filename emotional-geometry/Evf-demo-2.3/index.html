@@ -379,40 +379,55 @@ void main() {
     Co = Math.exp(logCo);
   }
 
-  // *** Coherence-regulated parameters with an unstable branch
-  function updateEffectiveParameters(){
-    const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
-    const sigmaFloor = 0.02;
+  /function updateEffectiveParameters() {
+  // Base volatility (chronic + event)
+  const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
 
-    if (!instabilityMode){
-      // original, conservative coupling
-      gammaEff = gammaMin + (gammaMax - gammaMin) * Co;
-      kappaEff = kappa0 * (1.0 + 0.5*Cs);
-      lambdaEff= lambda0 * (1.0 + 0.5*Ch);
-      sigmaTotal = sigmaBase;
-      sigmaEff   = sigmaBase * (1.0 - Co);
-    } else {
-      // unstable regime: weaker containment, weaker smoothing, stronger attractor,
-      // noise never fully shuts off and grows as coherence collapses.
-      const CoClamped = Math.max(0.0, Math.min(1.0, Co));
-      const CsClamped = Math.max(0.0, Math.min(1.0, Cs));
-      const ChClamped = Math.max(0.0, Math.min(1.0, Ch));
+  // Clamp coherence channels to [0,1]
+  const CoC = Math.max(0.0, Math.min(1.0, Co));
+  const CsC = Math.max(0.0, Math.min(1.0, Cs));
+  const ChC = Math.max(0.0, Math.min(1.0, Ch));
 
-      // allow very low damping when coherence is low
-      gammaEff = 0.05 + (gammaMax - 0.05) * CoClamped;
+  // --- Soft collapse switch ---
+  // Coherence threshold + transition steepness
+  const T = 0.35;
+  const k = 14.0;
+  // S(Co) ≈ 0 when coherence is high, ≈ 1 when coherence is low
+  const S = 1.0 / (1.0 + Math.exp(k * (CoC - T)));
 
-      // diffusion reduced overall to allow gradients to grow
-      kappaEff = kappa0 * (0.2 + 0.3 * CsClamped);
+  // --- 1. Containment γ ---
+  // Smooth: superlinear weakening
+  let gammaSmooth = gammaMin + (gammaMax - gammaMin) * Math.pow(CoC, 1.5);
+  // Collapse: containment crashes more sharply
+  let gammaCollapse = 0.25 * gammaSmooth;
+  gammaEff = (1 - S) * gammaSmooth + S * gammaCollapse;
 
-      // attractor can bite harder when thematically misaligned
-      lambdaEff = lambda0 * (1.0 + 1.0 * (1.0 - ChClamped));
+  // --- 2. Diffusion κ ---
+  // Smooth: decreased with spatial coherence
+  let kappaSmooth = kappa0 * (0.5 + 0.5 * (CsC * CsC));
+  // Collapse: allow sharp gradients
+  let kappaCollapse = 0.15 * kappaSmooth;
+  kappaEff = (1 - S) * kappaSmooth + S * kappaCollapse;
 
-      sigmaTotal = sigmaBase;
+  // --- 3. Attractor λ ---
+  // Smooth: meaning misalignment increases pull
+  let lambdaSmooth = lambda0 * (1.0 + 0.5 * (1.0 - ChC));
+  // Collapse: attractor becomes too strong → tearing/rumination
+  let lambdaCollapse = lambda0 * (1.0 + 2.5 * (1.0 - ChC));
+  lambdaEff = (1 - S) * lambdaSmooth + S * lambdaCollapse;
 
-      // noise has a floor and is amplified when coherence is low
-      sigmaEff = sigmaFloor + sigmaBase * (0.5 + 0.5*(1.0 - CoClamped));
-    }
-  }
+  // --- 4. Noise σ_eff ---
+  const noiseFloor = 0.03; // always some volatility
+  let sigmaSmooth =
+    noiseFloor +
+    sigmaBase * (0.2 + 1.2 * (1.0 - Math.pow(CoC, 0.5)));
+
+  let sigmaCollapse = 2.5 * sigmaSmooth;
+  sigmaEff = (1 - S) * sigmaSmooth + S * sigmaCollapse;
+
+  // σ_total is the physical volatility scale (from EVF-2.3 noise update)
+  sigmaTotal = sigmaBase;
+}
 
   function updateDtFromStability(dtRequested){
     const denom = gammaEff + 8.0*kappaEff + lambdaEff;
