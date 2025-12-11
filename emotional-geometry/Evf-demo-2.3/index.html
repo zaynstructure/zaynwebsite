@@ -54,6 +54,7 @@
       <button id="btn-event">Trigger Event Noise</button>
       <button id="btn-release">Release Event</button>
       <button id="btn-view">View: Grayscale</button>
+      <button id="btn-instability">Mode: Stable</button>
       <div id="status">dt ≈ …</div>
       <div id="coherence-label">Co ≈ … (Cs, Ct, Ch)</div>
       <div id="drift-label">‖G‖ ≈ …</div>
@@ -252,6 +253,7 @@ void main() {
   let adsrPhase = "idle";
   let adsrT = 0.0;
   let sigmaTotal = 0.0;
+  let sigmaEff   = 0.0; // *** explicit
 
   // Coherence
   let Cs=1.0, Ct=1.0, Ch=1.0, Co=1.0;
@@ -264,16 +266,20 @@ void main() {
     omega: 0.8, sigma: 0.1
   };
 
-  let gammaEff = 0.8, kappaEff = 0.25, lambdaEff = 0.7, sigmaEff = 0.1;
+  let gammaEff = 0.8, kappaEff = 0.25, lambdaEff = 0.7;
   let basinR = 0.12;
   let paused = false;
   let viewMode = 'gray';
+
+  // *** instability mode flag
+  let instabilityMode = false;
 
   // ---------- UI ----------
   const statusLabel    = document.getElementById("status");
   const coherenceLabel = document.getElementById("coherence-label");
   const driftLabel     = document.getElementById("drift-label");
   const btnView        = document.getElementById("btn-view");
+  const btnInst        = document.getElementById("btn-instability"); // ***
 
   const pKappa0    = document.getElementById("p-kappa0");
   const pGammaMax  = document.getElementById("p-gammaMax");
@@ -373,19 +379,47 @@ void main() {
     Co = Math.exp(logCo);
   }
 
+  // *** Coherence-regulated parameters with an unstable branch
   function updateEffectiveParameters(){
-    gammaEff = gammaMin + (gammaMax - gammaMin) * Co;
-    kappaEff = kappa0 * (1.0 + 0.5*Cs);
-    lambdaEff= lambda0 * (1.0 + 0.5*Ch);
     const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
-    sigmaTotal = sigmaBase;
-    sigmaEff   = sigmaBase * (1.0 - Co);
+    const sigmaFloor = 0.02;
+
+    if (!instabilityMode){
+      // original, conservative coupling
+      gammaEff = gammaMin + (gammaMax - gammaMin) * Co;
+      kappaEff = kappa0 * (1.0 + 0.5*Cs);
+      lambdaEff= lambda0 * (1.0 + 0.5*Ch);
+      sigmaTotal = sigmaBase;
+      sigmaEff   = sigmaBase * (1.0 - Co);
+    } else {
+      // unstable regime: weaker containment, weaker smoothing, stronger attractor,
+      // noise never fully shuts off and grows as coherence collapses.
+      const CoClamped = Math.max(0.0, Math.min(1.0, Co));
+      const CsClamped = Math.max(0.0, Math.min(1.0, Cs));
+      const ChClamped = Math.max(0.0, Math.min(1.0, Ch));
+
+      // allow very low damping when coherence is low
+      gammaEff = 0.05 + (gammaMax - 0.05) * CoClamped;
+
+      // diffusion reduced overall to allow gradients to grow
+      kappaEff = kappa0 * (0.2 + 0.3 * CsClamped);
+
+      // attractor can bite harder when thematically misaligned
+      lambdaEff = lambda0 * (1.0 + 1.0 * (1.0 - ChClamped));
+
+      sigmaTotal = sigmaBase;
+
+      // noise has a floor and is amplified when coherence is low
+      sigmaEff = sigmaFloor + sigmaBase * (0.5 + 0.5*(1.0 - CoClamped));
+    }
   }
 
   function updateDtFromStability(dtRequested){
     const denom = gammaEff + 8.0*kappaEff + lambdaEff;
     const dtMax = 2.0 / denom;
-    dt = Math.min(dtRequested, 0.9*dtMax);
+    // slight loosen in unstable mode: allow closer to the bound
+    const safety = instabilityMode ? 0.99 : 0.9;
+    dt = Math.min(dtRequested, safety*dtMax);
   }
 
   function updateDrift(){
@@ -458,7 +492,11 @@ void main() {
         const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
         const damp    = -gammaEff * uC;
         const rhythm  = rho * Math.sin(omega * time);
-        const noise   = sigmaEff * (Math.random()*2-1) * Math.sqrt(dt);
+
+        // *** amplify noise in unstable mode for visibility
+        const baseRand = (Math.random()*2-1);
+        const noiseScale = instabilityMode ? 3.0 : 1.0;
+        const noise   = sigmaEff * baseRand * Math.sqrt(dt) * noiseScale;
 
         const du = kappaEff*lap + damp + attract + drift + rhythm + noise;
         fieldNext[i] = uC + dt*du;
@@ -494,6 +532,50 @@ void main() {
   btnView.onclick = () => {
     viewMode = (viewMode === "gray") ? "color" : "gray";
     btnView.textContent = (viewMode === "gray") ? "View: Grayscale" : "View: False Color";
+  };
+
+  // *** Instability mode presets: push parameters into a more dysregulated regime
+  function applyModePreset(){
+    if (!instabilityMode){
+      // restore your original defaults
+      pKappa0.value     = "0.25";
+      pGammaMax.value   = "0.8";
+      pLambda0.value    = "0.7";
+      pUstar.value      = "0.0";
+      pR.value          = "0.12";
+      pRho.value        = "0.3";
+      pOmega.value      = "0.8";
+      pAlphaG.value     = "1.0";
+      pSigma0.value     = "0.05";
+      pSigmaEPeak.value = "0.15";
+      pAttack.value     = "0.2";
+      pDecay.value      = "0.3";
+      pSustain.value    = "0.5";
+      pReleaseTime.value= "0.5";
+    } else {
+      // unstable preset: weaker containment & diffusion, more attractor + noise + drift
+      pKappa0.value     = "0.08";
+      pGammaMax.value   = "0.5";
+      pLambda0.value    = "1.2";
+      pUstar.value      = "0.0";
+      pR.value          = "0.10";
+      pRho.value        = "0.5";
+      pOmega.value      = "1.4";
+      pAlphaG.value     = "2.0";
+      pSigma0.value     = "0.20";
+      pSigmaEPeak.value = "0.60";
+      pAttack.value     = "0.1";
+      pDecay.value      = "0.3";
+      pSustain.value    = "0.7";
+      pReleaseTime.value= "0.8";
+    }
+    syncParamsFromUI();
+  }
+
+  btnInst.onclick = () => {
+    instabilityMode = !instabilityMode;
+    btnInst.textContent = instabilityMode ? "Mode: Unstable" : "Mode: Stable";
+    applyModePreset();
   };
 
   function syncParamsFromUI(){
@@ -532,8 +614,10 @@ void main() {
     // EVF core
     computeCoherence();
     updateNoiseEnvelope();
+    // unstable mode uses same coherence model but different coupling
     updateEffectiveParameters();
-    updateDtFromStability(dtBase);
+    const dtRequested = instabilityMode ? dtBase*1.5 : dtBase;
+    updateDtFromStability(dtRequested);
     tGlobal += dt;
     updateDrift();
     updateField();
