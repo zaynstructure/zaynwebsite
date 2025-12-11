@@ -699,7 +699,7 @@ void main() {
 
     if(viewMode === "gray"){
   gl.useProgram(progGray);
-  gl.uniform1i(u_dispGrayTexLoc, 0);
+  gl.uniform1i(u_tex_gray, 0);
 } else {
   gl.useProgram(progColor);
   gl.uniform1i(u_tex_color, 0);
