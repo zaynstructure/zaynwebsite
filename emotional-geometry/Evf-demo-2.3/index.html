@@ -138,48 +138,83 @@ void main() {
 }
 `;
 
-// Expressive gradient-aware false color
+// False color: EVF-2.1 style grayscale + vignette + basin glow
+// with subtle warm tint in high-gradient regions
 const DISPLAY_FRAG_COLOR = `#version 300 es
 precision highp float;
 in vec2 v_uv;
 out vec4 outColor;
 uniform sampler2D u_tex;
+uniform vec2  u_basinCenter;
+uniform float u_basinRadius;
 
-vec3 baseColormap(float x) {
-  x = clamp(x,0.0,1.0);
-  float r = smoothstep(0.5,1.0,x);
-  float g = (x<0.5)
-      ? smoothstep(0.0,0.5,x)
-      : smoothstep(1.0,0.5,1.0-x);
-  float b = smoothstep(1.0,0.5,1.0-x);
-  return vec3(r,g,b);
+float fastTanh(float v) {
+  float e2x = exp(2.0 * v);
+  return (e2x - 1.0) / (e2x + 1.0);
 }
 
 void main() {
-  float uC = texture(u_tex, v_uv).r;
+  // Field value in [0,1] (already contrast-mapped in JS)
+  float v = texture(u_tex, v_uv).r;
 
-  ivec2 ts = textureSize(u_tex,0);
-  vec2 t = 1.0 / vec2(ts);
+  // Map to "emotional" u in [-1,1]
+  float u = (v - 0.5) * 2.0;
 
-  float uL = texture(u_tex, v_uv + vec2(-t.x,0)).r;
-  float uR = texture(u_tex, v_uv + vec2( t.x,0)).r;
-  float uU = texture(u_tex, v_uv + vec2(0,-t.y)).r;
-  float uD = texture(u_tex, v_uv + vec2(0, t.y)).r;
+  // --- Base grayscale like EVF-2.1 ---
+  // Slight nonlinearity to emphasize mid-range structure
+  float g = 0.5 + 0.5 * fastTanh(1.2 * u);
+  g = clamp(g, 0.0, 1.0);
 
-  float gx = (uR - uL)*0.5;
-  float gy = (uD - uU)*0.5;
-  float gmag = sqrt(gx*gx + gy*gy);
+  vec3 base = vec3(g);
 
-  float motion = smoothstep(0.02, 0.18, gmag * 2.5);
+  // --- Vignette (containment feel) ---
+  vec2 uvN = v_uv * 2.0 - 1.0;   // [-1,1]^2
+  float r2 = dot(uvN, uvN);
+  float vign = 1.0 - 0.35 * r2;  // tune 0.35 for strength
+  vign = clamp(vign, 0.0, 1.0);
+  base *= vign;
 
-  vec3 base = baseColormap(uC);
-  vec3 glow = vec3(1.0, 0.9, 0.6);
+  // --- Local gradient magnitude for motion/activity ---
+  ivec2 ts = textureSize(u_tex, 0);
+  vec2 texel = 1.0 / vec2(ts);
 
-  vec3 color = mix(base * 0.8, glow, motion);
-  float contrast = 0.15;
-  color = mix(vec3(0.5), color, 1.0 + contrast);
+  float vL = texture(u_tex, v_uv + vec2(-texel.x, 0.0)).r;
+  float vR = texture(u_tex, v_uv + vec2( texel.x, 0.0)).r;
+  float vU = texture(u_tex, v_uv + vec2(0.0, -texel.y)).r;
+  float vD = texture(u_tex, v_uv + vec2(0.0,  texel.y)).r;
 
-  outColor = vec4(color,1.0);
+  float uL = (vL - 0.5) * 2.0;
+  float uR = (vR - 0.5) * 2.0;
+  float uU = (vU - 0.5) * 2.0;
+  float uD = (vD - 0.5) * 2.0;
+
+  float gx = 0.5 * (uR - uL);
+  float gy = 0.5 * (uD - uU);
+  float gradMag = sqrt(gx*gx + gy*gy);
+
+  // Activity mask: where field is spatially active
+  float activity = smoothstep(0.01, 0.15, gradMag);
+
+  // --- Subtle warm tint on active regions ---
+  vec3 warmTint = vec3(1.0, 0.82, 0.66);  // soft warm, not neon
+  float tintStrength = 0.30;              // max blend amount
+  vec3 tinted = mix(base, warmTint, tintStrength);
+
+  // Blend between base and tinted by activity
+  vec3 color = mix(base, tinted, activity);
+
+  // --- Basin glow (EVF-2.1 style) ---
+  vec2 d = v_uv - u_basinCenter;
+  float dist2 = dot(d, d);
+  float R = u_basinRadius;
+  float glowMask = exp(-dist2 / (2.0 * R * R));
+
+  vec3 basinColor = vec3(1.0, 0.40, 0.35); // warm basin
+  float basinAlpha = 0.35 * glowMask;      // strength of basin overlay
+
+  color = mix(color, basinColor, basinAlpha);
+
+  outColor = vec4(color, 1.0);
 }
 `;
 
@@ -219,6 +254,9 @@ void main() {
 
   const u_tex_gray  = gl.getUniformLocation(progGray, "u_tex");
   const u_tex_color = gl.getUniformLocation(progColor,"u_tex");
+  // ← ADD HERE (directly after the existing uniform lookups)
+  const u_colorBasinCenterLoc = gl.getUniformLocation(progDispColor, "u_basinCenter");
+  const u_colorBasinRadiusLoc = gl.getUniformLocation(progDispColor, "u_basinRadius");
 
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -660,13 +698,18 @@ void main() {
     gl.bindTexture(gl.TEXTURE_2D, tex);
 
     if(viewMode === "gray"){
-      gl.useProgram(progGray);
-      gl.uniform1i(u_tex_gray, 0);
-    } else {
-      gl.useProgram(progColor);
-      gl.uniform1i(u_tex_color, 0);
-    }
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.useProgram(progDispGray);
+  gl.uniform1i(u_dispGrayTexLoc,0);
+} else {
+  gl.useProgram(progDispColor);
+  gl.uniform1i(u_dispColorTexLoc,0);
+
+  // ← ADD HERE: basin center + radius for color shader
+  gl.uniform2f(u_colorBasinCenterLoc, 0.5, 0.5);
+  gl.uniform1f(u_colorBasinRadiusLoc, basinR);
+}
+
+gl.drawArrays(gl.TRIANGLES,0,6);
 
     statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
     coherenceLabel.textContent =
