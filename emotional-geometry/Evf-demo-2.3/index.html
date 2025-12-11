@@ -134,48 +134,55 @@ void main() {
 `;
 
 // Expressive, gradient-aware false-color display
+// Expressive, moody warm–cool false-color display
 const DISPLAY_FRAG_COLOR = `#version 300 es
 precision highp float;
 in vec2 v_uv;
 out vec4 outColor;
 uniform sampler2D u_tex;
 
+// Base colormap: deep cool shadows → warm muted highlights
 vec3 baseColormap(float x) {
-  x = clamp(x, 0.0, 1.0);
-  float r = smoothstep(0.5, 1.0, x);
-  float g = (x < 0.5)
-      ? smoothstep(0.0, 0.5, x)
-      : smoothstep(1.0, 0.5, 1.0 - x);
-  float b = smoothstep(1.0, 0.5, 1.0 - x);
-  return vec3(r, g, b);
+    x = clamp(x, 0.0, 1.0);
+    return mix(
+        vec3(0.07, 0.08, 0.10),   // cool charcoal
+        vec3(0.45, 0.38, 0.32),   // warm muted umber
+        x
+    );
 }
 
 void main() {
-  float uC = texture(u_tex, v_uv).r;
+    float uC = texture(u_tex, v_uv).r;
 
-  ivec2 texSize = textureSize(u_tex, 0);
-  vec2 texel = 1.0 / vec2(texSize);
+    ivec2 texSize = textureSize(u_tex, 0);
+    vec2 texel = 1.0 / vec2(texSize);
 
-  float uL = texture(u_tex, v_uv + vec2(-texel.x, 0.0)).r;
-  float uR = texture(u_tex, v_uv + vec2( texel.x, 0.0)).r;
-  float uU = texture(u_tex, v_uv + vec2(0.0, -texel.y)).r;
-  float uD = texture(u_tex, v_uv + vec2(0.0,  texel.y)).r;
+    float uL = texture(u_tex, v_uv + vec2(-texel.x, 0.0)).r;
+    float uR = texture(u_tex, v_uv + vec2( texel.x, 0.0)).r;
+    float uU = texture(u_tex, v_uv + vec2(0.0, -texel.y)).r;
+    float uD = texture(u_tex, v_uv + vec2(0.0,  texel.y)).r;
 
-  float gx = (uR - uL) * 0.5;
-  float gy = (uD - uU) * 0.5;
-  float gradMag = sqrt(gx*gx + gy*gy);
+    float gx = (uR - uL) * 0.5;
+    float gy = (uD - uU) * 0.5;
+    float gradMag = sqrt(gx*gx + gy*gy);
 
-  float motion = smoothstep(0.02, 0.18, gradMag * 2.5);
+    // Motion signal (tuned for smooth, tasteful highlights)
+    float motion = smoothstep(0.015, 0.12, gradMag * 2.2);
 
-  vec3 base = baseColormap(uC);
-  vec3 glow = vec3(1.0, 0.9, 0.6);
+    // Base tone
+    vec3 base = baseColormap(uC);
 
-  vec3 color = mix(base * 0.8, glow, motion);
+    // Warm tungsten glow
+    vec3 glowColor = vec3(1.0, 0.78, 0.55);
 
-  float contrast = 0.15;
-  color = mix(vec3(0.5), color, 1.0 + contrast);
+    // Mix motion glow in
+    vec3 color = mix(base * 0.85, glowColor, motion);
 
-  outColor = vec4(color, 1.0);
+    // Cinematic contrast curve
+    float contrast = 0.20;
+    color = mix(vec3(0.45), color, 1.0 + contrast);
+
+    outColor = vec4(color, 1.0);
 }
 `;
 
