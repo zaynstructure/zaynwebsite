@@ -698,8 +698,8 @@ void main() {
     gl.bindTexture(gl.TEXTURE_2D, tex);
 
     if(viewMode === "gray"){
-  gl.useProgram(progDispGray);
-  gl.uniform1i(u_dispGrayTexLoc,0);
+  gl.useProgram(progGray);
+  gl.uniform1i(u_dispGrayTexLoc, 0);
 } else {
   gl.useProgram(progColor);
   gl.uniform1i(u_tex_color, 0);
