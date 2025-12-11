@@ -542,8 +542,18 @@ void main() {
         const lap = (uL + uR + uU + uD - 4*uC);
 
         const gx = (uR - uL) * 0.5;
-        const gy = (uD - uU) * 0.5;
+        const gy = (uD - uU) * 
+          
+          // ----- Nonlinear Advection (Variant 1) -----
+        const grad2 = gx*gx + gy*gy;       // |∇u|^2
+        const div_u_grad_u = grad2 + uC * lap;  // ∇·(u ∇u)
 
+// Coherence-gated strength
+        const betaAdv = 0.12;              // tune this (see below)
+        const adv = -betaAdv * (1.0 - Co) * div_u_grad_u;
+
+
+        
         // ----- coupling mask gradients
         const wcC = wCouple[i];
         const wcL = wCouple[y*W + xL];
@@ -582,12 +592,14 @@ void main() {
         const noise    = sigmaEff * baseRand * Math.sqrt(dt);
 
         const du =
-          dampLin + dampNon +
-          syncDiff + syncCoupling +
-          drift +
-          attract + repulsion +
-          rhythm + noise;
-
+  kappaEff * lap +
+  damp +
+  attract +
+  repulsion +
+  drift +
+  rhythm +
+  noise +
+  adv;
         fieldNext[i] = uC + dt * du;
       }
     }
