@@ -534,82 +534,40 @@ void main() {
         const xL=(x-1+W)%W, xR=(x+1)%W;
         const i = y*W + x;
         const uC = field[i];
-        const uL = field[y*W + xL];
-        const uR = field[y*W + xR];
-        const uU = field[yU*W + x];
-        const uD = field[yD*W + x];
+const uL = field[y*W + xL];
+const uR = field[y*W + xR];
+const uU = field[yU*W + x];
+const uD = field[y*W + x];
 
-        const lap = (uL + uR + uU + uD - 4*uC);
+const lap = (uL + uR + uU + uD - 4*uC);
 
-        const gx = (uR - uL) * 0.5;
-        const gy = (uD - uU) * 
-          
-          // ----- Nonlinear Advection (Variant 1) -----
-        const grad2 = gx*gx + gy*gy;       // |∇u|^2
-        const div_u_grad_u = grad2 + uC * lap;  // ∇·(u ∇u)
+const gx = (uR - uL) * 0.5;
+const gy = (uD - uU) * 0.5;
 
-// Coherence-gated strength
-        const betaAdv = 0.12;              // tune this (see below)
-        const adv = -betaAdv * (1.0 - Co) * div_u_grad_u;
+const drift = alphaG * (Gx*gx + Gy*gy);
+const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
+const damp    = -gammaEff * uC;
+const rhythm  = rho * Math.sin(omega * time);
+const noise   = sigmaEff * (Math.random()*2-1) * Math.sqrt(dt) * noiseScale;
 
+// ----- Nonlinear Advection (Variant 1) -----
+const grad2 = gx*gx + gy*gy;
+const div_u_grad_u = grad2 + uC * lap;
+const betaAdv = 0.12;
+const adv = -betaAdv * (1.0 - Co) * div_u_grad_u;
 
-        
-        // ----- coupling mask gradients
-        const wcC = wCouple[i];
-        const wcL = wCouple[y*W + xL];
-        const wcR = wCouple[y*W + xR];
-        const wcU = wCouple[yU*W + x];
-        const wcD = wCouple[y*W + x];
-
-        const wcx = (wcR - wcL) * 0.5;
-        const wcy = (wcD - wcU) * 0.5;
-
-        const div_wc_grad_u = wcC * lap + (wcx * gx + wcy * gy);
-
-        // ----- drift
-        const drift = alphaG * (Gx * gx + Gy * gy);
-
-        // ----- attractor
-        const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
-
-        // ----- repulsion
-        const uRepBaseline = -uStar;
-        const mismatch = 1.0 - Ch;
-        const repLocal = Math.tanh(uC - uRepBaseline);
-        const repulsion = lambdaREff * wRepulse[i] * repLocal * mismatch;
-
-        // ----- containment (linear + nonlinear)
-        const dampLin = -gammaEff * uC;
-        const dampNon = -xiEff * uC * uC * uC;
-
-        // ----- synchronization (diffusion + coupling)
-        const syncDiff     = kappaEff * lap;
-        const syncCoupling = cEff * div_wc_grad_u;
-
-        // ----- rhythm + noise
-        const rhythm   = rho * Math.sin(omega * time);
-        const baseRand = (Math.random()*2 - 1);
-        const noise    = sigmaEff * baseRand * Math.sqrt(dt);
-
-        const du =
+// ----- FINAL PDE UPDATE -----
+const du =
   kappaEff * lap +
   damp +
   attract +
-  repulsion +
+  repulsion +      // keep your repulsion term as defined earlier
   drift +
   rhythm +
   noise +
   adv;
-        fieldNext[i] = uC + dt * du;
-      }
-    }
 
-    // swap
-    const tmp = fieldPrev;
-    fieldPrev = field;
-    field = fieldNext;
-    fieldNext = tmp;
-  }
+fieldNext[i] = uC + dt * du;
 
   // ---------- Upload field to texture (adaptive contrast) ----------
   const texBuffer = new Uint8Array(W*H);
