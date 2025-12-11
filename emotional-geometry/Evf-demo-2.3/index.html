@@ -54,7 +54,6 @@
       <button id="btn-event">Trigger Event Noise</button>
       <button id="btn-release">Release Event</button>
       <button id="btn-view">View: Grayscale</button>
-      <button id="btn-instability">Mode: Stable</button>
       <div id="status">dt ≈ …</div>
       <div id="coherence-label">Co ≈ … (Cs, Ct, Ch)</div>
       <div id="drift-label">‖G‖ ≈ …</div>
@@ -113,7 +112,7 @@
 </div>
 
 <script>
-// ---------- WebGL display shaders (no PDE in GLSL) ----------
+// ---------- WebGL display shaders ----------
 const VERT_SRC = `#version 300 es
 layout(location = 0) in vec2 a_position;
 out vec2 v_uv;
@@ -123,7 +122,6 @@ void main() {
 }
 `;
 
-// Grayscale display
 const DISPLAY_FRAG_GRAY = `#version 300 es
 precision highp float;
 in vec2 v_uv;
@@ -135,7 +133,6 @@ void main() {
 }
 `;
 
-// False color display
 const DISPLAY_FRAG_COLOR = `#version 300 es
 precision highp float;
 in vec2 v_uv;
@@ -176,7 +173,7 @@ void main() {
     return sh;
   }
 
-  // Display programs (no PDE program now)
+  // Display programs
   const vsG = compileShader(gl.VERTEX_SHADER, VERT_SRC);
   const fsG = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_GRAY);
   const progDispGray = gl.createProgram();
@@ -202,12 +199,11 @@ void main() {
     -1, 1,   1,-1,    1,1
   ]), gl.STATIC_DRAW);
 
-  // Single, global attribute binding (location 0)
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-  // Texture for display (8-bit, no FBO)
+  // Texture for display (8-bit)
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -220,10 +216,10 @@ void main() {
   );
 
   // ---------- EVF CPU state ----------
-  let field    = new Float32Array(W*H);
-  let fieldNext= new Float32Array(W*H);
-  let fieldPrev= new Float32Array(W*H);
-  let wBasin   = new Float32Array(W*H);
+  let field     = new Float32Array(W*H);
+  let fieldNext = new Float32Array(W*H);
+  let fieldPrev = new Float32Array(W*H);
+  let wBasin    = new Float32Array(W*H);
 
   let tGlobal = 0;
   let dt      = 0.01;
@@ -253,7 +249,7 @@ void main() {
   let adsrPhase = "idle";
   let adsrT = 0.0;
   let sigmaTotal = 0.0;
-  let sigmaEff   = 0.0; // *** explicit
+  let sigmaEff   = 0.0;
 
   // Coherence
   let Cs=1.0, Ct=1.0, Ch=1.0, Co=1.0;
@@ -271,15 +267,11 @@ void main() {
   let paused = false;
   let viewMode = 'gray';
 
-  // *** instability mode flag
-  let instabilityMode = false;
-
   // ---------- UI ----------
   const statusLabel    = document.getElementById("status");
   const coherenceLabel = document.getElementById("coherence-label");
   const driftLabel     = document.getElementById("drift-label");
   const btnView        = document.getElementById("btn-view");
-  const btnInst        = document.getElementById("btn-instability"); // ***
 
   const pKappa0    = document.getElementById("p-kappa0");
   const pGammaMax  = document.getElementById("p-gammaMax");
@@ -379,61 +371,51 @@ void main() {
     Co = Math.exp(logCo);
   }
 
-  /function updateEffectiveParameters() {
-  // Base volatility (chronic + event)
-  const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
+  // ---------- Hybrid coherence-regulated parameters ----------
+  function updateEffectiveParameters() {
+    // Base volatility (chronic + event)
+    const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
 
-  // Clamp coherence channels to [0,1]
-  const CoC = Math.max(0.0, Math.min(1.0, Co));
-  const CsC = Math.max(0.0, Math.min(1.0, Cs));
-  const ChC = Math.max(0.0, Math.min(1.0, Ch));
+    // Clamp coherence channels to [0,1]
+    const CoC = Math.max(0.0, Math.min(1.0, Co));
+    const CsC = Math.max(0.0, Math.min(1.0, Cs));
+    const ChC = Math.max(0.0, Math.min(1.0, Ch));
 
-  // --- Soft collapse switch ---
-  // Coherence threshold + transition steepness
-  const T = 0.35;
-  const k = 14.0;
-  // S(Co) ≈ 0 when coherence is high, ≈ 1 when coherence is low
-  const S = 1.0 / (1.0 + Math.exp(k * (CoC - T)));
+    // Soft collapse switch
+    const T = 0.35;
+    const k = 14.0;
+    const S = 1.0 / (1.0 + Math.exp(k * (CoC - T))); // ~0 high Co, ~1 low Co
 
-  // --- 1. Containment γ ---
-  // Smooth: superlinear weakening
-  let gammaSmooth = gammaMin + (gammaMax - gammaMin) * Math.pow(CoC, 1.5);
-  // Collapse: containment crashes more sharply
-  let gammaCollapse = 0.25 * gammaSmooth;
-  gammaEff = (1 - S) * gammaSmooth + S * gammaCollapse;
+    // 1) Damping γ
+    let gammaSmooth   = gammaMin + (gammaMax - gammaMin) * Math.pow(CoC, 1.5);
+    let gammaCollapse = 0.25 * gammaSmooth;
+    gammaEff = (1.0 - S) * gammaSmooth + S * gammaCollapse;
 
-  // --- 2. Diffusion κ ---
-  // Smooth: decreased with spatial coherence
-  let kappaSmooth = kappa0 * (0.5 + 0.5 * (CsC * CsC));
-  // Collapse: allow sharp gradients
-  let kappaCollapse = 0.15 * kappaSmooth;
-  kappaEff = (1 - S) * kappaSmooth + S * kappaCollapse;
+    // 2) Diffusion κ
+    let kappaSmooth   = kappa0 * (0.5 + 0.5 * (CsC * CsC));
+    let kappaCollapse = 0.15 * kappaSmooth;
+    kappaEff = (1.0 - S) * kappaSmooth + S * kappaCollapse;
 
-  // --- 3. Attractor λ ---
-  // Smooth: meaning misalignment increases pull
-  let lambdaSmooth = lambda0 * (1.0 + 0.5 * (1.0 - ChC));
-  // Collapse: attractor becomes too strong → tearing/rumination
-  let lambdaCollapse = lambda0 * (1.0 + 2.5 * (1.0 - ChC));
-  lambdaEff = (1 - S) * lambdaSmooth + S * lambdaCollapse;
+    // 3) Attractor λ
+    let lambdaSmooth   = lambda0 * (1.0 + 0.5 * (1.0 - ChC));
+    let lambdaCollapse = lambda0 * (1.0 + 2.5 * (1.0 - ChC));
+    lambdaEff = (1.0 - S) * lambdaSmooth + S * lambdaCollapse;
 
-  // --- 4. Noise σ_eff ---
-  const noiseFloor = 0.03; // always some volatility
-  let sigmaSmooth =
-    noiseFloor +
-    sigmaBase * (0.2 + 1.2 * (1.0 - Math.pow(CoC, 0.5)));
+    // 4) Noise σ_eff
+    const noiseFloor = 0.03;
+    let sigmaSmooth =
+      noiseFloor +
+      sigmaBase * (0.2 + 1.2 * (1.0 - Math.pow(CoC, 0.5)));
+    let sigmaCollapse = 2.5 * sigmaSmooth;
+    sigmaEff = (1.0 - S) * sigmaSmooth + S * sigmaCollapse;
 
-  let sigmaCollapse = 2.5 * sigmaSmooth;
-  sigmaEff = (1 - S) * sigmaSmooth + S * sigmaCollapse;
-
-  // σ_total is the physical volatility scale (from EVF-2.3 noise update)
-  sigmaTotal = sigmaBase;
-}
+    sigmaTotal = sigmaBase;
+  }
 
   function updateDtFromStability(dtRequested){
     const denom = gammaEff + 8.0*kappaEff + lambdaEff;
     const dtMax = 2.0 / denom;
-    // slight loosen in unstable mode: allow closer to the bound
-    const safety = instabilityMode ? 0.99 : 0.9;
+    const safety = 0.9;
     dt = Math.min(dtRequested, safety*dtMax);
   }
 
@@ -456,7 +438,7 @@ void main() {
     Gy += dt * (-betaG*Gy + Fy);
   }
 
-  // ---------- Noise ----------
+  // ---------- Noise envelope ----------
   function updateADSR(){
     if(adsrPhase==="idle"){ sigmaEState = 0.0; return; }
     adsrT += dt;
@@ -508,10 +490,8 @@ void main() {
         const damp    = -gammaEff * uC;
         const rhythm  = rho * Math.sin(omega * time);
 
-        // *** amplify noise in unstable mode for visibility
         const baseRand = (Math.random()*2-1);
-        const noiseScale = instabilityMode ? 3.0 : 1.0;
-        const noise   = sigmaEff * baseRand * Math.sqrt(dt) * noiseScale;
+        const noise   = sigmaEff * baseRand * Math.sqrt(dt);
 
         const du = kappaEff*lap + damp + attract + drift + rhythm + noise;
         fieldNext[i] = uC + dt*du;
@@ -549,50 +529,6 @@ void main() {
     btnView.textContent = (viewMode === "gray") ? "View: Grayscale" : "View: False Color";
   };
 
-  // *** Instability mode presets: push parameters into a more dysregulated regime
-  function applyModePreset(){
-    if (!instabilityMode){
-      // restore your original defaults
-      pKappa0.value     = "0.25";
-      pGammaMax.value   = "0.8";
-      pLambda0.value    = "0.7";
-      pUstar.value      = "0.0";
-      pR.value          = "0.12";
-      pRho.value        = "0.3";
-      pOmega.value      = "0.8";
-      pAlphaG.value     = "1.0";
-      pSigma0.value     = "0.05";
-      pSigmaEPeak.value = "0.15";
-      pAttack.value     = "0.2";
-      pDecay.value      = "0.3";
-      pSustain.value    = "0.5";
-      pReleaseTime.value= "0.5";
-    } else {
-      // unstable preset: weaker containment & diffusion, more attractor + noise + drift
-      pKappa0.value     = "0.08";
-      pGammaMax.value   = "0.5";
-      pLambda0.value    = "1.2";
-      pUstar.value      = "0.0";
-      pR.value          = "0.10";
-      pRho.value        = "0.5";
-      pOmega.value      = "1.4";
-      pAlphaG.value     = "2.0";
-      pSigma0.value     = "0.20";
-      pSigmaEPeak.value = "0.60";
-      pAttack.value     = "0.1";
-      pDecay.value      = "0.3";
-      pSustain.value    = "0.7";
-      pReleaseTime.value= "0.8";
-    }
-    syncParamsFromUI();
-  }
-
-  btnInst.onclick = () => {
-    instabilityMode = !instabilityMode;
-    btnInst.textContent = instabilityMode ? "Mode: Unstable" : "Mode: Stable";
-    applyModePreset();
-  };
-
   function syncParamsFromUI(){
     kappa0   = +pKappa0.value;
     gammaMax = +pGammaMax.value;
@@ -626,21 +562,15 @@ void main() {
     requestAnimationFrame(loop);
     if (paused) return;
 
-    // EVF core
     computeCoherence();
     updateNoiseEnvelope();
-    // unstable mode uses same coherence model but different coupling
     updateEffectiveParameters();
-    const dtRequested = instabilityMode ? dtBase*1.5 : dtBase;
-    updateDtFromStability(dtRequested);
+    updateDtFromStability(dtBase);
     tGlobal += dt;
     updateDrift();
     updateField();
-
-    // upload to texture
     uploadFieldToTexture();
 
-    // draw
     gl.viewport(0,0,W,H);
     gl.activeTexture(gl.TEXTURE_2D);
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -654,7 +584,6 @@ void main() {
     }
     gl.drawArrays(gl.TRIANGLES,0,6);
 
-    // labels
     statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
     coherenceLabel.textContent =
       "Co ≈ " + Co.toFixed(3) +
