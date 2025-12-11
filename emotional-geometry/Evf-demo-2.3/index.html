@@ -255,8 +255,8 @@ void main() {
   const u_tex_gray  = gl.getUniformLocation(progGray, "u_tex");
   const u_tex_color = gl.getUniformLocation(progColor,"u_tex");
   // ← ADD HERE (directly after the existing uniform lookups)
-  const u_colorBasinCenterLoc = gl.getUniformLocation(progDispColor, "u_basinCenter");
-  const u_colorBasinRadiusLoc = gl.getUniformLocation(progDispColor, "u_basinRadius");
+  const u_colorBasinCenterLoc = gl.getUniformLocation(progColor, "u_basinCenter");
+  const u_colorBasinRadiusLoc = gl.getUniformLocation(progColor, "u_basinRadius");
 
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -701,10 +701,9 @@ void main() {
   gl.useProgram(progDispGray);
   gl.uniform1i(u_dispGrayTexLoc,0);
 } else {
-  gl.useProgram(progDispColor);
-  gl.uniform1i(u_dispColorTexLoc,0);
+  gl.useProgram(progColor);
+  gl.uniform1i(u_tex_color, 0);
 
-  // ← ADD HERE: basin center + radius for color shader
   gl.uniform2f(u_colorBasinCenterLoc, 0.5, 0.5);
   gl.uniform1f(u_colorBasinRadiusLoc, basinR);
 }
