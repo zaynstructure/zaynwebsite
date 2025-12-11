@@ -133,23 +133,59 @@ void main() {
 }
 `;
 
+// Expressive, gradient-aware false-color display
 const DISPLAY_FRAG_COLOR = `#version 300 es
 precision highp float;
 in vec2 v_uv;
 out vec4 outColor;
 uniform sampler2D u_tex;
-vec3 colormap(float x) {
-  x = clamp(x,0.0,1.0);
-  float r = smoothstep(0.5,1.0,x);
-  float g = (x<0.5)
-      ? smoothstep(0.0,0.5,x)
-      : smoothstep(1.0,0.5,1.0-x);
-  float b = smoothstep(1.0,0.5,1.0-x);
-  return vec3(r,g,b);
+
+// Base colormap (similar shape to your old one, but we'll modulate it)
+vec3 baseColormap(float x) {
+  x = clamp(x, 0.0, 1.0);
+  float r = smoothstep(0.5, 1.0, x);
+  float g = (x < 0.5)
+      ? smoothstep(0.0, 0.5, x)
+      : smoothstep(1.0, 0.5, 1.0 - x);
+  float b = smoothstep(1.0, 0.5, 1.0 - x);
+  return vec3(r, g, b);
 }
+
 void main() {
-  float t = texture(u_tex, v_uv).r;
-  outColor = vec4(colormap(t),1.0);
+  // Center value (already contrast-stretched in JS)
+  float uC = texture(u_tex, v_uv).r;
+
+  // Neighbor sampling for gradient magnitude
+  ivec2 texSize = textureSize(u_tex, 0);
+  vec2 texel = 1.0 / vec2(texSize);
+
+  float uL = texture(u_tex, v_uv + vec2(-texel.x, 0.0)).r;
+  float uR = texture(u_tex, v_uv + vec2( texel.x, 0.0)).r;
+  float uU = texture(u_tex, v_uv + vec2(0.0, -texel.y)).r;
+  float uD = texture(u_tex, v_uv + vec2(0.0,  texel.y)).r;
+
+  float gx = (uR - uL) * 0.5;
+  float gy = (uD - uU) * 0.5;
+  float gradMag = sqrt(gx*gx + gy*gy);
+
+  // Motion / structure indicator
+  // Tune thresholds to taste; this maps small gradients to 0, strong to 1
+  float motion = smoothstep(0.02, 0.18, gradMag * 2.5);
+
+  // Base color from field value
+  vec3 base = baseColormap(uC);
+
+  // Warm highlight color for active regions
+  vec3 glow = vec3(1.0, 0.9, 0.6);
+
+  // Blend: in calm regions, stay near base; in active regions, warm up and brighten
+  vec3 color = mix(base * 0.8, glow, motion);
+
+  // Subtle global contrast curve toward mid-gray to keep it "raw" and not neon
+  float contrast = 0.15;
+  color = mix(vec3(0.5), color, 1.0 + contrast);
+
+  outColor = vec4(color, 1.0);
 }
 `;
 
@@ -513,7 +549,7 @@ void main() {
         const wcL = wCouple[y*W + xL];
         const wcR = wCouple[y*W + xR];
         const wcU = wCouple[yU*W + x];
-        const wcD = wCouple[yD*W + x];
+        const wcD = wCouple[y*W + x];
 
         const wcx = (wcR - wcL) * 0.5;
         const wcy = (wcD - wcU) * 0.5;
@@ -563,13 +599,34 @@ void main() {
     fieldNext = tmp;
   }
 
-  // ---------- Upload field to texture ----------
+  // ---------- Upload field to texture (adaptive contrast) ----------
   const texBuffer = new Uint8Array(W*H);
   function uploadFieldToTexture(){
-    for(let i=0;i<W*H;i++){
-      const v = field[i]*0.5 + 0.5;     // [-1,1] -> [0,1]
-      texBuffer[i] = Math.max(0, Math.min(255, Math.floor(v*255)));
+    // 1) Find min/max
+    let vMin = Infinity;
+    let vMax = -Infinity;
+    for (let i=0; i<W*H; i++) {
+      const v = field[i];
+      if (v < vMin) vMin = v;
+      if (v > vMax) vMax = v;
     }
+
+    const eps = 1e-6;
+    let span = vMax - vMin;
+    if (span < eps) span = eps;
+
+    // optional padding
+    const pad = 0.05 * span;
+    vMin -= pad;
+    vMax += pad;
+    const invSpan = 1.0 / (vMax - vMin);
+
+    for (let i=0;i<W*H;i++){
+      let vNorm = (field[i] - vMin) * invSpan;
+      vNorm = Math.max(0, Math.min(1, vNorm));
+      texBuffer[i] = Math.floor(vNorm * 255);
+    }
+
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RED, gl.UNSIGNED_BYTE, texBuffer);
   }
