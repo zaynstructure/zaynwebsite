@@ -54,6 +54,10 @@
       <button id="btn-event">Trigger Event Noise</button>
       <button id="btn-release">Release Event</button>
       <button id="btn-view">View: Grayscale</button>
+
+      <!-- NEW: your Flow Mode toggle -->
+      <button id="btn-flow">Flow: Off</button>
+
       <div id="status">dt ≈ …</div>
       <div id="coherence-label">Co ≈ … (Cs, Ct, Ch)</div>
       <div id="drift-label">‖G‖ ≈ …</div>
@@ -122,6 +126,7 @@ void main() {
 }
 `;
 
+// Grayscale
 const DISPLAY_FRAG_GRAY = `#version 300 es
 precision highp float;
 in vec2 v_uv;
@@ -133,122 +138,105 @@ void main() {
 }
 `;
 
-// Expressive, gradient-aware false-color display
-// Expressive, moody warm–cool false-color display
+// Expressive gradient-aware false color
 const DISPLAY_FRAG_COLOR = `#version 300 es
 precision highp float;
 in vec2 v_uv;
 out vec4 outColor;
 uniform sampler2D u_tex;
 
-// Base colormap: deep cool shadows → warm muted highlights
 vec3 baseColormap(float x) {
-    x = clamp(x, 0.0, 1.0);
-    return mix(
-        vec3(0.07, 0.08, 0.10),   // cool charcoal
-        vec3(0.45, 0.38, 0.32),   // warm muted umber
-        x
-    );
+  x = clamp(x,0.0,1.0);
+  float r = smoothstep(0.5,1.0,x);
+  float g = (x<0.5)
+      ? smoothstep(0.0,0.5,x)
+      : smoothstep(1.0,0.5,1.0-x);
+  float b = smoothstep(1.0,0.5,1.0-x);
+  return vec3(r,g,b);
 }
 
 void main() {
-    float uC = texture(u_tex, v_uv).r;
+  float uC = texture(u_tex, v_uv).r;
 
-    ivec2 texSize = textureSize(u_tex, 0);
-    vec2 texel = 1.0 / vec2(texSize);
+  ivec2 ts = textureSize(u_tex,0);
+  vec2 t = 1.0 / vec2(ts);
 
-    float uL = texture(u_tex, v_uv + vec2(-texel.x, 0.0)).r;
-    float uR = texture(u_tex, v_uv + vec2( texel.x, 0.0)).r;
-    float uU = texture(u_tex, v_uv + vec2(0.0, -texel.y)).r;
-    float uD = texture(u_tex, v_uv + vec2(0.0,  texel.y)).r;
+  float uL = texture(u_tex, v_uv + vec2(-t.x,0)).r;
+  float uR = texture(u_tex, v_uv + vec2( t.x,0)).r;
+  float uU = texture(u_tex, v_uv + vec2(0,-t.y)).r;
+  float uD = texture(u_tex, v_uv + vec2(0, t.y)).r;
 
-    float gx = (uR - uL) * 0.5;
-    float gy = (uD - uU) * 0.5;
-    float gradMag = sqrt(gx*gx + gy*gy);
+  float gx = (uR - uL)*0.5;
+  float gy = (uD - uU)*0.5;
+  float gmag = sqrt(gx*gx + gy*gy);
 
-    // Motion signal (tuned for smooth, tasteful highlights)
-    float motion = smoothstep(0.015, 0.12, gradMag * 2.2);
+  float motion = smoothstep(0.02, 0.18, gmag * 2.5);
 
-    // Base tone
-    vec3 base = baseColormap(uC);
+  vec3 base = baseColormap(uC);
+  vec3 glow = vec3(1.0, 0.9, 0.6);
 
-    // Warm tungsten glow
-    vec3 glowColor = vec3(1.0, 0.78, 0.55);
+  vec3 color = mix(base * 0.8, glow, motion);
+  float contrast = 0.15;
+  color = mix(vec3(0.5), color, 1.0 + contrast);
 
-    // Mix motion glow in
-    vec3 color = mix(base * 0.85, glowColor, motion);
-
-    // Cinematic contrast curve
-    float contrast = 0.20;
-    color = mix(vec3(0.45), color, 1.0 + contrast);
-
-    outColor = vec4(color, 1.0);
+  outColor = vec4(color,1.0);
 }
 `;
 
+// ---------------- SETUP WEBGL ----------------
 (function(){
   const canvas = document.getElementById('glCanvas');
   const gl = canvas.getContext('webgl2');
-  if (!gl) { alert("WebGL2 not supported"); return; }
+  if(!gl){ alert("WebGL2 not supported"); return; }
 
-  const W = 128, H = 128;
-  canvas.width = W;
-  canvas.height = H;
+  const W=128, H=128;
+  canvas.width=W; canvas.height=H;
 
-  function compileShader(type,src){
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh,src);
-    gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh,gl.COMPILE_STATUS)){
-      console.error(gl.getShaderInfoLog(sh));
-      throw "shader error";
+  function compileShader(type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      console.error(gl.getShaderInfoLog(s));
+      throw "Shader Error";
     }
-    return sh;
+    return s;
   }
 
-  // Display programs
-  const vsG = compileShader(gl.VERTEX_SHADER, VERT_SRC);
-  const fsG = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_GRAY);
-  const progDispGray = gl.createProgram();
-  gl.attachShader(progDispGray, vsG);
-  gl.attachShader(progDispGray, fsG);
-  gl.linkProgram(progDispGray);
+  const vs = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+  const fsGray = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_GRAY);
+  const fsColor= compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_COLOR);
 
-  const vsC = compileShader(gl.VERTEX_SHADER, VERT_SRC);
-  const fsC = compileShader(gl.FRAGMENT_SHADER, DISPLAY_FRAG_COLOR);
-  const progDispColor = gl.createProgram();
-  gl.attachShader(progDispColor, vsC);
-  gl.attachShader(progDispColor, fsC);
-  gl.linkProgram(progDispColor);
+  const progGray = gl.createProgram();
+  gl.attachShader(progGray, vs);
+  gl.attachShader(progGray, fsGray);
+  gl.linkProgram(progGray);
 
-  const u_dispGrayTexLoc  = gl.getUniformLocation(progDispGray,"u_tex");
-  const u_dispColorTexLoc = gl.getUniformLocation(progDispColor,"u_tex");
+  const progColor = gl.createProgram();
+  gl.attachShader(progColor, vs);
+  gl.attachShader(progColor, fsColor);
+  gl.linkProgram(progColor);
 
-  // Fullscreen quad
+  const u_tex_gray  = gl.getUniformLocation(progGray, "u_tex");
+  const u_tex_color = gl.getUniformLocation(progColor,"u_tex");
+
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1,-1,   1,-1,   -1,1,
-    -1, 1,   1,-1,    1,1
+    -1,-1,  1,-1,  -1,1,
+    -1,1,   1,-1,   1,1
   ]), gl.STATIC_DRAW);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.enableVertexAttribArray(0);
-  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
 
-  // Texture for display (8-bit)
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(
-    gl.TEXTURE_2D, 0, gl.R8, W, H, 0,
-    gl.RED, gl.UNSIGNED_BYTE, null
-  );
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,null);
 
-  // ---------- EVF CPU state ----------
+    // ---------- EVF CPU state ----------
   let field     = new Float32Array(W*H);
   let fieldNext = new Float32Array(W*H);
   let fieldPrev = new Float32Array(W*H);
@@ -269,7 +257,7 @@ void main() {
   let alphaG   = 1.0;
 
   // Drift
-  let Gx = 0, Gy = 0;
+  let Gx = 0.0, Gy = 0.0;
   let betaG  = 1.0;
   let etaG   = 0.5;
 
@@ -295,17 +283,21 @@ void main() {
     omega: 0.8, sigma: 0.1
   };
 
-  // Effective params
+  // Effective parameters
   let gammaEff = 0.8, kappaEff = 0.25, lambdaEff = 0.7;
   let basinR = 0.12;
-  let paused = false;
-  let viewMode = 'gray';
+  let paused   = false;
+  let viewMode = "gray";
 
-  // ---------- UI ----------
+  // Experimental flow toggle (V3 cinematic advection)
+  let USE_EXPERIMENTAL_ADVECTION = false;
+
+  // ---------- UI elements ----------
   const statusLabel    = document.getElementById("status");
   const coherenceLabel = document.getElementById("coherence-label");
   const driftLabel     = document.getElementById("drift-label");
   const btnView        = document.getElementById("btn-view");
+  const btnFlow        = document.getElementById("btn-flow");
 
   const pKappa0    = document.getElementById("p-kappa0");
   const pGammaMax  = document.getElementById("p-gammaMax");
@@ -322,18 +314,19 @@ void main() {
   const pSustain   = document.getElementById("p-sustain");
   const pReleaseTime = document.getElementById("p-releaseTime");
 
+  // ---------- Init helpers ----------
   function initField(){
     for(let i=0;i<W*H;i++){
       const v = Math.random()*0.2 - 0.1;
       field[i] = v;
       fieldPrev[i] = v;
     }
-    Gx = Gy = 0;
+    Gx = 0.0; Gy = 0.0;
     sigma0State = sigma0Target;
     sigmaEState = 0.0;
     adsrPhase = "idle";
     adsrT = 0.0;
-    tGlobal = 0;
+    tGlobal = 0.0;
   }
 
   function updateBasin(R){
@@ -352,29 +345,29 @@ void main() {
 
   // ---------- Coherence ----------
   function computeCoherence(){
-    // spatial
+    // Spatial: gradient energy
     let Es = 0.0;
     for(let y=0;y<H;y++){
       const yU=(y-1+H)%H, yD=(y+1)%H;
       for(let x=0;x<W;x++){
         const xL=(x-1+W)%W, xR=(x+1)%W;
-        const i = y*W+x;
+        const i = y*W + x;
         const uC = field[i];
         const uL = field[y*W + xL];
         const uR = field[y*W + xR];
         const uU = field[yU*W + x];
-        const uD = field[y*W + x];
-        const gx = (uR-uL)*0.5;
-        const gy = (uD-uU)*0.5;
+        const uD = field[yD*W + x];
+        const gx = (uR - uL)*0.5;
+        const gy = (uD - uU)*0.5;
         Es += gx*gx + gy*gy;
       }
     }
     Es /= (W*H);
     Cs = Math.exp(-alpha_s * Es);
 
-    // temporal
+    // Temporal: change over time
     let Et = 0.0;
-    const invDt = 1.0/dt;
+    const invDt = 1.0 / dt;
     for(let i=0;i<W*H;i++){
       const ut = (field[i] - fieldPrev[i]) * invDt;
       Et += ut*ut;
@@ -382,7 +375,7 @@ void main() {
     Et /= (W*H);
     Ct = Math.exp(-alpha_t * Et);
 
-    // thematic
+    // Thematic: parameter deviation
     const theta = {
       gamma: gammaEff,
       kappa: kappaEff,
@@ -405,8 +398,8 @@ void main() {
     Co = Math.exp(logCo);
   }
 
-  // ---------- Coherence-regulated parameters ----------
-  function updateEffectiveParameters() {
+  // ---------- Parameter coupling ----------
+  function updateEffectiveParameters(){
     const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
 
     const CoC = Math.max(0.0, Math.min(1.0, Co));
@@ -416,24 +409,24 @@ void main() {
     // Soft collapse switch
     const T = 0.35;
     const k = 14.0;
-    const S = 1.0 / (1.0 + Math.exp(k * (CoC - T))); // ~0 high Co, ~1 low Co
+    const S = 1.0 / (1.0 + Math.exp(k * (CoC - T)));
 
-    // 1) Damping γ
+    // Damping γ
     let gammaSmooth   = gammaMin + (gammaMax - gammaMin) * Math.pow(CoC, 1.5);
     let gammaCollapse = 0.25 * gammaSmooth;
     gammaEff = (1.0 - S) * gammaSmooth + S * gammaCollapse;
 
-    // 2) Diffusion κ
+    // Diffusion κ
     let kappaSmooth   = kappa0 * (0.5 + 0.5 * (CsC * CsC));
     let kappaCollapse = 0.15 * kappaSmooth;
     kappaEff = (1.0 - S) * kappaSmooth + S * kappaCollapse;
 
-    // 3) Attractor λ
+    // Attractor λ
     let lambdaSmooth   = lambda0 * (1.0 + 0.5 * (1.0 - ChC));
     let lambdaCollapse = lambda0 * (1.0 + 2.5 * (1.0 - ChC));
     lambdaEff = (1.0 - S) * lambdaSmooth + S * lambdaCollapse;
 
-    // 4) Noise σ_eff
+    // Noise σ_eff (only into PDE)
     const noiseFloor = 0.03;
     let sigmaSmooth =
       noiseFloor +
@@ -502,7 +495,6 @@ void main() {
   // ---------- CPU PDE step ----------
   function updateField(){
     const time = tGlobal;
-    const noiseScale = 1.0; // can bump this if you want more motion
     for(let y=0;y<H;y++){
       const yU=(y-1+H)%H, yD=(y+1)%H;
       for(let x=0;x<W;x++){
@@ -512,26 +504,48 @@ void main() {
         const uL = field[y*W + xL];
         const uR = field[y*W + xR];
         const uU = field[yU*W + x];
-        const uD = field[y*W + x];
+        const uD = field[yD*W + x];
 
-        const lap = (uL + uR + uU + uD - 4*uC);
+        const lap = (uL + uR + uU + uD - 4.0*uC);
 
-        const gx = (uR - uL) * 0.5;
-        const gy = (uD - uU) * 0.5;
+        const gx = (uR - uL)*0.5;
+        const gy = (uD - uU)*0.5;
 
-        const drift   = alphaG * (Gx*gx + Gy*gy);
+        const drift = alphaG * (Gx*gx + Gy*gy);
         const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
         const damp    = -gammaEff * uC;
         const rhythm  = rho * Math.sin(omega * time);
-        const noise   = sigmaEff * (Math.random()*2-1) * Math.sqrt(dt) * noiseScale;
+        const noise   = sigmaEff * (Math.random()*2-1) * Math.sqrt(dt);
 
-        // ----- Nonlinear Advection (Variant 1) -----
-        const grad2 = gx*gx + gy*gy;
-        const div_u_grad_u = grad2 + uC * lap;
-        const betaAdv = 0.12; // tune
-        const adv = -betaAdv * (1.0 - Co) * div_u_grad_u;
+        // -------- Cinematic Flow Advection (V3 tuned) --------
+        let adv = 0.0;
+        if (USE_EXPERIMENTAL_ADVECTION) {
 
-        // Final PDE update
+          // 1. Temporal-coherence gating (sigmoid)
+          const Tt = 0.60;
+          const a  = 8.0;
+          const gateCt = 1.0 / (1.0 + Math.exp(a * (Ct - Tt)));
+
+          // 2. Drift magnitude stabilization
+          const Gmag = Math.sqrt(Gx*Gx + Gy*Gy);
+          const driftScale = Gmag / (1.0 + Gmag);
+
+          // 3. Gradient normalization for stable flow
+          const gradMag = Math.sqrt(gx*gx + gy*gy);
+          const gradNorm = 1.0 / Math.sqrt(1.0 + 0.75 * gradMag);
+
+          // directional component
+          const driftDotGrad = (Gx * gx + Gy * gy) * gradNorm;
+
+          // 4. Amplitude shaping
+          const beta0 = 0.18; // expressive but still safe
+          const motionBoost = 0.4 + 0.6 * gateCt;
+          const betaEff = beta0 * motionBoost;
+
+          // 5. Final advection term
+          adv = -betaEff * driftScale * driftDotGrad;
+        }
+
         const du =
           kappaEff * lap +
           damp +
@@ -557,29 +571,28 @@ void main() {
   function uploadFieldToTexture(){
     let vMin = Infinity;
     let vMax = -Infinity;
-    for (let i=0; i<W*H; i++) {
+    for(let i=0;i<W*H;i++){
       const v = field[i];
-      if (v < vMin) vMin = v;
-      if (v > vMax) vMax = v;
+      if(v < vMin) vMin = v;
+      if(v > vMax) vMax = v;
     }
-
     const eps = 1e-6;
     let span = vMax - vMin;
-    if (span < eps) span = eps;
+    if(span < eps) span = eps;
 
     const pad = 0.05 * span;
     vMin -= pad;
     vMax += pad;
     const invSpan = 1.0 / (vMax - vMin);
 
-    for (let i=0;i<W*H;i++){
+    for(let i=0;i<W*H;i++){
       let vNorm = (field[i] - vMin) * invSpan;
-      vNorm = Math.max(0, Math.min(1, vNorm));
-      texBuffer[i] = Math.floor(vNorm * 255);
+      vNorm = Math.max(0.0, Math.min(1.0, vNorm));
+      texBuffer[i] = Math.floor(vNorm * 255.0);
     }
 
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RED, gl.UNSIGNED_BYTE, texBuffer);
+    gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,W,H,gl.RED,gl.UNSIGNED_BYTE,texBuffer);
   }
 
   // ---------- UI handlers ----------
@@ -587,12 +600,17 @@ void main() {
   document.getElementById("btn-pause").onclick = () => { paused = !paused; };
   document.getElementById("btn-event").onclick = () => { adsrPhase="attack"; adsrT=0; };
   document.getElementById("btn-release").onclick = () => {
-    if(adsrPhase==="sustain"||adsrPhase==="decay"){ adsrPhase="release"; adsrT=0; }
+    if(adsrPhase==="sustain" || adsrPhase==="decay"){ adsrPhase="release"; adsrT=0; }
   };
 
   btnView.onclick = () => {
     viewMode = (viewMode === "gray") ? "color" : "gray";
     btnView.textContent = (viewMode === "gray") ? "View: Grayscale" : "View: False Color";
+  };
+
+  btnFlow.onclick = () => {
+    USE_EXPERIMENTAL_ADVECTION = !USE_EXPERIMENTAL_ADVECTION;
+    btnFlow.textContent = USE_EXPERIMENTAL_ADVECTION ? "Flow: Cinematic" : "Flow: Off";
   };
 
   function syncParamsFromUI(){
@@ -638,17 +656,17 @@ void main() {
     uploadFieldToTexture();
 
     gl.viewport(0,0,W,H);
-    gl.activeTexture(gl.TEXTURE_2D);
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
 
     if(viewMode === "gray"){
-      gl.useProgram(progDispGray);
-      gl.uniform1i(u_dispGrayTexLoc,0);
+      gl.useProgram(progGray);
+      gl.uniform1i(u_tex_gray, 0);
     } else {
-      gl.useProgram(progDispColor);
-      gl.uniform1i(u_dispColorTexLoc,0);
+      gl.useProgram(progColor);
+      gl.uniform1i(u_tex_color, 0);
     }
-    gl.drawArrays(gl.TRIANGLES,0,6);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
     coherenceLabel.textContent =
@@ -667,3 +685,4 @@ void main() {
 </script>
 </body>
 </html>
+  
