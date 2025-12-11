@@ -140,7 +140,6 @@ in vec2 v_uv;
 out vec4 outColor;
 uniform sampler2D u_tex;
 
-// Base colormap (similar shape to your old one, but we'll modulate it)
 vec3 baseColormap(float x) {
   x = clamp(x, 0.0, 1.0);
   float r = smoothstep(0.5, 1.0, x);
@@ -152,10 +151,8 @@ vec3 baseColormap(float x) {
 }
 
 void main() {
-  // Center value (already contrast-stretched in JS)
   float uC = texture(u_tex, v_uv).r;
 
-  // Neighbor sampling for gradient magnitude
   ivec2 texSize = textureSize(u_tex, 0);
   vec2 texel = 1.0 / vec2(texSize);
 
@@ -168,20 +165,13 @@ void main() {
   float gy = (uD - uU) * 0.5;
   float gradMag = sqrt(gx*gx + gy*gy);
 
-  // Motion / structure indicator
-  // Tune thresholds to taste; this maps small gradients to 0, strong to 1
   float motion = smoothstep(0.02, 0.18, gradMag * 2.5);
 
-  // Base color from field value
   vec3 base = baseColormap(uC);
-
-  // Warm highlight color for active regions
   vec3 glow = vec3(1.0, 0.9, 0.6);
 
-  // Blend: in calm regions, stay near base; in active regions, warm up and brighten
   vec3 color = mix(base * 0.8, glow, motion);
 
-  // Subtle global contrast curve toward mid-gray to keep it "raw" and not neon
   float contrast = 0.15;
   color = mix(vec3(0.5), color, 1.0 + contrast);
 
@@ -255,11 +245,7 @@ void main() {
   let field     = new Float32Array(W*H);
   let fieldNext = new Float32Array(W*H);
   let fieldPrev = new Float32Array(W*H);
-
-  // Geometry masks: attractor, coupling, repulsion
-  let wBasin   = new Float32Array(W*H);
-  let wCouple  = new Float32Array(W*H);
-  let wRepulse = new Float32Array(W*H);
+  let wBasin    = new Float32Array(W*H);
 
   let tGlobal = 0;
   let dt      = 0.01;
@@ -308,11 +294,6 @@ void main() {
   let paused = false;
   let viewMode = 'gray';
 
-  // New effective parameters
-  let xiEff       = 0.0;  // nonlinear containment
-  let cEff        = 0.0;  // coupling strength
-  let lambdaREff  = 0.0;  // repulsion strength
-
   // ---------- UI ----------
   const statusLabel    = document.getElementById("status");
   const coherenceLabel = document.getElementById("coherence-label");
@@ -348,8 +329,7 @@ void main() {
     tGlobal = 0;
   }
 
-  // Geometry masks: for now, same shape but distinct arrays
-  function updateGeometryMasks(R){
+  function updateBasin(R){
     const cx = 0.5, cy = 0.5;
     for(let y=0;y<H;y++){
       const yy = y / H;
@@ -358,11 +338,7 @@ void main() {
         const dx = xx - cx;
         const dy = yy - cy;
         const r2 = dx*dx + dy*dy;
-
-        const basin = Math.exp(-r2/(2*R*R));
-        wBasin[y*W + x]   = basin;
-        wCouple[y*W + x]  = basin;  // same now, separable later
-        wRepulse[y*W + x] = basin;  // same now, separable later
+        wBasin[y*W + x] = Math.exp(-r2/(2*R*R));
       }
     }
   }
@@ -380,7 +356,7 @@ void main() {
         const uL = field[y*W + xL];
         const uR = field[y*W + xR];
         const uU = field[yU*W + x];
-        const uD = field[yD*W + x];
+        const uD = field[y*W + x];
         const gx = (uR-uL)*0.5;
         const gy = (uD-uU)*0.5;
         Es += gx*gx + gy*gy;
@@ -422,7 +398,7 @@ void main() {
     Co = Math.exp(logCo);
   }
 
-  // ---------- Hybrid coherence-regulated parameters ----------
+  // ---------- Coherence-regulated parameters ----------
   function updateEffectiveParameters() {
     const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
 
@@ -459,19 +435,10 @@ void main() {
     sigmaEff = (1.0 - S) * sigmaSmooth + S * sigmaCollapse;
 
     sigmaTotal = sigmaBase;
-
-    // New: nonlinear containment ξ (grows as coherence drops)
-    xiEff = 0.1 * (1.0 + 2.0 * (1.0 - CoC));
-
-    // New: coupling cEff (stronger when spatial coherence is low)
-    cEff = 0.05 * (1.0 + 3.0 * (1.0 - CsC));
-
-    // New: repulsion strength (stronger when thematic coherence is low)
-    lambdaREff = 0.5 * lambdaEff * (1.0 - ChC);
   }
 
   function updateDtFromStability(dtRequested){
-    const denom = gammaEff + 8.0*kappaEff + lambdaEff + lambdaREff;
+    const denom = gammaEff + 8.0*kappaEff + lambdaEff;
     const dtMax = 2.0 / denom;
     const safety = 0.9;
     dt = Math.min(dtRequested, safety*dtMax);
@@ -528,51 +495,59 @@ void main() {
   // ---------- CPU PDE step ----------
   function updateField(){
     const time = tGlobal;
+    const noiseScale = 1.0; // can bump this if you want more motion
     for(let y=0;y<H;y++){
       const yU=(y-1+H)%H, yD=(y+1)%H;
       for(let x=0;x<W;x++){
         const xL=(x-1+W)%W, xR=(x+1)%W;
         const i = y*W + x;
         const uC = field[i];
-const uL = field[y*W + xL];
-const uR = field[y*W + xR];
-const uU = field[yU*W + x];
-const uD = field[y*W + x];
+        const uL = field[y*W + xL];
+        const uR = field[y*W + xR];
+        const uU = field[yU*W + x];
+        const uD = field[y*W + x];
 
-const lap = (uL + uR + uU + uD - 4*uC);
+        const lap = (uL + uR + uU + uD - 4*uC);
 
-const gx = (uR - uL) * 0.5;
-const gy = (uD - uU) * 0.5;
+        const gx = (uR - uL) * 0.5;
+        const gy = (uD - uU) * 0.5;
 
-const drift = alphaG * (Gx*gx + Gy*gy);
-const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
-const damp    = -gammaEff * uC;
-const rhythm  = rho * Math.sin(omega * time);
-const noise   = sigmaEff * (Math.random()*2-1) * Math.sqrt(dt) * noiseScale;
+        const drift   = alphaG * (Gx*gx + Gy*gy);
+        const attract = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
+        const damp    = -gammaEff * uC;
+        const rhythm  = rho * Math.sin(omega * time);
+        const noise   = sigmaEff * (Math.random()*2-1) * Math.sqrt(dt) * noiseScale;
 
-// ----- Nonlinear Advection (Variant 1) -----
-const grad2 = gx*gx + gy*gy;
-const div_u_grad_u = grad2 + uC * lap;
-const betaAdv = 0.12;
-const adv = -betaAdv * (1.0 - Co) * div_u_grad_u;
+        // ----- Nonlinear Advection (Variant 1) -----
+        const grad2 = gx*gx + gy*gy;
+        const div_u_grad_u = grad2 + uC * lap;
+        const betaAdv = 0.12; // tune
+        const adv = -betaAdv * (1.0 - Co) * div_u_grad_u;
 
-// ----- FINAL PDE UPDATE -----
-const du =
-  kappaEff * lap +
-  damp +
-  attract +
-  repulsion +      // keep your repulsion term as defined earlier
-  drift +
-  rhythm +
-  noise +
-  adv;
+        // Final PDE update
+        const du =
+          kappaEff * lap +
+          damp +
+          attract +
+          drift +
+          rhythm +
+          noise +
+          adv;
 
-fieldNext[i] = uC + dt * du;
+        fieldNext[i] = uC + dt * du;
+      }
+    }
+
+    // swap
+    const tmp = fieldPrev;
+    fieldPrev = field;
+    field = fieldNext;
+    fieldNext = tmp;
+  }
 
   // ---------- Upload field to texture (adaptive contrast) ----------
   const texBuffer = new Uint8Array(W*H);
   function uploadFieldToTexture(){
-    // 1) Find min/max
     let vMin = Infinity;
     let vMax = -Infinity;
     for (let i=0; i<W*H; i++) {
@@ -585,7 +560,6 @@ fieldNext[i] = uC + dt * du;
     let span = vMax - vMin;
     if (span < eps) span = eps;
 
-    // optional padding
     const pad = 0.05 * span;
     vMin -= pad;
     vMax += pad;
@@ -629,7 +603,7 @@ fieldNext[i] = uC + dt * du;
     D       = +pDecay.value;
     S       = +pSustain.value;
     Rtime   = +pReleaseTime.value;
-    updateGeometryMasks(basinR);
+    updateBasin(basinR);
   }
 
   [
