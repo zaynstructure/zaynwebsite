@@ -623,7 +623,7 @@ function updateEffectiveParameters() {
   const lambdaSmooth = lambda0 * (1.0 + 0.5 * (1.0 - ChC));
   const lambdaCollapse = lambda0 * (1.0 + 2.5 * (1.0 - ChC));
   lambdaEff = (1.0 - collapse) * lambdaSmooth + collapse * lambdaCollapse;
-}
+
 
 // Conditional ambient grain
 const noiseFloor =
@@ -642,6 +642,7 @@ const sigmaCollapse =
 sigmaEff =
   (1.0 - collapse) * sigmaSmooth +
   collapse * sigmaCollapse;
+}
 
 function updateDtFromStability(dtRequested) {
   // Stability-like bound for explicit diffusion + damping + attractor Lipschitz≈1
