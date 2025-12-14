@@ -623,9 +623,7 @@ function updateEffectiveParameters() {
   const lambdaSmooth = lambda0 * (1.0 + 0.5 * (1.0 - ChC));
   const lambdaCollapse = lambda0 * (1.0 + 2.5 * (1.0 - ChC));
   lambdaEff = (1.0 - collapse) * lambdaSmooth + collapse * lambdaCollapse;
-
-  // Noise σ_eff injected into PDE (coherence-scaled)
-  const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
+}
 
 // Conditional ambient grain
 const noiseFloor =
