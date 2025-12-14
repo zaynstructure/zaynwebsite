@@ -254,7 +254,7 @@ void main() {
   vec3 chroma = mix(cool, warm, t);
 
   // combine luminance + restrained chroma
-  vec3 col = lum * chroma;
+  vec3 col = mix(vec3(lum), lum * chroma, 0.6);
 
   // vignette for containment
   vec2 p = v_uv * 2.0 - 1.0;
