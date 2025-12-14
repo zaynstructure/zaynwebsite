@@ -777,7 +777,7 @@ function updateField() {
     }
   }
 
-  // buffer swap (needed for Ct)
+  // SINGLE buffer swap (required for Ct)
   const tmp = fieldPrev;
   fieldPrev = field;
   field = fieldNext;
@@ -785,12 +785,6 @@ function updateField() {
 }
   
 
-  // swap buffers: keep fieldPrev for Ct
-  const tmpPrev = fieldPrev;
-  fieldPrev = field;
-  field = fieldNext;
-  fieldNext = tmpPrev;
-}
   
 
 /* =========================================================
