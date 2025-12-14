@@ -783,27 +783,7 @@ function updateField() {
   field = fieldNext;
   fieldNext = tmp;
 }
-  function buildDisplayField() {
-  for (let y = 0; y < H; y++) {
-    const yU = (y - 1 + H) % H;
-    const yD = (y + 1) % H;
-
-    for (let x = 0; x < W; x++) {
-      const xL = (x - 1 + W) % W;
-      const xR = (x + 1) % W;
-
-      const i = y * W + x;
-
-      const gx = 0.5 * (field[y * W + xR] - field[y * W + xL]);
-      const gy = 0.5 * (field[yD * W + x] - field[yU * W + x]);
-
-      const gradMag = Math.sqrt(gx * gx + gy * gy);
-
-      // display-only overlay
-      displayField[i] = field[i] + 0.45 * gradMag;
-    }
-  }
-
+  
 
   // swap buffers: keep fieldPrev for Ct
   const tmpPrev = fieldPrev;
