@@ -625,11 +625,25 @@ function updateEffectiveParameters() {
   lambdaEff = (1.0 - collapse) * lambdaSmooth + collapse * lambdaCollapse;
 
   // Noise σ_eff injected into PDE (coherence-scaled)
-  const noiseFloor = 0.03;
-  const sigmaSmooth = noiseFloor + sigmaBase * (0.2 + 1.2 * (1.0 - Math.pow(CoC, 0.5)));
-  const sigmaCollapse = 2.5 * sigmaSmooth;
-  sigmaEff = (1.0 - collapse) * sigmaSmooth + collapse * sigmaCollapse;
-}
+  const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
+
+// Conditional ambient grain
+const noiseFloor =
+  (sigmaBase > 1e-4) ? 0.03 : 0.0;
+
+// Coherence-shaped noise
+const sigmaSmooth =
+  noiseFloor +
+  sigmaBase * (0.2 + 1.2 * (1.0 - Math.pow(CoC, 0.5)));
+
+// Collapse is only allowed to amplify existing noise
+const sigmaCollapse =
+  (sigmaBase > 1e-4) ? 2.5 * sigmaSmooth : 0.0;
+
+// Final injected noise
+sigmaEff =
+  (1.0 - collapse) * sigmaSmooth +
+  collapse * sigmaCollapse;
 
 function updateDtFromStability(dtRequested) {
   // Stability-like bound for explicit diffusion + damping + attractor Lipschitz≈1
