@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>EVF-2.3 · Expressive Field Instrument</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #111;
+    color: #eee;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #container {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+  }
+
+  #gl-wrap {
+    flex: 1 1 auto;
+    background: #000;
+    min-height: 250px;
+  }
+
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+  }
+
+  #sidebar {
+    flex: 0 0 300px;
+    padding: 10px;
+    background: #181818;
+    overflow-y: auto;
+    font-size: 12px;
+    box-sizing: border-box;
+  }
+
+  .section {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 6px;
+  }
+
+  .section-title {
+    text-transform: uppercase;
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  label {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  input[type=range] { width: 100%; }
+
+  button {
+    font-size: 11px;
+    padding: 3px 6px;
+    margin-right: 4px;
+    margin-top: 3px;
+  }
+
+  #status, #coherence-label, #drift-label {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #ccc;
+  }
+
+  details summary {
+    cursor: pointer;
+    color: #aaa;
+    font-size: 11px;
+    margin-top: 6px;
+  }
+
+  @media (max-width: 700px) {
+    #container { flex-direction: column; }
+    #sidebar { width: 100%; max-height: 45vh; }
+    #gl-wrap { min-height: 300px; }
+  }
+</style>
+</head>
+
+<body>
+<div id="container">
+  <div id="gl-wrap"><canvas id="glCanvas"></canvas></div>
+
+  <div id="sidebar">
+
+    <!-- VIEW / PLAYBACK -->
+    <div class="section">
+      <button id="btn-reset">Reset</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-view">View: Grayscale</button>
+      <button id="btn-flow">Flow: Neutral</button>
+
+      <div id="status">dt ≈ …</div>
+      <div id="coherence-label">Coherence ≈ …</div>
+      <div id="drift-label">‖G‖ ≈ …</div>
+    </div>
+
+    <!-- FORCES -->
+    <div class="section">
+      <div class="section-title">Forces</div>
+
+      <label>Diffusion κ
+        <input id="p-kappa0" type="range" min="0" max="1" step="0.01" value="0.25">
+      </label>
+
+      <label>Damping γ
+        <input id="p-gammaMax" type="range" min="0.2" max="3" step="0.01" value="0.8">
+      </label>
+
+      <label>Attractor λ
+        <input id="p-lambda0" type="range" min="0" max="2" step="0.01" value="0.7">
+      </label>
+
+      <label>Drift α<sub>g</sub>
+        <input id="p-alphaG" type="range" min="0" max="3" step="0.01" value="1.0">
+      </label>
+
+      <label>Rhythm ρ
+        <input id="p-rho" type="range" min="0" max="1" step="0.01" value="0.3">
+      </label>
+
+      <label>Rhythm ω
+        <input id="p-omega" type="range" min="0.1" max="3" step="0.01" value="0.8">
+      </label>
+    </div>
+
+    <!-- DISTURBANCE -->
+    <div class="section">
+      <div class="section-title">Disturbance</div>
+
+      <label>Baseline Volatility σ₀
+        <input id="p-sigma0" type="range" min="0" max="0.5" step="0.01" value="0.05">
+      </label>
+
+      <label>Event Intensity σ<sub>E</sub>
+        <input id="p-sigmaEpeak" type="range" min="0" max="1" step="0.01" value="0.15">
+      </label>
+
+      <button id="btn-event">Trigger Event</button>
+      <button id="btn-release">Resolve Event</button>
+
+      <details>
+        <summary>Temporal Shape</summary>
+
+        <label>Attack
+          <input id="p-attack" type="range" min="0.05" max="1" step="0.01" value="0.2">
+        </label>
+
+        <label>Decay
+          <input id="p-decay" type="range" min="0.05" max="1" step="0.01" value="0.3">
+        </label>
+
+        <label>Sustain
+          <input id="p-sustain" type="range" min="0" max="1" step="0.01" value="0.5">
+        </label>
+
+        <label>Release
+          <input id="p-releaseTime" type="range" min="0.05" max="2" step="0.01" value="0.5">
+        </label>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   EVF-2.3 · Expressive Field Instrument
+   Part 1: UI shell
+   Part 2 will add WebGL programs + texture plumbing
+   Part 3 will add CPU PDE + coherence + drift + ADSR
+   Part 4 will wire UI -> params and run the loop
+   ========================================================= */
+
+/* ---- fixed internal conceptual parameters (not user-facing) ---- */
+const W = 128, H = 128;
+const uStar  = 0.0;   // fixed baseline
+const basinR = 0.12;  // fixed meaning basin radius (for basin weight map)
+
+/* ---- mode state ---- */
+let paused = false;
+let viewMode = "gray";        // "gray" | "color"
+let USE_EXPRESSIVE_FLOW = false; // expressive (cinematic) emphasis toggle
+
+/* =========================================================
+   Part 2: WebGL display + texture plumbing
+   ========================================================= */
+
+const canvas = document.getElementById("glCanvas");
+const gl = canvas.getContext("webgl2");
+if (!gl) { alert("WebGL2 not supported"); throw new Error("WebGL2 not supported"); }
+
+canvas.width = W;
+canvas.height = H;
+
+/* ---------- Shaders ---------- */
+
+const VERT_SRC = `#version 300 es
+layout(location = 0) in vec2 a_position;
+out vec2 v_uv;
+void main() {
+  v_uv = (a_position + 1.0) * 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+// Grayscale
+const DISPLAY_FRAG_GRAY = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 outColor;
+uniform sampler2D u_tex;
+void main() {
+  float t = texture(u_tex, v_uv).r;
+  outColor = vec4(t, t, t, 1.0);
+}
+`;
+
+// Color (restrained, readable)
+const DISPLAY_FRAG_COLOR = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 outColor;
+uniform sampler2D u_tex;
+
+void main() {
+  float v = texture(u_tex, v_uv).r;     // [0,1]
+  float u = (v - 0.5) * 2.0;            // [-1,1]
+
+  // gentle contrast around mid-range
+  float g = 0.5 + 0.5 * tanh(1.2 * u);
+  g = clamp(g, 0.0, 1.0);
+
+  vec3 col = vec3(g);
+
+  // subtle vignette for containment feel
+  vec2 p = v_uv * 2.0 - 1.0;
+  float vign = clamp(1.0 - 0.35 * dot(p,p), 0.0, 1.0);
+  col *= vign;
+
+  outColor = vec4(col, 1.0);
+}
+`;
+
+/* ---------- GL helpers ---------- */
+
+function compileShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s));
+    throw new Error("Shader compile error");
+  }
+  return s;
+}
+
+function makeProgram(vsSrc, fsSrc) {
+  const vs = compileShader(gl.VERTEX_SHADER, vsSrc);
+  const fs = compileShader(gl.FRAGMENT_SHADER, fsSrc);
+  const p = gl.createProgram();
+  gl.attachShader(p, vs);
+  gl.attachShader(p, fs);
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(p));
+    throw new Error("Program link error");
+  }
+  return p;
+}
+
+const progGray  = makeProgram(VERT_SRC, DISPLAY_FRAG_GRAY);
+const progColor = makeProgram(VERT_SRC, DISPLAY_FRAG_COLOR);
+
+const u_tex_gray  = gl.getUniformLocation(progGray,  "u_tex");
+const u_tex_color = gl.getUniformLocation(progColor, "u_tex");
+
+/* ---------- Fullscreen quad ---------- */
+
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+  -1,-1,  1,-1,  -1, 1,
+  -1, 1,  1,-1,   1, 1
+]), gl.STATIC_DRAW);
+
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+/* ---------- Texture for field upload ---------- */
+
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, W, H, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+
+const texBuffer = new Uint8Array(W * H);
+
+/* Upload Float32 field -> uint8 texture with adaptive contrast */
+function uploadFieldToTexture(fieldFloat32) {
+  let vMin = Infinity, vMax = -Infinity;
+  for (let i = 0; i < fieldFloat32.length; i++) {
+    const v = fieldFloat32[i];
+    if (v < vMin) vMin = v;
+    if (v > vMax) vMax = v;
+  }
+
+  let span = vMax - vMin;
+  if (span < 1e-6) span = 1e-6;
+
+  // small pad so extremes don’t clip immediately
+  const pad = 0.05 * span;
+  vMin -= pad;
+  vMax += pad;
+
+  const invSpan = 1.0 / (vMax - vMin);
+
+  for (let i = 0; i < fieldFloat32.length; i++) {
+    let x = (fieldFloat32[i] - vMin) * invSpan;
+    if (x < 0) x = 0;
+    if (x > 1) x = 1;
+    texBuffer[i] = (x * 255) | 0;
+  }
+
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RED, gl.UNSIGNED_BYTE, texBuffer);
+}
+
+/* Render current texture according to viewMode */
+function drawDisplay() {
+  gl.viewport(0, 0, W, H);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+
+  if (viewMode === "gray") {
+    gl.useProgram(progGray);
+    gl.uniform1i(u_tex_gray, 0);
+  } else {
+    gl.useProgram(progColor);
+    gl.uniform1i(u_tex_color, 0);
+  }
+
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+/* =========================================================
+   Part 3: CPU EVF core (state + coherence + drift + ADSR + PDE)
+   ========================================================= */
+
+/* ---------- CPU state ---------- */
+let field     = new Float32Array(W * H);
+let fieldPrev = new Float32Array(W * H);
+let fieldNext = new Float32Array(W * H);
+
+// Meaning basin weight map (fixed geometry)
+let wBasin = new Float32Array(W * H);
+
+// global time + adaptive dt
+let tGlobal = 0.0;
+let dt = 0.01;
+const dtBase = 0.01;
+
+/* ---------- EVF parameters (driven by UI in Part 4) ---------- */
+let kappa0   = 0.25;  // diffusion baseline
+let gammaMin = 0.10;  // fixed min damping for stability floor
+let gammaMax = 0.80;  // UI
+let lambda0  = 0.70;  // UI
+let rho      = 0.30;  // UI
+let omega    = 0.80;  // UI
+let alphaG   = 1.00;  // UI
+
+/* ---------- Drift state ---------- */
+let Gx = 0.0, Gy = 0.0;
+let betaG = 1.0;   // drift decay
+let etaG  = 0.5;   // drift drive strength
+
+/* ---------- Noise (chronic + event) ---------- */
+let sigma0Target = 0.05;  // UI: baseline volatility target
+let sigma0State  = 0.05;  // low-pass toward target
+
+let sigmaEPeak   = 0.15;  // UI: event intensity (scales ADSR envelope)
+let sigmaEState  = 0.0;   // ADSR envelope state in [0,1] (ish)
+
+let Aenv = 0.20; // UI ADSR
+let Denv = 0.30;
+let Senv = 0.50;
+let Renv = 0.50;
+
+let adsrPhase = "idle"; // "idle" | "attack" | "decay" | "sustain" | "release"
+let adsrT = 0.0;
+
+/* ---------- Coherence ---------- */
+let Cs = 1.0, Ct = 1.0, Ch = 1.0, Co = 1.0;
+
+// Thematic reference (for Ch)
+const thetaRef = {
+  gamma: 0.8,
+  kappa: 0.25,
+  lambda: 0.7,
+  rho: 0.3,
+  omega: 0.8,
+  sigma: 0.10
+};
+
+// weights (geometric mean)
+const w_s = 1.0, w_t = 1.0, w_h = 1.0;
+const alpha_s = 1.0, alpha_t = 1.0, alpha_h = 1.0;
+
+/* ---------- Effective parameters (coherence-coupled) ---------- */
+let gammaEff  = 0.8;
+let kappaEff  = 0.25;
+let lambdaEff = 0.7;
+let sigmaTotal = 0.0; // chronic + event (pre-coherence scaling)
+let sigmaEff   = 0.0; // injected into PDE
+
+/* =========================================================
+   Initialization helpers
+   ========================================================= */
+
+function initField() {
+  for (let i = 0; i < W * H; i++) {
+    const v = Math.random() * 0.2 - 0.1;
+    field[i] = v;
+    fieldPrev[i] = v;
+  }
+  Gx = 0.0; Gy = 0.0;
+  tGlobal = 0.0;
+
+  sigma0State = sigma0Target;
+  sigmaEState = 0.0;
+  adsrPhase = "idle";
+  adsrT = 0.0;
+}
+
+function buildBasinWeightMap() {
+  const cx = 0.5, cy = 0.5;
+  for (let y = 0; y < H; y++) {
+    const yy = y / H;
+    for (let x = 0; x < W; x++) {
+      const xx = x / W;
+      const dx = xx - cx;
+      const dy = yy - cy;
+      const r2 = dx * dx + dy * dy;
+      wBasin[y * W + x] = Math.exp(-r2 / (2.0 * basinR * basinR));
+    }
+  }
+}
+
+/* =========================================================
+   Coherence
+   ========================================================= */
+
+function computeCoherence() {
+  // Spatial energy: average squared gradient magnitude
+  let Es = 0.0;
+  for (let y = 0; y < H; y++) {
+    const yU = (y - 1 + H) % H;
+    const yD = (y + 1) % H;
+    for (let x = 0; x < W; x++) {
+      const xL = (x - 1 + W) % W;
+      const xR = (x + 1) % W;
+
+      const i = y * W + x;
+
+      const uL = field[y * W + xL];
+      const uR = field[y * W + xR];
+      const uU = field[yU * W + x];
+      const uD = field[yD * W + x];
+
+      const gx = 0.5 * (uR - uL);
+      const gy = 0.5 * (uD - uU);
+
+      Es += gx * gx + gy * gy;
+    }
+  }
+  Es /= (W * H);
+  Cs = Math.exp(-alpha_s * Es);
+
+  // Temporal energy: average squared time derivative
+  let Et = 0.0;
+  const invDt = 1.0 / dt;
+  for (let i = 0; i < W * H; i++) {
+    const ut = (field[i] - fieldPrev[i]) * invDt;
+    Et += ut * ut;
+  }
+  Et /= (W * H);
+  Ct = Math.exp(-alpha_t * Et);
+
+  // Thematic mismatch energy: deviation from reference parameter regime
+  const theta = {
+    gamma: gammaEff,
+    kappa: kappaEff,
+    lambda: lambdaEff,
+    rho: rho,
+    omega: omega,
+    sigma: sigmaTotal
+  };
+
+  let Eh = 0.0;
+  Eh += (theta.gamma  - thetaRef.gamma ) ** 2;
+  Eh += (theta.kappa  - thetaRef.kappa ) ** 2;
+  Eh += (theta.lambda - thetaRef.lambda) ** 2;
+  Eh += (theta.rho    - thetaRef.rho   ) ** 2;
+  Eh += (theta.omega  - thetaRef.omega ) ** 2;
+  Eh += (theta.sigma  - thetaRef.sigma ) ** 2;
+
+  Ch = Math.exp(-alpha_h * Eh);
+
+  // Global coherence: weighted geometric mean
+  const wsNorm = w_s + w_t + w_h;
+  const logCo = (w_s * Math.log(Math.max(1e-12, Cs)) +
+                 w_t * Math.log(Math.max(1e-12, Ct)) +
+                 w_h * Math.log(Math.max(1e-12, Ch))) / wsNorm;
+  Co = Math.exp(logCo);
+}
+
+/* =========================================================
+   ADSR + noise envelope
+   ========================================================= */
+
+function startEvent() {
+  adsrPhase = "attack";
+  adsrT = 0.0;
+}
+
+function resolveEvent() {
+  if (adsrPhase !== "idle") {
+    adsrPhase = "release";
+    adsrT = 0.0;
+  }
+}
+
+function updateADSR() {
+  if (adsrPhase === "idle") { sigmaEState = 0.0; return; }
+
+  adsrT += dt;
+
+  switch (adsrPhase) {
+    case "attack":
+      if (adsrT < Aenv) sigmaEState = adsrT / Aenv;
+      else { sigmaEState = 1.0; adsrPhase = "decay"; adsrT = 0.0; }
+      break;
+
+    case "decay":
+      if (adsrT < Denv) {
+        const frac = adsrT / Denv;
+        sigmaEState = 1.0 - (1.0 - Senv) * frac;
+      } else { sigmaEState = Senv; adsrPhase = "sustain"; adsrT = 0.0; }
+      break;
+
+    case "sustain":
+      sigmaEState = Senv;
+      break;
+
+    case "release":
+      // exponential decay from current level
+      // (stable + smooth; avoids snapping off)
+      sigmaEState = sigmaEState * Math.exp(-dt / Math.max(1e-3, Renv));
+      if (sigmaEState < 1e-3) { sigmaEState = 0.0; adsrPhase = "idle"; }
+      break;
+  }
+}
+
+function updateNoiseEnvelope() {
+  // slow-chase chronic baseline (1s time constant)
+  sigma0State += (sigma0Target - sigma0State) * (dt / 1.0);
+  updateADSR();
+}
+
+/* =========================================================
+   Coherence → effective parameter coupling + stable dt
+   ========================================================= */
+
+function updateEffectiveParameters() {
+  const sigmaBase = sigma0State + sigmaEState * sigmaEPeak;
+  sigmaTotal = sigmaBase;
+
+  const CoC = Math.max(0.0, Math.min(1.0, Co));
+  const CsC = Math.max(0.0, Math.min(1.0, Cs));
+  const ChC = Math.max(0.0, Math.min(1.0, Ch));
+
+  // Soft collapse switch (keeps behavior stable, avoids hard cliffs)
+  const T = 0.35;
+  const k = 14.0;
+  const collapse = 1.0 / (1.0 + Math.exp(k * (CoC - T))); // ~1 when Co low
+
+  // Damping γ_eff
+  const gammaSmooth = gammaMin + (gammaMax - gammaMin) * Math.pow(CoC, 1.5);
+  const gammaCollapse = 0.25 * gammaSmooth;
+  gammaEff = (1.0 - collapse) * gammaSmooth + collapse * gammaCollapse;
+
+  // Diffusion κ_eff (spatial coherence mod)
+  const kappaSmooth = kappa0 * (0.5 + 0.5 * (CsC * CsC));
+  const kappaCollapse = 0.15 * kappaSmooth;
+  kappaEff = (1.0 - collapse) * kappaSmooth + collapse * kappaCollapse;
+
+  // Attractor λ_eff (thematic coherence mod)
+  const lambdaSmooth = lambda0 * (1.0 + 0.5 * (1.0 - ChC));
+  const lambdaCollapse = lambda0 * (1.0 + 2.5 * (1.0 - ChC));
+  lambdaEff = (1.0 - collapse) * lambdaSmooth + collapse * lambdaCollapse;
+
+  // Noise σ_eff injected into PDE (coherence-scaled)
+  const noiseFloor = 0.03;
+  const sigmaSmooth = noiseFloor + sigmaBase * (0.2 + 1.2 * (1.0 - Math.pow(CoC, 0.5)));
+  const sigmaCollapse = 2.5 * sigmaSmooth;
+  sigmaEff = (1.0 - collapse) * sigmaSmooth + collapse * sigmaCollapse;
+}
+
+function updateDtFromStability(dtRequested) {
+  // Stability-like bound for explicit diffusion + damping + attractor Lipschitz≈1
+  // (h absorbed as 1 here due to discrete laplacian form; consistent with your prior code)
+  const denom = gammaEff + 8.0 * kappaEff + lambdaEff;
+  const dtMax = 2.0 / Math.max(1e-6, denom);
+  dt = Math.min(dtRequested, 0.9 * dtMax);
+}
+
+/* =========================================================
+   Drift update (field-derived global bias)
+   ========================================================= */
+
+function updateDrift() {
+  let left = 0, right = 0, top = 0, bottom = 0;
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const v = field[i];
+      if (x < W / 2) left += v; else right += v;
+      if (y < H / 2) top  += v; else bottom += v;
+    }
+  }
+
+  const invHalf = 2.0 / (W * H);
+  const gradXGlobal = (right - left) * invHalf;
+  const gradYGlobal = (bottom - top) * invHalf;
+
+  const Fx = etaG * gradXGlobal;
+  const Fy = etaG * gradYGlobal;
+
+  // leaky integrator on drift
+  Gx += dt * (-betaG * Gx + Fx);
+  Gy += dt * (-betaG * Gy + Fy);
+}
+
+/* =========================================================
+   CPU PDE step
+   ========================================================= */
+
+function updateField() {
+  const time = tGlobal;
+
+  for (let y = 0; y < H; y++) {
+    const yU = (y - 1 + H) % H;
+    const yD = (y + 1) % H;
+
+    for (let x = 0; x < W; x++) {
+      const xL = (x - 1 + W) % W;
+      const xR = (x + 1) % W;
+
+      const i = y * W + x;
+
+      const uC = field[i];
+      const uL = field[y * W + xL];
+      const uR = field[y * W + xR];
+      const uU = field[yU * W + x];
+      const uD = field[yD * W + x];
+
+      // Discrete Laplacian (h=1)
+      const lap = (uL + uR + uU + uD - 4.0 * uC);
+
+      // Local gradient (for drift coupling + expressive flow)
+      const gx = 0.5 * (uR - uL);
+      const gy = 0.5 * (uD - uU);
+
+      // Canonical forces
+      const diffusion = kappaEff * lap;
+      const damp      = -gammaEff * uC;
+      const attract   = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
+      const drift     = alphaG * (Gx * gx + Gy * gy);
+      const rhythm    = rho * Math.sin(omega * time);
+
+      // Stochastic forcing (white-ish)
+      const noise     = sigmaEff * (Math.random() * 2 - 1) * Math.sqrt(dt);
+
+      // Expressive Flow Mode:
+      // Perceptual exaggeration of drift–gradient interaction.
+      // No new forces; an emphasis layer for legibility.
+      let adv = 0.0;
+      if (USE_EXPRESSIVE_FLOW) {
+        // gate by temporal coherence (more “flow” when Ct is low)
+        const Tt = 0.60;
+        const a  = 8.0;
+        const gateCt = 1.0 / (1.0 + Math.exp(a * (Ct - Tt)));
+
+        // drift magnitude stabilization
+        const Gmag = Math.sqrt(Gx * Gx + Gy * Gy);
+        const driftScale = Gmag / (1.0 + Gmag);
+
+        // gradient normalization
+        const gradMag = Math.sqrt(gx * gx + gy * gy);
+        const gradNorm = 1.0 / Math.sqrt(1.0 + 0.75 * gradMag);
+
+        const driftDotGrad = (Gx * gx + Gy * gy) * gradNorm;
+
+        const beta0 = 0.18;
+        const motionBoost = 0.4 + 0.6 * gateCt;
+        const betaEff = beta0 * motionBoost;
+
+        adv = -betaEff * driftScale * driftDotGrad;
+      }
+
+      const du =
+        diffusion +
+        damp +
+        attract +
+        drift +
+        rhythm +
+        noise +
+        adv;
+
+      fieldNext[i] = uC + dt * du;
+    }
+  }
+
+  // swap buffers: keep fieldPrev for Ct
+  const tmpPrev = fieldPrev;
+  fieldPrev = field;
+  field = fieldNext;
+  fieldNext = tmpPrev;
+}
+
+/* =========================================================
+   Boot (called in Part 4 once UI is wired)
+   ========================================================= */
+
+buildBasinWeightMap();
+initField();
+
+/* ===== Part 4A: UI refs + param sync ===== */
+
+const statusLabel = document.getElementById("status");
+const coherenceLabel = document.getElementById("coherence-label");
+const driftLabel = document.getElementById("drift-label");
+
+const btnReset = document.getElementById("btn-reset");
+const btnPause = document.getElementById("btn-pause");
+const btnView  = document.getElementById("btn-view");
+const btnFlow  = document.getElementById("btn-flow");
+const btnEvent = document.getElementById("btn-event");
+const btnRel   = document.getElementById("btn-release");
+
+const sliders = {
+  kappa0: document.getElementById("p-kappa0"),
+  gammaMax: document.getElementById("p-gammaMax"),
+  lambda0: document.getElementById("p-lambda0"),
+  alphaG: document.getElementById("p-alphaG"),
+  rho: document.getElementById("p-rho"),
+  omega: document.getElementById("p-omega"),
+  sigma0: document.getElementById("p-sigma0"),
+  sigmaE: document.getElementById("p-sigmaEpeak"),
+  A: document.getElementById("p-attack"),
+  D: document.getElementById("p-decay"),
+  S: document.getElementById("p-sustain"),
+  R: document.getElementById("p-releaseTime")
+};
+
+function syncParams() {
+  kappa0 = +sliders.kappa0.value;
+  gammaMax = +sliders.gammaMax.value;
+  lambda0 = +sliders.lambda0.value;
+  alphaG = +sliders.alphaG.value;
+  rho = +sliders.rho.value;
+  omega = +sliders.omega.value;
+
+  sigma0Target = +sliders.sigma0.value;
+  sigmaEPeak   = +sliders.sigmaE.value;
+
+  Aenv = +sliders.A.value;
+  Denv = +sliders.D.value;
+  Senv = +sliders.S.value;
+  Renv = +sliders.R.value;
+}
+
+Object.values(sliders).forEach(el =>
+  el.addEventListener("input", syncParams)
+);
+  /* ===== Part 4B: Buttons ===== */
+
+btnReset.onclick = () => {
+  syncParams();
+  initField();
+};
+
+btnPause.onclick = () => {
+  paused = !paused;
+};
+
+btnView.onclick = () => {
+  viewMode = (viewMode === "gray") ? "color" : "gray";
+  btnView.textContent =
+    viewMode === "gray" ? "View: Grayscale" : "View: Color";
+};
+
+btnFlow.onclick = () => {
+  USE_EXPRESSIVE_FLOW = !USE_EXPRESSIVE_FLOW;
+  btnFlow.textContent =
+    USE_EXPRESSIVE_FLOW ? "Flow: Expressive" : "Flow: Neutral";
+};
+
+btnEvent.onclick = () => {
+  startEvent();
+};
+
+btnRel.onclick = () => {
+  resolveEvent();
+};
+  /* ===== Part 4C: Readouts + main loop ===== */
+
+function updateReadouts() {
+  statusLabel.textContent = "dt ≈ " + dt.toFixed(4);
+
+  coherenceLabel.textContent =
+    "Co ≈ " + Co.toFixed(3) +
+    " (Cs " + Cs.toFixed(2) +
+    ", Ct " + Ct.toFixed(2) +
+    ", Ch " + Ch.toFixed(2) + ")";
+
+  driftLabel.textContent =
+    "‖G‖ ≈ " + Math.hypot(Gx, Gy).toFixed(3) +
+    "  σ ≈ " + sigmaTotal.toFixed(3);
+}
+
+syncParams();
+
+function loop() {
+  requestAnimationFrame(loop);
+  if (paused) return;
+
+  computeCoherence();
+  updateNoiseEnvelope();
+  updateEffectiveParameters();
+  updateDtFromStability(dtBase);
+
+  tGlobal += dt;
+
+  updateDrift();
+  updateField();
+
+  uploadFieldToTexture(field);
+  drawDisplay();
+  updateReadouts();
+}
+
+loop();
