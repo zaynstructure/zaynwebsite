@@ -195,9 +195,8 @@ const basinR = 0.12;  // fixed meaning basin radius (for basin weight map)
 
 /* ---- mode state ---- */
 let paused = false;
-let viewMode = "gray";        // "gray" | "color"
-let USE_EXPRESSIVE_FLOW = false; // expressive (cinematic) emphasis toggle
-
+let viewMode = "color";
+let USE_EXPRESSIVE_FLOW = true;
 /* =========================================================
    Part 2: WebGL display + texture plumbing
    ========================================================= */
@@ -841,6 +840,8 @@ btnEvent.onclick = () => {
 btnRel.onclick = () => {
   resolveEvent();
 };
+  btnView.textContent = "View: Color";
+btnFlow.textContent = "Flow: Expressive";
   /* ===== Part 4C: Readouts + main loop ===== */
 
 function updateReadouts() {
