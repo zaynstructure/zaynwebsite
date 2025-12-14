@@ -686,6 +686,29 @@ function updateDrift() {
    CPU PDE step
    ========================================================= */
 
+function buildDisplayField() {
+  for (let y = 0; y < H; y++) {
+    const yU = (y - 1 + H) % H;
+    const yD = (y + 1) % H;
+
+    for (let x = 0; x < W; x++) {
+      const xL = (x - 1 + W) % W;
+      const xR = (x + 1) % W;
+
+      const i = y * W + x;
+
+      const gx = 0.5 * (field[y * W + xR] - field[y * W + xL]);
+      const gy = 0.5 * (field[yD * W + x] - field[yU * W + x]);
+
+      const gradMag = Math.sqrt(gx * gx + gy * gy);
+
+      // DISPLAY ONLY — does not affect dynamics
+      displayField[i] = field[i] + 0.45 * gradMag;
+    }
+  }
+}
+
+  
 function updateField() {
   const time = tGlobal;
 
@@ -705,38 +728,31 @@ function updateField() {
       const uU = field[yU * W + x];
       const uD = field[yD * W + x];
 
-      // Discrete Laplacian (h=1)
+      // Laplacian
       const lap = (uL + uR + uU + uD - 4.0 * uC);
 
-      // Local gradient (for drift coupling + expressive flow)
+      // Local gradient
       const gx = 0.5 * (uR - uL);
       const gy = 0.5 * (uD - uU);
 
-      // Canonical forces
+      // Core EVF forces
       const diffusion = kappaEff * lap;
       const damp      = -gammaEff * uC;
       const attract   = -lambdaEff * wBasin[i] * Math.tanh(uC - uStar);
       const drift     = alphaG * (Gx * gx + Gy * gy);
       const rhythm    = rho * Math.sin(omega * time);
-
-      // Stochastic forcing (white-ish)
       const noise     = sigmaEff * (Math.random() * 2 - 1) * Math.sqrt(dt);
 
-      // Expressive Flow Mode:
-      // Perceptual exaggeration of drift–gradient interaction.
-      // No new forces; an emphasis layer for legibility.
+      // Expressive flow (perceptual emphasis ONLY)
       let adv = 0.0;
       if (USE_EXPRESSIVE_FLOW) {
-        // gate by temporal coherence (more “flow” when Ct is low)
         const Tt = 0.60;
         const a  = 8.0;
         const gateCt = 1.0 / (1.0 + Math.exp(a * (Ct - Tt)));
 
-        // drift magnitude stabilization
         const Gmag = Math.sqrt(Gx * Gx + Gy * Gy);
         const driftScale = Gmag / (1.0 + Gmag);
 
-        // gradient normalization
         const gradMag = Math.sqrt(gx * gx + gy * gy);
         const gradNorm = 1.0 / Math.sqrt(1.0 + 0.75 * gradMag);
 
@@ -744,26 +760,28 @@ function updateField() {
 
         const beta0 = 0.18;
         const motionBoost = 0.4 + 0.6 * gateCt;
-        const betaEff = beta0 * motionBoost;
-
-        adv = -betaEff * driftScale * driftDotGrad;
+        adv = -beta0 * motionBoost * driftScale * driftDotGrad;
       }
 
-      
-
-
-      const du =
-        diffusion +
-        damp +
-        attract +
-        drift +
-        rhythm +
-        noise +
-        adv;
-
-      fieldNext[i] = uC + dt * du;
+      fieldNext[i] =
+        uC +
+        dt * (
+          diffusion +
+          damp +
+          attract +
+          drift +
+          rhythm +
+          noise +
+          adv
+        );
     }
   }
+
+  // buffer swap (needed for Ct)
+  const tmp = fieldPrev;
+  fieldPrev = field;
+  field = fieldNext;
+  fieldNext = tmp;
 }
   function buildDisplayField() {
   for (let y = 0; y < H; y++) {
@@ -785,7 +803,7 @@ function updateField() {
       displayField[i] = field[i] + 0.45 * gradMag;
     }
   }
-}
+
 
   // swap buffers: keep fieldPrev for Ct
   const tmpPrev = fieldPrev;
@@ -793,6 +811,7 @@ function updateField() {
   field = fieldNext;
   fieldNext = tmpPrev;
 }
+  
 
 /* =========================================================
    Boot (called in Part 4 once UI is wired)
