@@ -321,6 +321,8 @@ gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, W, H, 0, gl.RED, gl.UNSIGNED_BYTE, null);
 
 const texBuffer = new Uint8Array(W * H);
 
+const displayField = new Float32Array(W * H);
+
 /* Upload Float32 field -> uint8 texture with adaptive contrast */
 function uploadFieldToTexture(fieldFloat32) {
   let vMin = Infinity, vMax = -Infinity;
@@ -747,6 +749,9 @@ function updateField() {
         adv = -betaEff * driftScale * driftDotGrad;
       }
 
+      
+
+
       const du =
         diffusion +
         damp +
@@ -759,6 +764,27 @@ function updateField() {
       fieldNext[i] = uC + dt * du;
     }
   }
+  function buildDisplayField() {
+  for (let y = 0; y < H; y++) {
+    const yU = (y - 1 + H) % H;
+    const yD = (y + 1) % H;
+
+    for (let x = 0; x < W; x++) {
+      const xL = (x - 1 + W) % W;
+      const xR = (x + 1) % W;
+
+      const i = y * W + x;
+
+      const gx = 0.5 * (field[y * W + xR] - field[y * W + xL]);
+      const gy = 0.5 * (field[yD * W + x] - field[yU * W + x]);
+
+      const gradMag = Math.sqrt(gx * gx + gy * gy);
+
+      // display-only overlay
+      displayField[i] = field[i] + 0.45 * gradMag;
+    }
+  }
+}
 
   // swap buffers: keep fieldPrev for Ct
   const tmpPrev = fieldPrev;
@@ -885,9 +911,10 @@ function loop() {
 
   updateDrift();
   updateField();
+buildDisplayField();
 
-  uploadFieldToTexture(field);
-  drawDisplay();
+uploadFieldToTexture(displayField);
+drawDisplay();
   updateReadouts();
 }
 
