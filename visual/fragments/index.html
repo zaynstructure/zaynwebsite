@@ -1,4 +1,4 @@
-<!doctype html>
+<<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -23,7 +23,7 @@ main {
   max-width: 1200px;
 }
 
-h2.page-title {
+h1.page-title {
   font-weight: 600;
   font-size: 2rem;
   margin: 0 0 .5rem;
@@ -54,33 +54,17 @@ h2.page-title {
 
 figure.work { margin: 0; }
 
-/* local video clips */
-.clip {
-  width: 100%;
-  height: auto;
-  border-radius: 6px;
-  object-fit: contain;
-  background: #000;
-  filter: grayscale(.05) contrast(1.05);
-  transition: filter .3s ease, transform .3s ease;
-}
-
-.clip:hover {
-  filter: none;
-  transform: scale(1.02);
-}
-
 figcaption {
   margin-top: .6rem;
   font-size: .9rem;
   color: var(--muted,#666);
 }
 
-/* vimeo embeds — matches clips */
+/* vimeo embeds — normalized, privacy-safe */
 .vimeo-wrap {
   position: relative;
   width: 100%;
-  padding-top: 56.25%;
+  padding-top: 56.25%; /* 16:9 */
   background: #000;
   border-radius: 6px;
   overflow: hidden;
@@ -111,6 +95,7 @@ figcaption {
   <p class="tagline">art · systems · sound</p>
 
   <nav class="nav-tree">
+
     <details>
       <summary><span class="caret"></span><span class="label">visual</span></summary>
       <div class="children">
@@ -141,6 +126,7 @@ figcaption {
         <a href="/contact/">contact</a>
       </div>
     </details>
+
   </nav>
 
   <div class="sys" aria-hidden="true">
@@ -152,6 +138,7 @@ figcaption {
 
 <!-- main -->
 <main>
+
   <nav class="crumbs">
     <button type="button" class="menu-btn" aria-controls="menu">menu</button>
     <span class="page-label">fragments</span>
@@ -162,19 +149,13 @@ figcaption {
 
   <section class="grid">
 
-    <!-- Vimeo fragment 001 -->
+    <!-- Fragment 001 -->
     <figure class="work">
       <div class="vimeo-wrap">
         <iframe
-          src="https://player.vimeo.com/video/1123455684
-               ?muted=1
-               &loop=1
-               &title=0
-               &byline=0
-               &portrait=0
-               &dnt=1"
+          src="https://player.vimeo.com/video/1123455684?badge=0&autopause=0&player_id=0&app_id=58479"
           loading="lazy"
-          allow="fullscreen; picture-in-picture"
+          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
           referrerpolicy="strict-origin-when-cross-origin"
           title="Fragment #1"
         ></iframe>
@@ -182,19 +163,13 @@ figcaption {
       <figcaption>fragment 001 · collage loop</figcaption>
     </figure>
 
-    <!-- Vimeo fragment 002 -->
+    <!-- Fragment 002 -->
     <figure class="work">
       <div class="vimeo-wrap">
         <iframe
-          src="https://player.vimeo.com/video/1146458430
-               ?muted=1
-               &loop=1
-               &title=0
-               &byline=0
-               &portrait=0
-               &dnt=1"
+          src="https://player.vimeo.com/video/1146458430?badge=0&autopause=0&player_id=0&app_id=58479"
           loading="lazy"
-          allow="fullscreen; picture-in-picture"
+          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
           referrerpolicy="strict-origin-when-cross-origin"
           title="Fragment #2"
         ></iframe>
@@ -203,6 +178,7 @@ figcaption {
     </figure>
 
   </section>
+
 </main>
 
 <script src="/assets/js/global.js"></script>
