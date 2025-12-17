@@ -6,13 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
-    margin:0; padding:0;
-    background:#000;
-    overflow:hidden;
-    height:100%;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    color:#fff;
-  }
+  margin:0; padding:0;
+  background:#000;
+  overflow:hidden;
+  height: calc(var(--vh, 1vh) * 100);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color:#fff;
+}
 
   #container {
     display:flex;
@@ -86,6 +86,24 @@
     text-transform:uppercase;
     letter-spacing:0.06em;
   }
+  @media (min-width: 900px) {
+  #container {
+    flex-direction: row;
+  }
+
+  #gl-wrap {
+    flex: 1 1 auto;
+    min-height: 100%;
+  }
+
+  #evf-ui {
+    flex: 0 0 320px;
+    max-height: none;
+    height: 100%;
+    border-top: none;
+    border-left: 1px solid #333;
+  }
+}
 </style>
 </head>
 <body>
@@ -229,6 +247,18 @@ window.addEventListener('load', function () {
     }
     return a;
   }
+
+function setVh() {
+  document.documentElement.style.setProperty(
+    '--vh',
+    `${window.innerHeight * 0.01}px`
+  );
+}
+setVh();
+window.addEventListener('resize', setVh);
+window.addEventListener('orientationchange', setVh);
+
+  
 
   // -----------------------
   // Shaders
