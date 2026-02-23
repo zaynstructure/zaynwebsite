@@ -11,13 +11,34 @@
 </head>
 <body>
 <script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js";
-
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/
+  import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm";
 // --- renderer ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
+  const params = {
+  xi: 0.35,
+  gamma: 0.6,
+  attractor: 0.7,
+  rhythm: 0.5
+};
+
+const gui = new GUI({ width: 180 });
+gui.title("EVF");
+
+gui.add(params, "xi", 0, 1, 0.01).name("noise ξ")
+  .onChange(v => fieldMat.uniforms.uXi.value = v);
+
+gui.add(params, "gamma", 0, 1, 0.01).name("damping γ")
+  .onChange(v => fieldMat.uniforms.uGamma.value = v);
+
+gui.add(params, "attractor", 0, 1, 0.01).name("attractor A")
+  .onChange(v => fieldMat.uniforms.uA.value = v);
+
+gui.add(params, "rhythm", 0, 1, 0.01).name("rhythm R")
+  .onChange(v => fieldMat.uniforms.uR.value = v);
 
 // --- scene + camera ---
 const scene = new THREE.Scene();
@@ -74,7 +95,26 @@ const fieldMat = new THREE.ShaderMaterial({
       float hiN   = noise(uv * 28.0 + uTime*0.9); // fine grain shimmer
       float n = mix(baseN, hiN, 0.6 * uXi);        // more ξ -> more hi-freq contribution
 
-      float phi = 0.55*basin + (0.12 + 0.28*uXi)*n; // ξ scales noise energy
+      void main(){
+  vec2 uv = vUv;
+
+  // basin centered
+  vec2 p = vUv - 0.5;
+  float r = length(p);
+  float basin = exp(-r*r*6.0);
+
+  // grain + shimmer controlled by ξ
+  float baseN = noise(uv * 6.0 + uTime*0.05);
+  float hiN   = noise(uv * 28.0 + uTime*0.9);
+  float n = mix(baseN, hiN, 0.6 * uXi);
+
+  float phi = 0.55*basin + (0.12 + 0.28*uXi)*n; // <-- this is the key line
+
+  vec3 col = vec3(phi);
+  col *= vec3(0.85, 0.92, 1.0);
+
+  gl_FragColor = vec4(col, 1.0);
+}
 
       // minimal cool monochrome palette
       vec3 col = vec3(phi);
@@ -84,9 +124,16 @@ const fieldMat = new THREE.ShaderMaterial({
     }
   `
 });
-const field = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fieldMat);
-scene.add(field);
-
+const fieldMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uRes:  { value: new THREE.Vector2(innerWidth, innerHeight) },
+    uXi:   { value: 0.35 }, // noise
+    uGamma:{ value: 0.6 },  // damping
+    uA:    { value: 0.7 },  // attractor depth
+    uR:    { value: 0.5 }   // rhythm
+  },
+});
 // --- EVF-R: simple graph overlay ---
 const baseNodes = [
   new THREE.Vector3(-0.15,  0.10, 0.01),
