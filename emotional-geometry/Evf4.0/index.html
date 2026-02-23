@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>EVF-M minimal (Three.js) + noise ξ</title>
+  <title>EVF-M minimal</title>
   <style>
     html,body { margin:0; height:100%; background:#0b0c10; overflow:hidden; }
     canvas { display:block; }
@@ -14,34 +14,34 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js";
 import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm";
 
-// --- renderer ---
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
+// ---------- renderer ----------
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// --- scene + camera ---
+// ---------- scene ----------
 const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 
-// --- EVF-T: fullscreen field ---
+// ---------- EVF field shader ----------
 const fieldMat = new THREE.ShaderMaterial({
-  uniforms: {
-    uTime:   { value: 0 },
-    uRes:    { value: new THREE.Vector2(innerWidth, innerHeight) },
-    uXi:     { value: 0.35 }, // noise
-    uGamma:  { value: 0.6 },  // damping
-    uA:      { value: 0.7 },  // attractor depth
-    uR:      { value: 0.5 }   // rhythm
+  uniforms:{
+    uTime:{value:0},
+    uRes:{value:new THREE.Vector2(innerWidth,innerHeight)},
+    uXi:{value:0.35},
+    uGamma:{value:0.6},
+    uA:{value:0.7},
+    uR:{value:0.5}
   },
-  vertexShader: `
+  vertexShader:`
     varying vec2 vUv;
     void main(){
-      vUv = uv;
-      gl_Position = vec4(position.xy, 0.0, 1.0);
+      vUv=uv;
+      gl_Position=vec4(position.xy,0.0,1.0);
     }
   `,
-  fragmentShader: `
+  fragmentShader:`
     precision highp float;
     varying vec2 vUv;
     uniform float uTime;
@@ -51,88 +51,151 @@ const fieldMat = new THREE.ShaderMaterial({
     uniform float uA;
     uniform float uR;
 
-    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    float hash(vec2 p){
+      return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);
+    }
+
     float noise(vec2 p){
-      vec2 i = floor(p), f = fract(p);
-      float a = hash(i);
-      float b = hash(i+vec2(1,0));
-      float c = hash(i+vec2(0,1));
-      float d = hash(i+vec2(1,1));
-      vec2 u = f*f*(3.0-2.0*f);
-      return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
+      vec2 i=floor(p);
+      vec2 f=fract(p);
+      float a=hash(i);
+      float b=hash(i+vec2(1,0));
+      float c=hash(i+vec2(0,1));
+      float d=hash(i+vec2(1,1));
+      vec2 u=f*f*(3.0-2.0*f);
+      return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;
     }
 
     float ridged(float n){
-      n = abs(n * 2.0 - 1.0);
-      return 1.0 - n;
+      n=abs(n*2.0-1.0);
+      return 1.0-n;
     }
 
     void main(){
-      vec2 uv = vUv;
+      vec2 uv=vUv;
 
-      // --------- THIS is the "phi computation block" ----------
-      vec2 p = uv - 0.5;
-      float r = length(p);
+      // ----- EVF phi computation block -----
+      vec2 p=uv-0.5;
+      float r=length(p);
 
-      // attractor basin (A)
-      float basin = exp(-r*r*(4.0 + 6.0*uA));
+      // attractor basin
+      float basin=exp(-r*r*(4.0+6.0*uA));
 
-      // rhythm rings (R)
-      float rings = 0.5 + 0.5*cos((12.0 + 8.0*uR)*r - uTime*(0.4 + 1.2*uR));
-      rings *= exp(-r*r*2.0);
+      // rhythm rings
+      float rings=0.5+0.5*cos((12.0+8.0*uR)*r-uTime*(0.4+1.2*uR));
+      rings*=exp(-r*r*2.0);
 
-      // tension texture (not clouds)
-      float n1 = noise(uv * (5.0 + 3.0*uR) + uTime*0.03);
-      float tex = ridged(n1);
+      // tension texture
+      float tex=ridged(noise(uv*(5.0+3.0*uR)+uTime*0.03));
 
-      // damping (gamma) smooths toward basin
-      float smoothTex = mix(tex, basin, uGamma*0.6);
+      // damping
+      float smoothTex=mix(tex,basin,uGamma*0.6);
 
-      // film grain (xi)
-      float g = (noise(uv*uRes*0.4 + uTime*12.0)-0.5) * (0.10 + 0.35*uXi);
+      // grain noise
+      float grain=(noise(uv*uRes*0.4+uTime*12.0)-0.5)*(0.10+0.35*uXi);
 
-      float phi = 0.55*basin + 0.20*smoothTex + 0.12*rings + g;
-      // --------------------------------------------------------
+      float phi=0.55*basin+0.20*smoothTex+0.12*rings+grain;
+      // -------------------------------------
 
-      vec3 col = vec3(phi) * vec3(0.85, 0.92, 1.0);
-      gl_FragColor = vec4(col, 1.0);
+      vec3 col=vec3(phi)*vec3(0.85,0.92,1.0);
+      gl_FragColor=vec4(col,1.0);
     }
   `
 });
 
-const field = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fieldMat);
+const field=new THREE.Mesh(new THREE.PlaneGeometry(2,2),fieldMat);
 scene.add(field);
 
-// --- GUI (after fieldMat exists) ---
-const params = { xi: 0.35, gamma: 0.6, attractor: 0.7, rhythm: 0.5 };
-const gui = new GUI({ width: 180 });
-gui.title("EVF");
-gui.add(params, "xi", 0, 1, 0.01).name("noise ξ")
-  .onChange(v => fieldMat.uniforms.uXi.value = v);
-gui.add(params, "gamma", 0, 1, 0.01).name("damping γ")
-  .onChange(v => fieldMat.uniforms.uGamma.value = v);
-gui.add(params, "attractor", 0, 1, 0.01).name("attractor A")
-  .onChange(v => fieldMat.uniforms.uA.value = v);
-gui.add(params, "rhythm", 0, 1, 0.01).name("rhythm R")
-  .onChange(v => fieldMat.uniforms.uR.value = v);
+// ---------- EVF relational graph ----------
+const baseNodes=[
+  new THREE.Vector3(-0.15,0.10,0.01),
+  new THREE.Vector3(0.35,-0.05,0.01),
+  new THREE.Vector3(0.05,-0.35,0.01)
+];
 
-// --- EVF-R graph overlay (your existing code can follow) ---
-// (keep your baseNodes/nodes/edges/points/updateEdges/etc here)
+const nodes=baseNodes.map(v=>v.clone());
+const edgePairs=[[0,1],[1,2],[2,0]];
 
-// --- resize ---
-addEventListener("resize", () => {
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  fieldMat.uniforms.uRes.value.set(innerWidth, innerHeight);
+const edgePos=new Float32Array(edgePairs.length*2*3);
+const edgeGeom=new THREE.BufferGeometry();
+edgeGeom.setAttribute("position",new THREE.BufferAttribute(edgePos,3));
+
+const edgeMat=new THREE.LineBasicMaterial({
+  color:0xffffff,
+  transparent:true,
+  opacity:0.45
 });
 
-// --- animate ---
+const edges=new THREE.LineSegments(edgeGeom,edgeMat);
+scene.add(edges);
+
+const ptsGeom=new THREE.BufferGeometry().setFromPoints(nodes);
+const ptsMat=new THREE.PointsMaterial({
+  color:0xffffff,
+  size:6,
+  sizeAttenuation:false,
+  transparent:true,
+  opacity:0.8
+});
+const points=new THREE.Points(ptsGeom,ptsMat);
+scene.add(points);
+
+function updateEdges(){
+  const pos=edgeGeom.attributes.position.array;
+  let k=0;
+  for(const [a,b] of edgePairs){
+    const A=nodes[a];
+    const B=nodes[b];
+    pos[k++]=A.x; pos[k++]=A.y; pos[k++]=A.z;
+    pos[k++]=B.x; pos[k++]=B.y; pos[k++]=B.z;
+  }
+  edgeGeom.attributes.position.needsUpdate=true;
+}
+
+// ---------- GUI ----------
+const params={xi:0.35,gamma:0.6,attractor:0.7,rhythm:0.5};
+const gui=new GUI({width:180});
+gui.title("EVF");
+
+gui.add(params,"xi",0,1,0.01).name("noise ξ")
+  .onChange(v=>fieldMat.uniforms.uXi.value=v);
+
+gui.add(params,"gamma",0,1,0.01).name("damping γ")
+  .onChange(v=>fieldMat.uniforms.uGamma.value=v);
+
+gui.add(params,"attractor",0,1,0.01).name("attractor A")
+  .onChange(v=>fieldMat.uniforms.uA.value=v);
+
+gui.add(params,"rhythm",0,1,0.01).name("rhythm R")
+  .onChange(v=>fieldMat.uniforms.uR.value=v);
+
+// ---------- resize ----------
+addEventListener("resize",()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  fieldMat.uniforms.uRes.value.set(innerWidth,innerHeight);
+});
+
+// ---------- animate ----------
 function animate(t){
-  fieldMat.uniforms.uTime.value = t * 0.001;
+  const time=t*0.001;
+  fieldMat.uniforms.uTime.value=time;
 
-  // your node jitter / edge updates can run here too
+  // subtle EVF-R motion
+  const jitterAmp=0.03*params.xi;
+  for(let i=0;i<nodes.length;i++){
+    const jx=(Math.sin(time*2.3+i*1.7))*jitterAmp;
+    const jy=(Math.cos(time*2.1+i*2.1))*jitterAmp;
 
-  renderer.render(scene, camera);
+    nodes[i].x=baseNodes[i].x+jx;
+    nodes[i].y=baseNodes[i].y+jy;
+  }
+
+  ptsGeom.setFromPoints(nodes);
+  ptsGeom.attributes.position.needsUpdate=true;
+  updateEdges();
+
+  renderer.render(scene,camera);
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
