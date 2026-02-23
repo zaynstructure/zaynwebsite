@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EVF-M minimal (Three.js) + noise ξ</title>
+  <style>
+    html,body { margin:0; height:100%; background:#0b0c10; overflow:hidden; }
+    canvas { display:block; }
+  </style>
+</head>
+<body>
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js";
+
+// --- renderer ---
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// --- scene + camera ---
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+// --- EVF params (start simple) ---
+let xi = 0.35; // noise ξ in [0..1]
+
+// --- EVF-T: fullscreen field ---
+const fieldMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uRes:  { value: new THREE.Vector2(innerWidth, innerHeight) },
+    uXi:   { value: xi }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = vec4(position.xy, 0.0, 1.0);
+    }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+    uniform float uTime;
+    uniform vec2 uRes;
+    uniform float uXi;
+
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    float noise(vec2 p){
+      vec2 i = floor(p), f = fract(p);
+      float a = hash(i);
+      float b = hash(i+vec2(1,0));
+      float c = hash(i+vec2(0,1));
+      float d = hash(i+vec2(1,1));
+      vec2 u = f*f*(3.0-2.0*f);
+      return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
+    }
+
+    void main(){
+      vec2 uv = vUv;
+
+      // gentle drift
+      uv += 0.02 * vec2(sin(uTime*0.25), cos(uTime*0.21));
+
+      // soft basin centered
+      vec2 p = vUv - 0.5;
+      float r = length(p);
+      float basin = exp(-r*r*6.0);
+
+      // grain + shimmer controlled by ξ
+      float baseN = noise(uv * 6.0 + uTime*0.05);
+      float hiN   = noise(uv * 28.0 + uTime*0.9); // fine grain shimmer
+      float n = mix(baseN, hiN, 0.6 * uXi);        // more ξ -> more hi-freq contribution
+
+      float phi = 0.55*basin + (0.12 + 0.28*uXi)*n; // ξ scales noise energy
+
+      // minimal cool monochrome palette
+      vec3 col = vec3(phi);
+      col *= vec3(0.85, 0.92, 1.0);
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+const field = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fieldMat);
+scene.add(field);
+
+// --- EVF-R: simple graph overlay ---
+const baseNodes = [
+  new THREE.Vector3(-0.15,  0.10, 0.01),
+  new THREE.Vector3( 0.35, -0.05, 0.01),
+  new THREE.Vector3( 0.05, -0.35, 0.01),
+];
+
+// working nodes (mutated each frame)
+const nodes = baseNodes.map(v => v.clone());
+
+const edgePairs = [
+  [0,1],
+  [1,2],
+  [2,0],
+];
+
+const edgePos = new Float32Array(edgePairs.length * 2 * 3);
+const edgeGeom = new THREE.BufferGeometry();
+edgeGeom.setAttribute("position", new THREE.BufferAttribute(edgePos, 3));
+
+const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 });
+const edges = new THREE.LineSegments(edgeGeom, edgeMat);
+scene.add(edges);
+
+const ptsGeom = new THREE.BufferGeometry().setFromPoints(nodes);
+const ptsMat  = new THREE.PointsMaterial({ color: 0xffffff, size: 6, sizeAttenuation: false, transparent: true, opacity: 0.8 });
+const points = new THREE.Points(ptsGeom, ptsMat);
+scene.add(points);
+
+function updateEdges(){
+  const pos = edgeGeom.attributes.position.array;
+  let k = 0;
+  for (const [a,b] of edgePairs){
+    const A = nodes[a], B = nodes[b];
+    pos[k++] = A.x; pos[k++] = A.y; pos[k++] = A.z;
+    pos[k++] = B.x; pos[k++] = B.y; pos[k++] = B.z;
+  }
+  edgeGeom.attributes.position.needsUpdate = true;
+}
+
+// --- deterministic-ish jitter helpers (no heavy RNG) ---
+function fract(x){ return x - Math.floor(x); }
+function hash1(x){ return fract(Math.sin(x) * 43758.5453); }
+
+// --- resize ---
+addEventListener("resize", () => {
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  fieldMat.uniforms.uRes.value.set(innerWidth, innerHeight);
+});
+
+// Optional: quick keyboard control for ξ
+addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp")   xi = Math.min(1, xi + 0.05);
+  if (e.key === "ArrowDown") xi = Math.max(0, xi - 0.05);
+  fieldMat.uniforms.uXi.value = xi;
+});
+
+// --- animate ---
+function animate(t){
+  const time = t * 0.001;
+  fieldMat.uniforms.uTime.value = time;
+
+  // rhythm hint still allowed
+  const s = 1.0 + 0.015 * Math.sin(time * 1.2);
+
+  // ξ-driven node jitter (screen-space scale in NDC)
+  // Keep it subtle; increase multiplier if you want “chaotic”.
+  const jitterAmp = 0.03 * xi;
+
+  for (let i = 0; i < nodes.length; i++){
+    // stable-ish per-node noise that changes over time
+    const a = hash1(i*13.1 + time*2.3);
+    const b = hash1(i*29.7 + time*2.9);
+
+    // center around 0
+    const jx = (a - 0.5) * 2.0 * jitterAmp;
+    const jy = (b - 0.5) * 2.0 * jitterAmp;
+
+    nodes[i].x = baseNodes[i].x;
+    nodes[i].y = baseNodes[i].y;
+
+    // keep your earlier pulse on node 1
+    if (i === 1) nodes[i].x = baseNodes[i].x * s;
+
+    nodes[i].x += jx;
+    nodes[i].y += jy;
+  }
+
+  // update points + edges
+  ptsGeom.setFromPoints(nodes);
+  ptsGeom.attributes.position.needsUpdate = true;
+  updateEdges();
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
