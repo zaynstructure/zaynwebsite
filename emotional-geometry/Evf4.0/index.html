@@ -35,7 +35,11 @@ const fieldMat = new THREE.ShaderMaterial({
   uR:{value:0.5},
   uRhA:{value:0.18},
   uRhW:{value:1.20},
-  uRhMix:{value:0.60}
+  uRhMix:{value:0.60},
+  uNodeCount:{value:0},
+  uNodeGain:  { value: 0.25 },  // strength of injection
+  uNodeSigma: { value: 0.18 },  // width in UV space
+  uNodes:     { value: Array.from({ length: 8 }, () => new THREE.Vector2()) }
 },
   vertexShader:`
     varying vec2 vUv;
@@ -121,7 +125,13 @@ float force = F * gate;
       phi += (1.0 - uRhMix) * force;
       
       // -------------------------------------
-
+// --- nodes -> field injection ---
+float inj = 0.0;
+for (int i = 0; i < 8; i++){
+  if (i >= uNodeCount) break;
+  inj += gauss(uv, uNodes[i], uNodeSigma);
+}
+phi += uNodeGain * inj;
       vec3 col=vec3(phi)*vec3(0.85,0.92,1.0);
       gl_FragColor=vec4(col,1.0);
     }
@@ -208,6 +218,9 @@ gui.add(params,"rhythm",0,1,0.01).name("rhythm R")
   
   gui.add(params,"k",0,0.6,0.01).name("coupling k");
 
+  gui.add(fieldMat.uniforms.uNodeGain,  "value", 0.0, 1.0, 0.01).name("node→field gain");
+gui.add(fieldMat.uniforms.uNodeSigma, "value", 0.02, 0.5, 0.01).name("node→field sigma");
+
 
 // add to GUI
 gui.add(params, "debugNoDamping").name("debug: no damping");
@@ -274,6 +287,14 @@ function gradientPhi(x, y, time){
 function animate(t){
   const time = t * 0.001;
   fieldMat.uniforms.uTime.value = time;
+
+  // --- send node positions to shader (NDC -> UV) ---
+fieldMat.uniforms.uNodeCount.value = Math.min(nodes.length, MAX_NODES);
+for (let i = 0; i < fieldMat.uniforms.uNodeCount.value; i++){
+  const u = nodes[i].x * 0.5 + 0.5;
+  const v = nodes[i].y * 0.5 + 0.5;
+  fieldMat.uniforms.uNodes.value[i].set(u, v);
+}
 
   // IMPORTANT: make k literal (no baseline, no squaring)
   const phase = time * (0.8 + 4.0 * params.rhythm);
