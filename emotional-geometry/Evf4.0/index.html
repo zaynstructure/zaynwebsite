@@ -204,15 +204,21 @@ addEventListener("resize",()=>{
 
   return 0.6*basin + 0.4*rings;
 }
-  
+  function gradientPhi(x, y, time){
+  const e = 0.002; // small step in NDC space
+  const gx = samplePhi(x + e, y, time) - samplePhi(x - e, y, time);
+  const gy = samplePhi(x, y + e, time) - samplePhi(x, y - e, time);
+  return { x: gx, y: gy };
+}
 function animate(t){
-  const time=t*0.001;
-  fieldMat.uniforms.uTime.value=time;
+  const time = t * 0.001;
+  fieldMat.uniforms.uTime.value = time;
 
-  // subtle EVF-R motion
+  // shared rhythm phase
   const phase = time * (0.8 + 4.0 * params.rhythm);
   const pulse = 1.0 + 0.25 * Math.sin(phase);
-    for (let i = 0; i < nodes.length; i++){
+
+  for (let i = 0; i < nodes.length; i++){
     // current node position
     const x = nodes[i].x;
     const y = nodes[i].y;
@@ -221,45 +227,29 @@ function animate(t){
     const bx = baseNodes[i].x;
     const by = baseNodes[i].y;
 
-    // 1) get gradient at node position
+    // 1) gradient at node position
     const g = gradientPhi(x, y, time);
 
-    // 2) move along gradient (coupling strength)
-    const driftStrength = 0.12; // increase if you want stronger pull
+    // 2) drift along gradient (coupling)
+    const driftStrength = 0.18 * pulse;   // stronger + visibly rhythmic
     nodes[i].x = x + g.x * driftStrength;
     nodes[i].y = y + g.y * driftStrength;
 
-    // 3) keep nodes bounded (soft pull back toward their base)
-    const returnStrength = 0.02;
+    // 3) keep bounded (return toward base)
+    const returnStrength = 0.03;
     nodes[i].x += (bx - nodes[i].x) * returnStrength;
     nodes[i].y += (by - nodes[i].y) * returnStrength;
   }
-    const rot = 0.04 * Math.sin(phase);
 
-for (let i=0;i<nodes.length;i++){
-  const bx = baseNodes[i].x;
-  const by = baseNodes[i].y;
-
-  const x = bx * Math.cos(rot) - by * Math.sin(rot);
-  const y = bx * Math.sin(rot) + by * Math.cos(rot);
-
-  nodes[i].x = x * (0.98 + 0.02*pulse);
-  nodes[i].y = y * (0.98 + 0.02*pulse);
-}
-
-    nodes[i].x=baseNodes[i].x+jx;
-    nodes[i].y=baseNodes[i].y+jy;
-    nodes[i].x = baseNodes[i].x * (0.98 + 0.02*pulse) + jx;
-    nodes[i].y = baseNodes[i].y * (0.98 + 0.02*pulse) + jy;
-  }
-
+  // update points + edges
   ptsGeom.setFromPoints(nodes);
-  ptsGeom.attributes.position.needsUpdate=true;
+  ptsGeom.attributes.position.needsUpdate = true;
   updateEdges();
 
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
+
 requestAnimationFrame(animate);
 </script>
 </body>
