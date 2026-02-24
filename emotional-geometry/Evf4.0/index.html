@@ -146,6 +146,18 @@ const ptsMat=new THREE.PointsMaterial({
 const points=new THREE.Points(ptsGeom,ptsMat);
 scene.add(points);
 
+  function updateEdges(){
+  const pos = edgeGeom.attributes.position.array;
+  let k = 0;
+  for (const [a,b] of edgePairs){
+    const A = nodes[a];
+    const B = nodes[b];
+    pos[k++] = A.x; pos[k++] = A.y; pos[k++] = A.z;
+    pos[k++] = B.x; pos[k++] = B.y; pos[k++] = B.z;
+  }
+  edgeGeom.attributes.position.needsUpdate = true;
+}
+
   // --- debug: velocity arrows (one per node) ---
 const arrowGeom = new THREE.BufferGeometry();
 const arrowPos = new Float32Array(nodes.length * 2 * 3); // 2 points per arrow, 3 coords
@@ -270,7 +282,9 @@ nodes[i].y = y + vy[i];
     nodes[i].y += (by - nodes[i].y) * gamma;
   }
   
-  updateArrows(vx, vy, 45.0);
+  // exaggerate arrows for visibility (does NOT affect the node motion)
+const arrowScale = 30 + 220 * params.k;  // 0 → 30, 0.6 → ~162
+updateArrows(vx, vy, arrowScale);
   
   ptsGeom.setFromPoints(nodes);
   ptsGeom.attributes.position.needsUpdate = true;
