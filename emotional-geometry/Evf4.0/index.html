@@ -89,7 +89,7 @@ const fieldMat = new THREE.ShaderMaterial({
 
       // tension texture
       float phase = uTime * (0.4 + 2.2*uR);
-float tex = ridged(noise((uv + vec2(cos(phase), sin(phase))*0.08) * (5.0+3.0*uR)));
+      float tex = ridged(noise((uv + vec2(cos(phase), sin(phase))*0.08) * (5.0+3.0*uR)));
 
       // damping
       float smoothTex=mix(tex,basin,uGamma*0.6);
@@ -218,28 +218,34 @@ function animate(t){
   const phase = time * (0.8 + 4.0 * params.rhythm);
   const pulse = 1.0 + 0.25 * Math.sin(phase);
 
-  for (let i = 0; i < nodes.length; i++){
-    // current node position
-    const x = nodes[i].x;
-    const y = nodes[i].y;
+  // EVF relational update (coupled to field gradient)
+const phase = time * (0.8 + 4.0 * params.rhythm);
 
-    // base (anchor) position
-    const bx = baseNodes[i].x;
-    const by = baseNodes[i].y;
+// EVF parameters
+const k = params.k * (0.8 + 0.4 * Math.sin(phase)); // coupling modulated by rhythm
+const gamma = params.gamma * 0.05;                  // damping scale
 
-    // 1) gradient at node position
-    const g = gradientPhi(x, y, time);
+for (let i = 0; i < nodes.length; i++){
 
-    // 2) drift along gradient (coupling)
-    const driftStrength = 0.30 * pulse;   // stronger + visibly rhythmic
-    nodes[i].x = x + g.x * driftStrength;
-    nodes[i].y = y + g.y * driftStrength;
+  // current node position
+  const x = nodes[i].x;
+  const y = nodes[i].y;
 
-    // 3) keep bounded (return toward base)
-    const returnStrength = 0.03;
-    nodes[i].x += (bx - nodes[i].x) * returnStrength;
-    nodes[i].y += (by - nodes[i].y) * returnStrength;
-  }
+  // base (anchor) position
+  const bx = baseNodes[i].x;
+  const by = baseNodes[i].y;
+
+  // field gradient at node
+  const g = gradientPhi(x, y, time);
+
+  // EVF motion: ẋ = k∇φ − γ(x−x₀)
+  nodes[i].x = x + g.x * k;
+  nodes[i].y = y + g.y * k;
+
+  // damping toward baseline
+  nodes[i].x += (bx - nodes[i].x) * gamma;
+  nodes[i].y += (by - nodes[i].y) * gamma;
+}
 
   // update points + edges
   ptsGeom.setFromPoints(nodes);
