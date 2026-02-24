@@ -191,6 +191,8 @@ function updateArrows(vxArr, vyArr, scale){
   arrowGeom.attributes.position.needsUpdate = true;
 }
 
+  arrowMat.opacity = 1.0;
+
 // ---------- GUI ----------
 const params={xi:0.35,gamma:0.6,attractor:0.7,rhythm:0.5,k:0.18,debugNoDamping:false};
 const gui=new GUI({width:180});
