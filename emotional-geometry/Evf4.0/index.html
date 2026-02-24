@@ -231,7 +231,7 @@ function animate(t){
     const g = gradientPhi(x, y, time);
 
     // 2) drift along gradient (coupling)
-    const driftStrength = 0.18 * pulse;   // stronger + visibly rhythmic
+    const driftStrength = 0.30 * pulse;   // stronger + visibly rhythmic
     nodes[i].x = x + g.x * driftStrength;
     nodes[i].y = y + g.y * driftStrength;
 
