@@ -236,7 +236,7 @@ addEventListener("resize",()=>{
   const k = 10 + 22*params.rhythm;
   const rings = 0.5 + 0.5*Math.cos(k*r - time*speed);
 
-  return 0.6*basin + 0.4*rings;
+  return 1.6*basin + 1.2*rings;
 }
 
 function gradientPhi(x, y, time){
