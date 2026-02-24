@@ -178,6 +178,12 @@ gui.add(params,"rhythm",0,1,0.01).name("rhythm R")
   
   gui.add(params,"k",0,0.6,0.01).name("coupling k");
 
+  // add to params object
+debugNoDamping: false,
+
+// add to GUI
+gui.add(params, "debugNoDamping").name("debug: no damping");
+
 // ---------- resize ----------
 addEventListener("resize",()=>{
   renderer.setSize(innerWidth,innerHeight);
@@ -205,10 +211,16 @@ addEventListener("resize",()=>{
   const k = 10 + 22*params.rhythm;
   const rings = 0.5 + 0.5*Math.cos(k*r - time*speed);
 
+    edges.material.opacity = 0.15 + 0.85 * Math.min(1, params.k / 0.6);
+points.material.opacity = 0.3 + 0.7 * Math.min(1, params.k / 0.6);
+
+    edges.material.opacity = 0.15 + 0.85 * Math.min(1, params.k / 0.6);
+points.material.opacity = 0.3 + 0.7 * Math.min(1, params.k / 0.6);
+
   return 0.6*basin + 0.4*rings;
 }
   function gradientPhi(x, y, time){
-  const e = 0.002; // small step in NDC space
+  const e = 0.006; // small step in NDC space
   const gx = samplePhi(x + e, y, time) - samplePhi(x - e, y, time);
   const gy = samplePhi(x, y + e, time) - samplePhi(x, y - e, time);
   return { x: gx, y: gy };
@@ -221,8 +233,9 @@ function animate(t){
   const phase = time * (0.8 + 4.0 * params.rhythm);
 
   // EVF parameters
-  const k = params.k * (0.6 + 0.8 * (0.5 + 0.5*Math.sin(phase))); // rhythm-modulated coupling
-  const gamma = params.gamma * 0.05;                  // damping scale
+  const k0 = params.k * params.k;                 // square for more contrast
+const k  = (0.02 + 0.6 * k0) * (0.8 + 0.4 * Math.sin(phase));
+  const gamma = (params.debugNoDamping ? 0.0 : params.gamma * 0.05);
 
   for (let i = 0; i < nodes.length; i++){
     const x = nodes[i].x;
