@@ -230,10 +230,7 @@ gui.add(params,"rhythm",0,1,0.01).name("rhythm R")
   
   gui.add(params,"k",0,0.6,0.01).name("coupling k");
 
-  gui.add(fieldMat.uniforms.uNodeGain,  "value", 0.0, 1.0, 0.01).name("node→field gain");
-gui.add(fieldMat.uniforms.uNodeSigma, "value", 0.02, 0.5, 0.01).name("node→field sigma");
-
-gui.add(params,"rhA",0,1,0.01).name("rhythm amp")
+  gui.add(params,"rhA",0,1,0.01).name("rhythm amp")
   .onChange(v=>fieldMat.uniforms.uRhA.value=v);
 
 gui.add(params,"rhW",0,6,0.01).name("rhythm ω")
@@ -241,6 +238,11 @@ gui.add(params,"rhW",0,6,0.01).name("rhythm ω")
 
 gui.add(params,"rhMix",0,1,0.01).name("rhythm mix")
   .onChange(v=>fieldMat.uniforms.uRhMix.value=v);
+
+  gui.add(fieldMat.uniforms.uNodeGain,  "value", 0.0, 1.0, 0.01).name("node→field gain");
+gui.add(fieldMat.uniforms.uNodeSigma, "value", 0.02, 0.5, 0.01).name("node→field sigma");
+
+
   
 
 // add to GUI
