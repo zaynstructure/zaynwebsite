@@ -300,16 +300,15 @@ function animate(t){
   // update velocity arrows:
   // normalize direction so arrows stay visible even when gradient is small,
   // but still scale length by speed and k.
-  const ax = vx.map((v, i) => {
-    const s = Math.hypot(vx[i], vy[i]) + 1e-6;
-    return (vx[i] / s) * (s * params.arrowScale);
-  });
-  const ay = vy.map((v, i) => {
-    const s = Math.hypot(vx[i], vy[i]) + 1e-6;
-    return (vy[i] / s) * (s * params.arrowScale);
-  });
-  updateArrows(ax, ay, 1.0);
-
+  const ax = vx.map((_, i) => {
+  const s = Math.hypot(vx[i], vy[i]) + 1e-6;
+  return (vx[i] / s) * params.arrowScale;
+});
+const ay = vy.map((_, i) => {
+  const s = Math.hypot(vx[i], vy[i]) + 1e-6;
+  return (vy[i] / s) * params.arrowScale;
+});
+updateArrows(ax, ay, 1.0);
   ptsGeom.setFromPoints(nodes);
   ptsGeom.attributes.position.needsUpdate = true;
 
