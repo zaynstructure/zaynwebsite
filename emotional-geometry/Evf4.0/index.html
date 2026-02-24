@@ -174,7 +174,7 @@ function updateArrows(vxArr, vyArr, scale){
     // end
     pos[k++] = x + vx; pos[k++] = y + vy; pos[k++] = z;
   }
-  updateArrows(vx, vy, 45.0);
+  
   
   arrowGeom.attributes.position.needsUpdate = true;
 }
@@ -282,7 +282,7 @@ nodes[i].y = y + vy[i];
     nodes[i].x += (bx - nodes[i].x) * gamma;
     nodes[i].y += (by - nodes[i].y) * gamma;
   }
-
+updateArrows(vx, vy, 45.0);
   ptsGeom.setFromPoints(nodes);
   ptsGeom.attributes.position.needsUpdate = true;
   updateEdges();
