@@ -27,13 +27,16 @@ const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 // ---------- EVF field shader ----------
 const fieldMat = new THREE.ShaderMaterial({
   uniforms:{
-    uTime:{value:0},
-    uRes:{value:new THREE.Vector2(innerWidth,innerHeight)},
-    uXi:{value:0.35},
-    uGamma:{value:0.6},
-    uA:{value:0.7},
-    uR:{value:0.5}
-  },
+  uTime:{value:0},
+  uRes:{value:new THREE.Vector2(innerWidth,innerHeight)},
+  uXi:{value:0.35},
+  uGamma:{value:0.6},
+  uA:{value:0.7},
+  uR:{value:0.5},
+  uRhA:{value:0.18},
+  uRhW:{value:1.20},
+  uRhMix:{value:0.60}
+},
   vertexShader:`
     varying vec2 vUv;
     void main(){
@@ -50,6 +53,9 @@ const fieldMat = new THREE.ShaderMaterial({
     uniform float uGamma;
     uniform float uA;
     uniform float uR;
+    uniform float uRhA;
+    uniform float uRhW;
+    uniform float uRhMix;
 
     float hash(vec2 p){
       return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);
@@ -77,14 +83,25 @@ const fieldMat = new THREE.ShaderMaterial({
       // ----- EVF phi computation block -----
       vec2 p=uv-0.5;
       float r=length(p);
+      // --- explicit rhythm forcing F(x,t) ---
+      float basePhase = uTime * uRhW;
+      float F = uRhA * sin(basePhase);
+
+// strongest near center, fades outward
+float gate = exp(-r*r*2.0);
+float force = F * gate;
 
       // attractor basin
       float basin=exp(-r*r*(4.0+6.0*uA));
 
+    
       // rhythm rings
       float w = (1.2 + 4.0*uR);                 // speed
       float k = (10.0 + 22.0*uR);               // frequency
-      float rings = 0.5 + 0.5*cos(k*r - uTime*w);
+
+// rhythm explicitly phase-shifts rings
+      float phaseShift = uRhMix * force * 6.28318; // ~2π scaling
+      float rings = 0.5 + 0.5*cos(k*r - uTime*w + phaseShift);
       rings *= exp(-r*r*1.6);
 
       // tension texture
@@ -100,6 +117,8 @@ const fieldMat = new THREE.ShaderMaterial({
       float phi=0.55*basin+0.20*smoothTex+0.22*rings+grain;
       float breath = 0.85 + 0.15*sin(uTime*(0.8 + 2.5*uR));
       phi *= breath;
+      // forcing also modulates overall field brightness
+      phi += (1.0 - uRhMix) * force;
       
       // -------------------------------------
 
