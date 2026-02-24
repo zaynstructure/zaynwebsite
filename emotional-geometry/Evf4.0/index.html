@@ -226,8 +226,8 @@ addEventListener("resize",()=>{
 // ---------- animate ----------
 
   // ---- GUI additions (put after your existing gui.add(params,"k"... ) ) ----
-params.motionBoost = 6.0;     // exaggerate k effect on motion (debug)
-params.arrowScale  = 0.20;    // arrow length scale (debug)
+params.motionBoost = 10.0;     // exaggerate k effect on motion (debug)
+params.arrowScale  = 2.0;    // arrow length scale (debug)
 params.freezeBase  = false;   // if true, disable pull to base (debug)
 
 gui.add(params, "motionBoost", 0.0, 20.0, 0.1).name("debug: motionBoost");
@@ -318,11 +318,6 @@ function animate(t){
   requestAnimationFrame(animate);
 }
 
-requestAnimationFrame(animate);
-}
-
-// ---- start loop ----
-requestAnimationFrame(animate);
 
 </script>
 </body>
