@@ -177,40 +177,6 @@ scene.add(points);
   edgeGeom.attributes.position.needsUpdate = true;
 }
 
-  // --- debug: velocity arrows (one per node) ---
-const arrowGeom = new THREE.BufferGeometry();
-const arrowPos = new Float32Array(nodes.length * 2 * 3); // 2 points per arrow, 3 coords
-arrowGeom.setAttribute("position", new THREE.BufferAttribute(arrowPos, 3));
-
-const arrowMat = new THREE.LineBasicMaterial({
-  color: 0xffffff,
-  transparent: true,
-  opacity: 0.7
-});
-
-const arrows = new THREE.LineSegments(arrowGeom, arrowMat);
-scene.add(arrows);
-
-function updateArrows(vxArr, vyArr, scale){
-  const pos = arrowGeom.attributes.position.array;
-  let k = 0;
-
-  for (let i = 0; i < nodes.length; i++){
-    const x = nodes[i].x, y = nodes[i].y, z = nodes[i].z;
-
-    const vx = vxArr[i] * scale;
-    const vy = vyArr[i] * scale;
-
-    // start
-    pos[k++] = x;      pos[k++] = y;      pos[k++] = z;
-    // end
-    pos[k++] = x + vx; pos[k++] = y + vy; pos[k++] = z;
-  }
-
-  arrowGeom.attributes.position.needsUpdate = true;
-}
-
-  arrowMat.opacity = 1.0;
 
 // ---------- GUI ----------
 const params = {
