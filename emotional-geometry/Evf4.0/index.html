@@ -214,6 +214,10 @@ function updateArrows(vxArr, vyArr, scale){
 
 // ---------- GUI ----------
 const params={xi:0.35,gamma:0.6,attractor:0.7,rhythm:0.5,k:0.18,debugNoDamping:false};
+params.etaBase = 0.15;      // baseline learning rate (0..1-ish, per second scale)
+params.baseSample = 0.0;    // debug readout
+let phi0 = 0.0;             // global baseline
+  
 const gui=new GUI({width:180});
 gui.title("EVF");
 
@@ -234,7 +238,8 @@ gui.add(params,"rhythm",0,1,0.01).name("rhythm R")
 
 // add to GUI
 gui.add(params, "debugNoDamping").name("debug: no damping");
-
+gui.add(params, "etaBase", 0.0, 1.0, 0.01).name("baseline η");
+gui.add(params, "baseSample").name("phi0").disable();
 // ---------- resize ----------
 addEventListener("resize",()=>{
   renderer.setSize(innerWidth,innerHeight);
@@ -270,6 +275,7 @@ function samplePhi(x, y, time){
 
   // amplify a bit so gradients are stronger
   return 2.2*basin + 1.8*rings;
+  return phi - phi0;
 }
 
 function gradientPhi(x, y, time){
@@ -302,6 +308,14 @@ const k = params.k * kBreath;
     const y  = nodes[i].y;
     const bx = baseNodes[i].x;
     const by = baseNodes[i].y;
+
+    const dt = 1/60; // or compute from lastTime for accuracy
+const m = meanPhi(time);
+
+// EMA: phi0 += eta*(m - phi0)*dt
+phi0 += params.etaBase * (m - phi0) * dt;
+
+params.baseSample = phi0;
 
     const g = gradientPhi(x, y, time);
 
