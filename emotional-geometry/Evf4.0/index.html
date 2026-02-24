@@ -297,24 +297,6 @@ function samplePhi(x,y,time){
   return samplePhi_raw(x,y,time) - phi0;
 }
 
-  
-function samplePhi(x, y, time){
-  const u = x*0.5 + 0.5;
-  const v = y*0.5 + 0.5;
-
-  const dx = u - 0.5;
-  const dy = v - 0.5;
-  const r  = Math.sqrt(dx*dx + dy*dy);
-
-  const basin = Math.exp(-r*r*(4 + 6*params.attractor));
-
-  const speed = 0.8 + 3.5*params.rhythm;
-  const kk    = 10 + 22*params.rhythm;
-  const rings = 0.5 + 0.5*Math.cos(kk*r - time*speed);
-
-  // amplify a bit so gradients are stronger
-  return 2.2*basin + 1.8*rings;
-}
 
 function gradientPhi(x, y, time){
   const e  = 0.01; // larger step => stronger, less noisy gradient estimate
@@ -341,21 +323,18 @@ const k = params.k * kBreath;
   const vx = new Array(nodes.length).fill(0);
   const vy = new Array(nodes.length).fill(0);
 
-  for (let i = 0; i < nodes.length; i++){
-    const x  = nodes[i].x;
-    const y  = nodes[i].y;
-    const bx = baseNodes[i].x;
-    const by = baseNodes[i].y;
-
-    const dt = 1/60; // or compute from lastTime for accuracy
+const dt = 1/60; // or compute from lastTime for accuracy
 const m = meanPhi(time);
 phi0 += params.etaBase * (m - phi0) * dt;
 params.baseSample = phi0;
 
-// EMA: phi0 += eta*(m - phi0)*dt
-phi0 += params.etaBase * (m - phi0) * dt;
+  
+  for (let i = 0; i < nodes.length; i++){
+  const x  = nodes[i].x;
+  const y  = nodes[i].y;
+  const bx = baseNodes[i].x;
+  const by = baseNodes[i].y;
 
-params.baseSample = phi0;
 
     const g = gradientPhi(x, y, time);
 
