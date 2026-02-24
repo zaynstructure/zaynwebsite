@@ -132,6 +132,9 @@ const edgeMat=new THREE.LineBasicMaterial({
   opacity:0.45
 });
 
+  const edges = new THREE.LineSegments(edgeGeom, edgeMat);
+scene.add(edges);
+
 const ptsGeom=new THREE.BufferGeometry().setFromPoints(nodes);
 const ptsMat=new THREE.PointsMaterial({
   color:0xffffff,
@@ -155,8 +158,9 @@ function updateEdges(){
   edgeGeom.attributes.position.needsUpdate=true;
 }
 
+
 // ---------- GUI ----------
-const params={xi:0.35,gamma:0.6,attractor:0.7,rhythm:0.5};
+const params={xi:0.35,gamma:0.6,attractor:0.7,rhythm:0.5,k:0.18};
 const gui=new GUI({width:180});
 gui.title("EVF");
 
@@ -171,6 +175,8 @@ gui.add(params,"attractor",0,1,0.01).name("attractor A")
 
 gui.add(params,"rhythm",0,1,0.01).name("rhythm R")
   .onChange(v=>fieldMat.uniforms.uR.value=v);
+  
+  gui.add(params,"k",0,0.6,0.01).name("coupling k");
 
 // ---------- resize ----------
 addEventListener("resize",()=>{
@@ -213,38 +219,28 @@ function animate(t){
 
   // shared rhythm phase
   const phase = time * (0.8 + 4.0 * params.rhythm);
-  const pulse = 1.0 + 0.25 * Math.sin(phase);
 
-  // EVF relational update (coupled to field gradient)
-const phase = time * (0.8 + 4.0 * params.rhythm);
+  // EVF parameters
+  const k = params.k * (0.8 + 0.4 * Math.sin(phase)); // rhythm-modulated coupling
+  const gamma = params.gamma * 0.05;                  // damping scale
 
-// EVF parameters
-const k = params.k * (0.8 + 0.4 * Math.sin(phase)); // coupling modulated by rhythm
-const gamma = params.gamma * 0.05;                  // damping scale
+  for (let i = 0; i < nodes.length; i++){
+    const x = nodes[i].x;
+    const y = nodes[i].y;
 
-for (let i = 0; i < nodes.length; i++){
+    const bx = baseNodes[i].x;
+    const by = baseNodes[i].y;
 
-  // current node position
-  const x = nodes[i].x;
-  const y = nodes[i].y;
+    const g = gradientPhi(x, y, time);
 
-  // base (anchor) position
-  const bx = baseNodes[i].x;
-  const by = baseNodes[i].y;
+    // ẋ = k∇φ − γ(x−x₀)
+    nodes[i].x = x + g.x * k;
+    nodes[i].y = y + g.y * k;
 
-  // field gradient at node
-  const g = gradientPhi(x, y, time);
+    nodes[i].x += (bx - nodes[i].x) * gamma;
+    nodes[i].y += (by - nodes[i].y) * gamma;
+  }
 
-  // EVF motion: ẋ = k∇φ − γ(x−x₀)
-  nodes[i].x = x + g.x * k;
-  nodes[i].y = y + g.y * k;
-
-  // damping toward baseline
-  nodes[i].x += (bx - nodes[i].x) * gamma;
-  nodes[i].y += (by - nodes[i].y) * gamma;
-}
-
-  // update points + edges
   ptsGeom.setFromPoints(nodes);
   ptsGeom.attributes.position.needsUpdate = true;
   updateEdges();
