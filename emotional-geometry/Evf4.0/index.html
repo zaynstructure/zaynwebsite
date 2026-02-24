@@ -327,7 +327,7 @@ const k = params.k * kBreath;
   // cosmetic: show coupling intensity
   edges.material.opacity  = 0.10 + 0.90 * (k / 0.6);
   points.material.opacity = 0.25 + 0.75 * (k / 0.6);
-  arrowMat.opacity        = 0.15 + 0.85 * (k / 0.6);
+  
 
   const vx = new Array(nodes.length).fill(0);
   const vy = new Array(nodes.length).fill(0);
@@ -359,18 +359,6 @@ params.baseSample = phi0;
     nodes[i].x += (bx - nodes[i].x) * gamma;
     nodes[i].y += (by - nodes[i].y) * gamma;
   }
-
-  // update velocity arrows:
-  // normalize direction so arrows stay visible even when gradient is small,
-  // but still scale length by speed and k.
-  const ax = vx.map((_, i) => {
-  const s = Math.hypot(vx[i], vy[i]) + 1e-6;
-  return (vx[i] / s) * params.arrowScale;
-});
-const ay = vy.map((_, i) => {
-  const s = Math.hypot(vx[i], vy[i]) + 1e-6;
-  return (vy[i] / s) * params.arrowScale;
-});
   updateEdges(); // make sure your updateEdges() function exists above
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
