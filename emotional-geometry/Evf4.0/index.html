@@ -225,25 +225,36 @@ addEventListener("resize",()=>{
 
 // ---------- animate ----------
 
-  function samplePhi(x, y, time){
+  // ---- GUI additions (put after your existing gui.add(params,"k"... ) ) ----
+params.motionBoost = 6.0;     // exaggerate k effect on motion (debug)
+params.arrowScale  = 0.20;    // arrow length scale (debug)
+params.freezeBase  = false;   // if true, disable pull to base (debug)
+
+gui.add(params, "motionBoost", 0.0, 20.0, 0.1).name("debug: motionBoost");
+gui.add(params, "arrowScale",  0.0, 1.0, 0.01).name("debug: arrowScale");
+gui.add(params, "freezeBase").name("debug: freeze base");
+
+// ---- helpers ----
+function samplePhi(x, y, time){
   const u = x*0.5 + 0.5;
   const v = y*0.5 + 0.5;
 
   const dx = u - 0.5;
   const dy = v - 0.5;
-  const r = Math.sqrt(dx*dx + dy*dy);
+  const r  = Math.sqrt(dx*dx + dy*dy);
 
   const basin = Math.exp(-r*r*(4 + 6*params.attractor));
 
   const speed = 0.8 + 3.5*params.rhythm;
-  const k = 10 + 22*params.rhythm;
-  const rings = 0.5 + 0.5*Math.cos(k*r - time*speed);
+  const kk    = 10 + 22*params.rhythm;
+  const rings = 0.5 + 0.5*Math.cos(kk*r - time*speed);
 
-  return 2.0*basin + 1.6*rings;
+  // amplify a bit so gradients are stronger
+  return 2.2*basin + 1.8*rings;
 }
 
 function gradientPhi(x, y, time){
-  const e = 0.006;
+  const e  = 0.01; // larger step => stronger, less noisy gradient estimate
   const gx = samplePhi(x + e, y, time) - samplePhi(x - e, y, time);
   const gy = samplePhi(x, y + e, time) - samplePhi(x, y - e, time);
   return { x: gx, y: gy };
@@ -253,47 +264,61 @@ function animate(t){
   const time = t * 0.001;
   fieldMat.uniforms.uTime.value = time;
 
-  const phase = time * (0.8 + 4.0 * params.rhythm);
+  // IMPORTANT: make k literal (no baseline, no squaring)
+  const k     = params.k;
+  const gamma = (params.debugNoDamping || params.freezeBase) ? 0.0 : params.gamma * 0.05;
 
-  const k0 = params.k * params.k;
-  const k  = (0.02 + 0.6 * k0);   // ← pure coupling (clearer)
-  const gamma = (params.debugNoDamping ? 0.0 : params.gamma * 0.05);
+  // cosmetic: show coupling intensity
+  edges.material.opacity  = 0.10 + 0.90 * (k / 0.6);
+  points.material.opacity = 0.25 + 0.75 * (k / 0.6);
+  arrowMat.opacity        = 0.15 + 0.85 * (k / 0.6);
 
   const vx = new Array(nodes.length).fill(0);
-const vy = new Array(nodes.length).fill(0);
-
-  edges.material.opacity  = 0.15 + 0.85 * Math.min(1, params.k / 0.6);
-  points.material.opacity = 0.30 + 0.70 * Math.min(1, params.k / 0.6);
+  const vy = new Array(nodes.length).fill(0);
 
   for (let i = 0; i < nodes.length; i++){
-    const x = nodes[i].x;
-    const y = nodes[i].y;
-
+    const x  = nodes[i].x;
+    const y  = nodes[i].y;
     const bx = baseNodes[i].x;
     const by = baseNodes[i].y;
 
     const g = gradientPhi(x, y, time);
 
-    vx[i] = g.x * k;
-vy[i] = g.y * k;
+    // motion velocity (proportional to k)
+    vx[i] = g.x * k * params.motionBoost;
+    vy[i] = g.y * k * params.motionBoost;
 
-nodes[i].x = x + vx[i];
-nodes[i].y = y + vy[i];
+    // integrate
+    nodes[i].x = x + vx[i];
+    nodes[i].y = y + vy[i];
 
+    // pull back toward base (damping)
     nodes[i].x += (bx - nodes[i].x) * gamma;
     nodes[i].y += (by - nodes[i].y) * gamma;
   }
-  
-  // exaggerate arrows for visibility (does NOT affect the node motion)
-const arrowScale = 30 + 220 * params.k;  // 0 → 30, 0.6 → ~162
-updateArrows(vx, vy, arrowScale);
-  
+
+  // update velocity arrows:
+  // normalize direction so arrows stay visible even when gradient is small,
+  // but still scale length by speed and k.
+  const ax = vx.map((v, i) => {
+    const s = Math.hypot(vx[i], vy[i]) + 1e-6;
+    return (vx[i] / s) * (s * params.arrowScale);
+  });
+  const ay = vy.map((v, i) => {
+    const s = Math.hypot(vx[i], vy[i]) + 1e-6;
+    return (vy[i] / s) * (s * params.arrowScale);
+  });
+  updateArrows(ax, ay, 1.0);
+
   ptsGeom.setFromPoints(nodes);
   ptsGeom.attributes.position.needsUpdate = true;
-  updateEdges();
 
+  updateEdges(); // make sure your updateEdges() function exists above
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(animate);
 }
 
 // ---- start loop ----
