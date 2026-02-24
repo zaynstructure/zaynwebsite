@@ -265,7 +265,9 @@ function animate(t){
   fieldMat.uniforms.uTime.value = time;
 
   // IMPORTANT: make k literal (no baseline, no squaring)
-  const k     = params.k;
+  const phase = time * (0.8 + 4.0 * params.rhythm);
+const kBreath = 0.65 + 0.35 * Math.sin(phase); // rhythmic renormalization
+const k = params.k * kBreath;
   const gamma = (params.debugNoDamping || params.freezeBase) ? 0.0 : params.gamma * 0.05;
 
   // cosmetic: show coupling intensity
