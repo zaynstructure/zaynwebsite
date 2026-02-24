@@ -213,9 +213,16 @@ function updateArrows(vxArr, vyArr, scale){
   arrowMat.opacity = 1.0;
 
 // ---------- GUI ----------
-const params={xi:0.35,gamma:0.6,attractor:0.7,rhythm:0.5,k:0.18,debugNoDamping:false};
-params.etaBase = 0.15;      // baseline learning rate (0..1-ish, per second scale)
-params.baseSample = 0.0;    // debug readout
+const params = {
+  xi:0.35, gamma:0.6, attractor:0.7, rhythm:0.5, k:0.18, debugNoDamping:false,
+  etaBase:0.15, baseSample:0.0,
+
+  rhA:0.18,   // amplitude
+  rhW:1.20,   // angular frequency
+  rhMix:0.60  // mix between phaseShift and brightness forcing
+};
+
+  
 let phi0 = 0.0;             // global baseline
   
 const gui=new GUI({width:180});
@@ -259,6 +266,38 @@ gui.add(params, "arrowScale",  0.0, 5.0, 0.01).name("debug: arrowScale");
 gui.add(params, "freezeBase").name("debug: freeze base");
 
 // ---- helpers ----
+function samplePhi_raw(x, y, time){
+  const u = x*0.5 + 0.5;
+  const v = y*0.5 + 0.5;
+  const dx = u - 0.5;
+  const dy = v - 0.5;
+  const r  = Math.sqrt(dx*dx + dy*dy);
+
+  const basin = Math.exp(-r*r*(4 + 6*params.attractor));
+  const speed = 0.8 + 3.5*params.rhythm;
+  const kk    = 10 + 22*params.rhythm;
+  const rings = 0.5 + 0.5*Math.cos(kk*r - time*speed);
+
+  return 2.2*basin + 1.8*rings;
+}
+
+  function meanPhi(time){
+  // sample a few fixed points in NDC
+  const pts = [
+    [-0.5, -0.5], [0.5, -0.5],
+    [-0.5,  0.5], [0.5,  0.5],
+    [0.0,   0.0]
+  ];
+  let s = 0;
+  for (const [x,y] of pts) s += samplePhi_raw(x,y,time); // raw, NOT baseline-subtracted
+  return s / pts.length;
+}
+
+function samplePhi(x,y,time){
+  return samplePhi_raw(x,y,time) - phi0;
+}
+
+  
 function samplePhi(x, y, time){
   const u = x*0.5 + 0.5;
   const v = y*0.5 + 0.5;
@@ -275,7 +314,6 @@ function samplePhi(x, y, time){
 
   // amplify a bit so gradients are stronger
   return 2.2*basin + 1.8*rings;
-  return phi - phi0;
 }
 
 function gradientPhi(x, y, time){
@@ -311,6 +349,8 @@ const k = params.k * kBreath;
 
     const dt = 1/60; // or compute from lastTime for accuracy
 const m = meanPhi(time);
+phi0 += params.etaBase * (m - phi0) * dt;
+params.baseSample = phi0;
 
 // EMA: phi0 += eta*(m - phi0)*dt
 phi0 += params.etaBase * (m - phi0) * dt;
