@@ -132,9 +132,6 @@ const edgeMat=new THREE.LineBasicMaterial({
   opacity:0.45
 });
 
-const edges=new THREE.LineSegments(edgeGeom,edgeMat);
-scene.add(edges);
-
 const ptsGeom=new THREE.BufferGeometry().setFromPoints(nodes);
 const ptsMat=new THREE.PointsMaterial({
   color:0xffffff,
