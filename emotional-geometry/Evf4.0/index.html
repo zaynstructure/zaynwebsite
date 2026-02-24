@@ -221,7 +221,7 @@ function animate(t){
   const phase = time * (0.8 + 4.0 * params.rhythm);
 
   // EVF parameters
-  const k = params.k * (0.8 + 0.4 * Math.sin(phase)); // rhythm-modulated coupling
+  const k = params.k * (0.6 + 0.8 * (0.5 + 0.5*Math.sin(phase))); // rhythm-modulated coupling
   const gamma = params.gamma * 0.05;                  // damping scale
 
   for (let i = 0; i < nodes.length; i++){
