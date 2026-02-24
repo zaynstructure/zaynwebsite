@@ -24,6 +24,8 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 
+const MAX_NODES = 8;
+  
 // ---------- EVF field shader ----------
 const fieldMat = new THREE.ShaderMaterial({
   uniforms:{
@@ -60,6 +62,16 @@ const fieldMat = new THREE.ShaderMaterial({
     uniform float uRhA;
     uniform float uRhW;
     uniform float uRhMix;
+    uniform int   uNodeCount;
+uniform float uNodeGain;
+uniform float uNodeSigma;
+uniform vec2  uNodes[8];
+
+float gauss(vec2 uv, vec2 c, float sigma){
+  vec2 d = uv - c;
+  float s2 = sigma * sigma + 1e-6;
+  return exp(-dot(d,d) / (2.0 * s2));
+}
 
     float hash(vec2 p){
       return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);
