@@ -260,7 +260,7 @@ addEventListener("resize",()=>{
 
   // ---- GUI additions (put after your existing gui.add(params,"k"... ) ) ----
 params.motionBoost = 10.0;     // exaggerate k effect on motion (debug)
-params.arrowScale  = 2.0;    // arrow length scale (debug)
+
 params.freezeBase  = false;   // if true, disable pull to base (debug)
 
 gui.add(params, "motionBoost", 0.0, 20.0, 0.1).name("debug: motionBoost");
@@ -371,10 +371,6 @@ const ay = vy.map((_, i) => {
   const s = Math.hypot(vx[i], vy[i]) + 1e-6;
   return (vy[i] / s) * params.arrowScale;
 });
-updateArrows(ax, ay, 1.0);
-  ptsGeom.setFromPoints(nodes);
-  ptsGeom.attributes.position.needsUpdate = true;
-
   updateEdges(); // make sure your updateEdges() function exists above
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
