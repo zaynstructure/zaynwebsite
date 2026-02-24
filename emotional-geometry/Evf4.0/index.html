@@ -163,6 +163,7 @@ scene.add(arrows);
 function updateArrows(vxArr, vyArr, scale){
   const pos = arrowGeom.attributes.position.array;
   let k = 0;
+
   for (let i = 0; i < nodes.length; i++){
     const x = nodes[i].x, y = nodes[i].y, z = nodes[i].z;
 
@@ -174,23 +175,9 @@ function updateArrows(vxArr, vyArr, scale){
     // end
     pos[k++] = x + vx; pos[k++] = y + vy; pos[k++] = z;
   }
-  
-  
+
   arrowGeom.attributes.position.needsUpdate = true;
 }
-
-function updateEdges(){
-  const pos=edgeGeom.attributes.position.array;
-  let k=0;
-  for(const [a,b] of edgePairs){
-    const A=nodes[a];
-    const B=nodes[b];
-    pos[k++]=A.x; pos[k++]=A.y; pos[k++]=A.z;
-    pos[k++]=B.x; pos[k++]=B.y; pos[k++]=B.z;
-  }
-  edgeGeom.attributes.position.needsUpdate=true;
-}
-
 
 // ---------- GUI ----------
 const params={xi:0.35,gamma:0.6,attractor:0.7,rhythm:0.5,k:0.18,debugNoDamping:false};
@@ -282,7 +269,9 @@ nodes[i].y = y + vy[i];
     nodes[i].x += (bx - nodes[i].x) * gamma;
     nodes[i].y += (by - nodes[i].y) * gamma;
   }
-updateArrows(vx, vy, 45.0);
+  
+  updateArrows(vx, vy, 45.0);
+  
   ptsGeom.setFromPoints(nodes);
   ptsGeom.attributes.position.needsUpdate = true;
   updateEdges();
