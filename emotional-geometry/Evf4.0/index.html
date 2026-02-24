@@ -88,7 +88,8 @@ const fieldMat = new THREE.ShaderMaterial({
       rings *= exp(-r*r*1.6);
 
       // tension texture
-      float tex=ridged(noise(uv*(5.0+3.0*uR)+uTime*0.03));
+      float phase = uTime * (0.4 + 2.2*uR);
+float tex = ridged(noise((uv + vec2(cos(phase), sin(phase))*0.08) * (5.0+3.0*uR)));
 
       // damping
       float smoothTex=mix(tex,basin,uGamma*0.6);
@@ -187,11 +188,25 @@ function animate(t){
   fieldMat.uniforms.uTime.value=time;
 
   // subtle EVF-R motion
-  const pulse = 1.0 + 0.25 * Math.sin(time * (0.8 + 4.0 * params.rhythm));
+  const phase = time * (0.8 + 4.0 * params.rhythm);
+  const pulse = 1.0 + 0.25 * Math.sin(phase);
   const jitterAmp = 0.02 * params.xi * pulse;
   for(let i=0;i<nodes.length;i++){
     const jx=(Math.sin(time*2.3+i*1.7))*jitterAmp;
     const jy=(Math.cos(time*2.1+i*2.1))*jitterAmp;
+
+    const rot = 0.04 * Math.sin(phase);
+
+for (let i=0;i<nodes.length;i++){
+  const bx = baseNodes[i].x;
+  const by = baseNodes[i].y;
+
+  const x = bx * Math.cos(rot) - by * Math.sin(rot);
+  const y = bx * Math.sin(rot) + by * Math.cos(rot);
+
+  nodes[i].x = x * (0.98 + 0.02*pulse);
+  nodes[i].y = y * (0.98 + 0.02*pulse);
+}
 
     nodes[i].x=baseNodes[i].x+jx;
     nodes[i].y=baseNodes[i].y+jy;
