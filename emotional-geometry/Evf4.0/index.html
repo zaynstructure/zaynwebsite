@@ -192,7 +192,6 @@ addEventListener("resize",()=>{
 // ---------- animate ----------
 
   function samplePhi(x, y, time){
-  // convert NDC [-1..1] to UV [0..1]
   const u = x*0.5 + 0.5;
   const v = y*0.5 + 0.5;
 
@@ -200,23 +199,22 @@ addEventListener("resize",()=>{
   const dy = v - 0.5;
   const r = Math.sqrt(dx*dx + dy*dy);
 
-    
-  // basin approx (match shader)
   const basin = Math.exp(-r*r*(4 + 6*params.attractor));
 
-  // rhythm rings approx
   const speed = 0.8 + 3.5*params.rhythm;
   const k = 10 + 22*params.rhythm;
   const rings = 0.5 + 0.5*Math.cos(k*r - time*speed);
 
   return 0.6*basin + 0.4*rings;
 }
-  function gradientPhi(x, y, time){
-  const e = 0.006; // small step in NDC space
+
+function gradientPhi(x, y, time){
+  const e = 0.006;
   const gx = samplePhi(x + e, y, time) - samplePhi(x - e, y, time);
   const gy = samplePhi(x, y + e, time) - samplePhi(x, y - e, time);
   return { x: gx, y: gy };
 }
+
 function animate(t){
   const time = t * 0.001;
   fieldMat.uniforms.uTime.value = time;
@@ -224,10 +222,9 @@ function animate(t){
   const phase = time * (0.8 + 4.0 * params.rhythm);
 
   const k0 = params.k * params.k;
-  const k  = (0.02 + 0.6 * k0) * (0.8 + 0.4 * Math.sin(phase));
+  const k  = (0.02 + 0.6 * k0);   // ← pure coupling (clearer)
   const gamma = (params.debugNoDamping ? 0.0 : params.gamma * 0.05);
 
-  // k → visible intensity (once per frame)
   edges.material.opacity  = 0.15 + 0.85 * Math.min(1, params.k / 0.6);
   points.material.opacity = 0.30 + 0.70 * Math.min(1, params.k / 0.6);
 
@@ -254,8 +251,10 @@ function animate(t){
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
+
+// ---- start loop ----
+requestAnimationFrame(animate);
+
 </script>
-</body>
-</html>
 </body>
 </html>
