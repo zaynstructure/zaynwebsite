@@ -192,6 +192,9 @@ const params = {
   bGain:  0.15,   // basin scaling
   bClamp: 1.0,    // cap
 };
+let phi0 = 0.0;
+const gui = new GUI({ width: 180 });
+gui.title("EVF");
   
 // ---------- EVF relational graph ----------
 const baseNodes=[
@@ -200,6 +203,8 @@ const baseNodes=[
   new THREE.Vector3(0.05,-0.35,0.01)
 ];
 
+
+  
 const nodes=baseNodes.map(v=>v.clone());
 const S = new Float32Array(nodes.length).fill(0.0); // salience memory
 const edgePairs=[[0,1],[1,2],[2,0]];
@@ -255,11 +260,6 @@ scene.add(rings);
   }
   edgeGeom.attributes.position.needsUpdate = true;
 }
-function makeRingTexture(size=128){
-  const c = document.createElement("canvas");
-  c.width = c.height = size;
-  const ctx = c.getContext("2d");
-
   const rOuter = size*0.48;
   const rInner = size*0.36;
   const cx = size/2;
