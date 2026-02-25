@@ -65,7 +65,7 @@ const fieldMat = new THREE.ShaderMaterial({
     uRhW:{value:1.20},
     uRhMix:{value:0.60},
 
-    uFieldTex: { value: rtRead.texture },
+    uFieldTex: { value: null },
     uPdeMix:   { value: 0.85 },
     uNodeCount:{value:0},
     uNodeGain:  { value: 0.25 },
@@ -161,7 +161,7 @@ const fieldMat = new THREE.ShaderMaterial({
 
       // --- PDE field sample ---
       float phiP = 0.0;
-      if (uFieldTex != sampler2D(0)) { // harmless guard; three will bind anyway
+      
         phiP = texture2D(uFieldTex, uv).r;
       }
 
