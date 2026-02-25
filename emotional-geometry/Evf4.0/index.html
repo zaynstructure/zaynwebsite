@@ -198,46 +198,46 @@ const gui = new GUI({ width: 180 });
 gui.title("EVF");
   
 // ---------- EVF relational graph ----------
-const baseNodes=[
-  new THREE.Vector3(-0.15,0.10,0.01),
-  new THREE.Vector3(0.35,-0.05,0.01),
-  new THREE.Vector3(0.05,-0.35,0.01)
+const baseNodes = [
+  new THREE.Vector3(-0.15, 0.10, 0.01),
+  new THREE.Vector3( 0.35,-0.05, 0.01),
+  new THREE.Vector3( 0.05,-0.35, 0.01)
 ];
 
+const nodes = baseNodes.map(v => v.clone());
+const S = new Float32Array(nodes.length).fill(0.0);
 
-  
-const nodes=baseNodes.map(v=>v.clone());
-const S = new Float32Array(nodes.length).fill(0.0); // salience memory
-const edgePairs=[[0,1],[1,2],[2,0]];
+const edgePairs = [[0,1],[1,2],[2,0]];
 
-const edgePos=new Float32Array(edgePairs.length*2*3);
-const edgeGeom=new THREE.BufferGeometry();
-edgeGeom.setAttribute("position",new THREE.BufferAttribute(edgePos,3));
+// ----- edges -----
+const edgePos = new Float32Array(edgePairs.length * 2 * 3);
+const edgeGeom = new THREE.BufferGeometry();
+edgeGeom.setAttribute("position", new THREE.BufferAttribute(edgePos,3));
 
-const edgeMat=new THREE.LineBasicMaterial({
-  color:0xffffff,
-  transparent:true,
-  opacity:0.45
+const edgeMat = new THREE.LineBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.45
 });
 
-  const edges = new THREE.LineSegments(edgeGeom, edgeMat);
+const edges = new THREE.LineSegments(edgeGeom, edgeMat);
 scene.add(edges);
 
-const ptsGeom=new THREE.BufferGeometry().setFromPoints(nodes);
-const ptsMat=new THREE.PointsMaterial({
-  color:0xffffff,
-  size:6,
-  sizeAttenuation:false,
-  transparent:true,
-  opacity:0.8
+// ----- node points -----
+const ptsGeom = new THREE.BufferGeometry().setFromPoints(nodes);
+
+const ptsMat = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 8,
+  sizeAttenuation: false,
+  transparent: true,
+  opacity: 0.9
 });
-const points=new THREE.Points(ptsGeom,ptsMat);
 
-  scene.add(points);
+const points = new THREE.Points(ptsGeom, ptsMat);
+scene.add(points);
 
-
-/
-  // ---- basin ring layer ----
+// ----- basin rings -----
 const ringGeom = new THREE.BufferGeometry().setFromPoints(nodes);
 
 const ringMat = new THREE.PointsMaterial({
@@ -247,12 +247,13 @@ const ringMat = new THREE.PointsMaterial({
   opacity: 0.25,
   depthWrite: false,
   color: 0xffffff,
-  alphaTest: 0.01,
+  alphaTest: 0.01
 });
 
 const rings = new THREE.Points(ringGeom, ringMat);
 scene.add(rings);
-/ --- draw order / depth ---
+
+// ----- draw order / depth -----
 field.renderOrder  = 0;
 edges.renderOrder  = 1;
 rings.renderOrder  = 2;
@@ -262,20 +263,22 @@ points.material.depthTest = false;
 rings.material.depthTest  = false;
 edges.material.depthTest  = false;
 
-
-
-  
-  function updateEdges(){
+// ----- edge updater -----
+function updateEdges(){
   const pos = edgeGeom.attributes.position.array;
   let k = 0;
+
   for (const [a,b] of edgePairs){
     const A = nodes[a];
     const B = nodes[b];
+
     pos[k++] = A.x; pos[k++] = A.y; pos[k++] = A.z;
     pos[k++] = B.x; pos[k++] = B.y; pos[k++] = B.z;
   }
+
   edgeGeom.attributes.position.needsUpdate = true;
-}
+}true;
+
   
   
 // ---------- 
@@ -434,14 +437,9 @@ Bavg /= nodes.length;
 // basin → ring size + opacity
 ringMat.opacity = 0.15 + 0.6*Math.min(1,Bavg);
 ringMat.size    = 18 + 28*Math.min(1,Bavg);
+rings.geometry.setFromPoints(nodes);
+points.geometry.setFromPoints(nodes);
 
-ringGeom.setFromPoints(nodes);
-  ptsGeom.setFromPoints(nodes);
-ptsGeom.attributes.position.needsUpdate = true;
-ringGeom.attributes.position.needsUpdate = true;
-  for (let i = 0; i < nodes.length; i++){
-  const x  = nodes[i].x;
-  const y  = nodes[i].y;
   const bx = baseNodes[i].x;
   const by = baseNodes[i].y;
 
