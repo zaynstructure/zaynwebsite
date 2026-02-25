@@ -179,6 +179,20 @@ phi += uNodeGain * inj;
 const field=new THREE.Mesh(new THREE.PlaneGeometry(2,2),fieldMat);
 scene.add(field);
 
+const params = {
+  xi:0.35, gamma:0.6, attractor:0.7, rhythm:0.5, k:0.18, debugNoDamping:false,
+  etaBase:0.15, baseSample:0.0,
+
+  rhA:0.18,
+  rhW:1.20,
+  rhMix:0.60,
+
+  alphaS: 0.10,   // imprint rate
+  gammaS: 0.20,   // decay
+  bGain:  0.15,   // basin scaling
+  bClamp: 1.0,    // cap
+};
+  
 // ---------- EVF relational graph ----------
 const baseNodes=[
   new THREE.Vector3(-0.15,0.10,0.01),
@@ -214,6 +228,22 @@ const ptsMat=new THREE.PointsMaterial({
 const points=new THREE.Points(ptsGeom,ptsMat);
 scene.add(points);
 
+  // ---- basin ring layer ----
+const ringGeom = new THREE.BufferGeometry().setFromPoints(nodes);
+
+const ringMat = new THREE.PointsMaterial({
+  map: makeRingTexture(),
+  size: 28,
+  transparent: true,
+  opacity: 0.25,
+  depthWrite: false,
+  color: 0xffffff
+});
+
+const rings = new THREE.Points(ringGeom, ringMat);
+scene.add(rings);
+
+
   function updateEdges(){
   const pos = edgeGeom.attributes.position.array;
   let k = 0;
@@ -245,29 +275,12 @@ function makeRingTexture(size=128){
   ctx.arc(cx,cy,rOuter,0,Math.PI*2);
   ctx.fill();
 
-  return new THREE.CanvasTexture(c);
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
 }
-
-// ---------- GUI ----------
-const params = {
-  xi:0.35, gamma:0.6, attractor:0.7, rhythm:0.5, k:0.18, debugNoDamping:false,
-  etaBase:0.15, baseSample:0.0,
-
-  rhA:0.18,   // amplitude
-  rhW:1.20,   // angular frequency
-  rhMix:0.60,  // mix between phaseShift and brightness forcing
-  alphaS: 0.35,  // imprint rate
-  gammaS: 0.10,  // decay rate
-  bGain:  1.00,  // basin -> strength scale
-  bClamp: 1.50,  // cap strength (stability)
-};
-
   
-let phi0 = 0.0;             // global baseline
-  
-const gui=new GUI({width:180});
-gui.title("EVF");
-
+// ---------- 
 gui.add(params,"xi",0,1,0.01).name("noise ξ")
   .onChange(v=>fieldMat.uniforms.uXi.value=v);
 
