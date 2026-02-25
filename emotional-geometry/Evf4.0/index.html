@@ -20,6 +20,29 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 document.body.appendChild(renderer.domElement);
 
+ function makeRingTexture(size=128){
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
+
+  const rOuter = size*0.48;
+  const rInner = size*0.36;
+  const cx = size/2;
+  const cy = size/2;
+
+  const g = ctx.createRadialGradient(cx,cy,rInner, cx,cy,rOuter);
+  g.addColorStop(0.0, "rgba(255,255,255,0.0)");
+  g.addColorStop(0.6, "rgba(255,255,255,0.9)");
+  g.addColorStop(1.0, "rgba(255,255,255,0.0)");
+
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx,cy,rOuter,0,Math.PI*2);
+  ctx.fill();
+
+  return new THREE.CanvasTexture(c);
+} 
+
 // ---------- scene ----------
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
@@ -202,7 +225,28 @@ scene.add(points);
   }
   edgeGeom.attributes.position.needsUpdate = true;
 }
+function makeRingTexture(size=128){
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
 
+  const rOuter = size*0.48;
+  const rInner = size*0.36;
+  const cx = size/2;
+  const cy = size/2;
+
+  const g = ctx.createRadialGradient(cx,cy,rInner, cx,cy,rOuter);
+  g.addColorStop(0.0, "rgba(255,255,255,0.0)");
+  g.addColorStop(0.6, "rgba(255,255,255,0.9)");
+  g.addColorStop(1.0, "rgba(255,255,255,0.0)");
+
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx,cy,rOuter,0,Math.PI*2);
+  ctx.fill();
+
+  return new THREE.CanvasTexture(c);
+}
 
 // ---------- GUI ----------
 const params = {
@@ -370,7 +414,17 @@ for (let i = 0; i < nodes.length && i < MAX_NODES; i++){
   strengths[i] = Math.min(params.bClamp, Math.max(0, params.bGain * Bi));
 }
 
-  
+  let Bavg = 0;
+for(let i=0;i<nodes.length;i++){
+  Bavg += strengths[i];
+}
+Bavg /= nodes.length;
+
+// basin → ring size + opacity
+ringMat.opacity = 0.15 + 0.6*Math.min(1,Bavg);
+ringMat.size    = 18 + 28*Math.min(1,Bavg);
+
+rings.geometry.setFromPoints(nodes);
   for (let i = 0; i < nodes.length; i++){
   const x  = nodes[i].x;
   const y  = nodes[i].y;
