@@ -41,7 +41,8 @@ const fieldMat = new THREE.ShaderMaterial({
   uNodeCount:{value:0},
   uNodeGain:  { value: 0.25 },  // strength of injection
   uNodeSigma: { value: 0.18 },  // width in UV space
-  uNodes:     { value: Array.from({ length: 8 }, () => new THREE.Vector2()) }
+  uNodes:     { value: Array.from({ length: 8 }, () => new THREE.Vector2()) },
+  uNodeStrength: { value: new Float32Array(MAX_NODES) },
 },
   vertexShader:`
     varying vec2 vUv;
@@ -66,6 +67,7 @@ const fieldMat = new THREE.ShaderMaterial({
 uniform float uNodeGain;
 uniform float uNodeSigma;
 uniform vec2  uNodes[8];
+uniform float uNodeStrength[8];
 
 float gauss(vec2 uv, vec2 c, float sigma){
   vec2 d = uv - c;
@@ -161,6 +163,7 @@ const baseNodes=[
 ];
 
 const nodes=baseNodes.map(v=>v.clone());
+const S = new Float32Array(nodes.length).fill(0.0); // salience memory
 const edgePairs=[[0,1],[1,2],[2,0]];
 
 const edgePos=new Float32Array(edgePairs.length*2*3);
@@ -207,7 +210,11 @@ const params = {
 
   rhA:0.18,   // amplitude
   rhW:1.20,   // angular frequency
-  rhMix:0.60  // mix between phaseShift and brightness forcing
+  rhMix:0.60,  // mix between phaseShift and brightness forcing
+  alphaS: 0.35,  // imprint rate
+  gammaS: 0.10,  // decay rate
+  bGain:  1.00,  // basin -> strength scale
+  bClamp: 1.50,  // cap strength (stability)
 };
 
   
@@ -336,6 +343,31 @@ const dt = 1/60; // or compute from lastTime for accuracy
 const m = meanPhi(time);
 phi0 += params.etaBase * (m - phi0) * dt;
 params.baseSample = phi0;
+
+// --- attachment basin -> per-node injection strength (A) ---
+const strengths = fieldMat.uniforms.uNodeStrength.value; // Float32Array
+strengths.fill(0);
+
+for (let i = 0; i < nodes.length && i < MAX_NODES; i++){
+  const x = nodes[i].x;
+  const y = nodes[i].y;
+
+  // use RAW field potential (not baseline-subtracted)
+  const phi_i = samplePhi_raw(x, y, time);
+
+  // salience memory update: S_i += dt*(alphaS*phi_i - gammaS*S_i)
+  S[i] += dt * (params.alphaS * phi_i - params.gammaS * S[i]);
+  if (S[i] < 0) S[i] = 0;
+
+  // coupling coherence (v0) = global k
+  const Ci = k;
+
+  // basin B_i = phi_i * S_i * C_i
+  const Bi = phi_i * S[i] * Ci;
+
+  // map basin -> strength (clamped)
+  strengths[i] = Math.min(params.bClamp, Math.max(0, params.bGain * Bi));
+}
 
   
   for (let i = 0; i < nodes.length; i++){
