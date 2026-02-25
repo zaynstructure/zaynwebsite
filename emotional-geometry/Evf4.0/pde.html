@@ -198,11 +198,28 @@ const simCam   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const simUniforms = {
   uPrev:  { value: rtRead.texture },
   uDt:    { value: 1/60 },
-  uKappa: { value: 0.08 }, // diffusion κ
-  uGamma: { value: 0.35 }, // damping γ
+
+  // diffusion κ = uKappaBase * uKappaMul * kappaDerived(in shader)
+  uKappaBase: { value: 0.08 },
+  uKappaMul:  { value: 1.0 },
+
+  // PDE damping
+  uGamma: { value: 0.35 },
   uPhi0:  { value: 0.0 },
-  uTexel: { value: new THREE.Vector2(1/simRes, 1/simRes) }, // (C)
-  uA: { value: 0.7 }, // reuse same attractor slider if you want
+
+  // time for PDE rhythm
+  uTime:  { value: 0.0 },
+
+  // attractor / basin (PDE-side)
+  uA:         { value: 0.7 },
+  uBasinGain: { value: 0.40 },
+
+  // rhythm (PDE-side)
+  uRhA:   { value: 0.18 },
+  uRhW:   { value: 1.20 },
+  uRhMix: { value: 0.60 },
+
+  uTexel: { value: new THREE.Vector2(1/simRes, 1/simRes) },
 
   uNodeCount:    { value: 0 },
   uNodes:        { value: Array.from({ length: 8 }, () => new THREE.Vector2()) },
@@ -222,8 +239,27 @@ const simMat = new THREE.ShaderMaterial({
   varying vec2 vUv;
 
   uniform sampler2D uPrev;
-  uniform float uDt, uKappa, uGamma, uPhi0;
+
+  // time step + PDE damping
+  uniform float uDt;
+  uniform float uGamma;
+  uniform float uTime;
+  uniform float uPhi0;
+
+
+  // diffusion controls (κ = base * mul * derived)
+  uniform float uKappaBase;
+  uniform float uKappaMul;
+
+  // basin / attractor
   uniform float uA;
+  uniform float uBasinGain;
+
+  // rhythm controls (PDE-side)
+  uniform float uRhA;
+  uniform float uRhW;
+  uniform float uRhMix;
+
   uniform vec2  uTexel;
 
   uniform int   uNodeCount;
@@ -239,34 +275,45 @@ const simMat = new THREE.ShaderMaterial({
   }
 
   void main(){
-    float phi = texture2D(uPrev, vUv).r;
+  float phi = texture2D(uPrev, vUv).r;
 
-    float up    = texture2D(uPrev, vUv + vec2(0.0, uTexel.y)).r;
-    float down  = texture2D(uPrev, vUv - vec2(0.0, uTexel.y)).r;
-    float left  = texture2D(uPrev, vUv - vec2(uTexel.x, 0.0)).r;
-    float right = texture2D(uPrev, vUv + vec2(uTexel.x, 0.0)).r;
-    float lap = (up + down + left + right - 4.0*phi);
+  float up    = texture2D(uPrev, vUv + vec2(0.0, uTexel.y)).r;
+  float down  = texture2D(uPrev, vUv - vec2(0.0, uTexel.y)).r;
+  float left  = texture2D(uPrev, vUv - vec2(uTexel.x, 0.0)).r;
+  float right = texture2D(uPrev, vUv + vec2(uTexel.x, 0.0)).r;
+  float lap = (up + down + left + right - 4.0*phi);
 
-    float inj = 0.0;
-    for(int i=0;i<8;i++){
-      if(i>=uNodeCount) break;
-      inj += uNodeStrength[i] * gauss(vUv, uNodes[i], uNodeSigma);
-    }
-    inj *= uNodeGain;
+  // rhythm (time-based)
+  float phase = uRhW * uTime;
+  float rhythmMul = mix(1.0, 0.5 + 0.5*sin(phase), uRhMix);
 
-    float dphi = uKappa*lap - uGamma*(phi - uPhi0) + inj;
+  // geometry-derived diffusion
+  float activity = abs(lap);
+  float kappaDerived = 1.0 + 3.0 * smoothstep(0.02, 0.20, activity);
+  float kappa = uKappaBase * uKappaMul * kappaDerived;
 
-    // basin term (your current “global well”)
-    float r = length(vUv - 0.5);
-    float basin = exp(-r*r*(4.0 + 6.0*uA));
-    dphi += 0.4 * basin;
-
-    float phiN = phi + uDt*dphi;
-    phiN = clamp(phiN, -2.0, 2.0);
-    gl_FragColor = vec4(phiN,0.0,0.0,1.0);
+  // node injection
+  float inj = 0.0;
+  for(int i=0;i<8;i++){
+    if(i>=uNodeCount) break;
+    inj += uNodeStrength[i] * gauss(vUv, uNodes[i], uNodeSigma);
   }
-`
+  inj *= uNodeGain;
+  inj *= rhythmMul;
 
+  // basin "well" (pull phi toward basin-shaped target)
+  float r = length(vUv - 0.5);
+  float basin = exp(-r*r*(4.0 + 6.0*uA));
+  float basinTarget = basin; // try also (2.0*basin-1.0)
+  float basinWell = uBasinGain * (basinTarget - phi) * rhythmMul;
+
+  float dphi = kappa*lap - uGamma*(phi - uPhi0) + inj + basinWell;
+
+  float phiN = phi + uDt * dphi;
+  phiN = clamp(phiN, -2.0, 2.0);
+  gl_FragColor = vec4(phiN,0.0,0.0,1.0);
+}
+`
 });
 
 simScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), simMat));
@@ -406,7 +453,9 @@ gui.add(params,"etaBase",0.0,1.0,0.01).name("baseline η");
 gui.add(params,"motionBoost",0.0,20.0,0.1).name("debug: motionBoost");
 gui.add(params,"freezeBase").name("debug: freeze base");
 
- gui.add(simUniforms.uKappa, "value", 0.0, 0.3, 0.001).name("diffusion κ");
+ gui.add(simUniforms.uKappaBase, "value", 0.0, 0.3, 0.001).name("diffusion κ base");
+gui.add(simUniforms.uKappaMul,  "value", 0.0, 2.0, 0.01).name("diffusion κ mul");
+gui.add(simUniforms.uBasinGain, "value", 0.0, 2.0, 0.01).name("basin gain");
 gui.add(simUniforms.uGamma, "value", 0.0, 2.0, 0.01).name("damping γ");
 gui.add(simUniforms.uNodeGain, "value", 0.0, 2.0, 0.01).name("inj gain");
 gui.add(simUniforms.uNodeSigma, "value", 0.01, 0.2, 0.001).name("inj sigma"); 
@@ -541,7 +590,30 @@ function animate(t){
   }
 
   simUniforms.uDt.value   = 1/60;
-  simUniforms.uPrev.value = rtRead.texture;
+simUniforms.uPrev.value = rtRead.texture;
+
+simUniforms.uTime.value = time;
+simUniforms.uA.value    = fieldMat.uniforms.uA.value;
+
+simUniforms.uRhA.value   = fieldMat.uniforms.uRhA.value;
+simUniforms.uRhW.value   = fieldMat.uniforms.uRhW.value;
+simUniforms.uRhMix.value = fieldMat.uniforms.uRhMix.value;
+
+simUniforms.uPhi0.value = phi0; // IMPORTANT baseline target
+
+simUniforms.uKappaMul.value = THREE.MathUtils.clamp(
+  0.6 + 0.8 * (k / 0.6),
+  0.2,
+  3.0
+);
+
+// leave PDE gamma independent unless you intentionally map it
+// simUniforms.uGamma.value = 0.05 + 1.5 * fieldMat.uniforms.uGamma.value;
+// optional: if you want PDE damping to track the analytic damping slider:
+
+
+// (optional) if you want PDE diffusion to “breathe” with coupling k:
+simUniforms.uKappaMul.value = 0.6 + 0.8 * (k / 0.6); // ~[0.6..1.4]
 
   renderer.setRenderTarget(rtWrite);
   renderer.render(simScene, simCam);
