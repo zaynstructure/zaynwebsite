@@ -162,8 +162,11 @@ const fieldMat = new THREE.ShaderMaterial({
       /// --- PDE field sample + blend (clean) ---
 float phiPDE = texture2D(uFieldTex, uv).r;
 float phi = mix(phiA, phiPDE, uPdeMix);
-      vec3 col = vec3(phi) * vec3(0.85,0.92,1.0);
-      gl_FragColor = vec4(col,1.0);
+
+// signed -> visible
+float phiVis = 0.5 + 0.5 * clamp(phi, -1.0, 1.0);
+vec3 col = vec3(phiVis) * vec3(0.85,0.92,1.0);
+gl_FragColor = vec4(col,1.0);
     }
   `
 });
@@ -235,85 +238,84 @@ const simMat = new THREE.ShaderMaterial({
     void main(){ vUv = uv; gl_Position = vec4(position.xy,0.0,1.0); }
   `,
   fragmentShader: `
-  precision highp float;
-  varying vec2 vUv;
+    precision highp float;
+    varying vec2 vUv;
 
-  uniform sampler2D uPrev;
+    uniform sampler2D uPrev;
 
-  // time step + PDE damping
-  uniform float uDt;
-  uniform float uGamma;
-  uniform float uTime;
-  uniform float uPhi0;
+    uniform float uDt;
+    uniform float uGamma;
+    uniform float uTime;
 
+    uniform float uKappaBase;
+    uniform float uKappaMul;
 
-  // diffusion controls (κ = base * mul * derived)
-  uniform float uKappaBase;
-  uniform float uKappaMul;
+    uniform float uA;
+    uniform float uBasinGain;
 
-  // basin / attractor
-  uniform float uA;
-  uniform float uBasinGain;
+    uniform float uRhW;
+    uniform float uRhMix;
 
-  // rhythm controls (PDE-side)
-  uniform float uRhA;
-  uniform float uRhW;
-  uniform float uRhMix;
+    uniform vec2  uTexel;
 
-  uniform vec2  uTexel;
+    uniform int   uNodeCount;
+    uniform vec2  uNodes[8];
+    uniform float uNodeStrength[8];
+    uniform float uNodeSigma;
+    uniform float uNodeGain;
 
-  uniform int   uNodeCount;
-  uniform vec2  uNodes[8];
-  uniform float uNodeStrength[8];
-  uniform float uNodeSigma;
-  uniform float uNodeGain;
+    float gauss(vec2 uv, vec2 c, float sigma){
+      vec2 d = uv - c;
+      float s2 = sigma*sigma + 1e-6;
+      return exp(-dot(d,d)/(2.0*s2));
+    }
 
-  float gauss(vec2 uv, vec2 c, float sigma){
-    vec2 d = uv - c;
-    float s2 = sigma*sigma + 1e-6;
-    return exp(-dot(d,d)/(2.0*s2));
-  }
+    void main(){
+      float phi = texture2D(uPrev, vUv).r;   // signed field stored in R
 
-  void main(){
-  float phi = texture2D(uPrev, vUv).r;
+      // Laplacian
+      float up    = texture2D(uPrev, vUv + vec2(0.0, uTexel.y)).r;
+      float down  = texture2D(uPrev, vUv - vec2(0.0, uTexel.y)).r;
+      float left  = texture2D(uPrev, vUv - vec2(uTexel.x, 0.0)).r;
+      float right = texture2D(uPrev, vUv + vec2(uTexel.x, 0.0)).r;
+      float lap = (up + down + left + right - 4.0*phi);
 
-  float up    = texture2D(uPrev, vUv + vec2(0.0, uTexel.y)).r;
-  float down  = texture2D(uPrev, vUv - vec2(0.0, uTexel.y)).r;
-  float left  = texture2D(uPrev, vUv - vec2(uTexel.x, 0.0)).r;
-  float right = texture2D(uPrev, vUv + vec2(uTexel.x, 0.0)).r;
-  float lap = (up + down + left + right - 4.0*phi);
+      // rhythm multiplier (0..1 blended toward 1)
+      float phase = uRhW * uTime;
+      float rhythm01 = 0.5 + 0.5*sin(phase);       // [0..1]
+      float rhythmMul = mix(1.0, rhythm01, uRhMix); // [~1..~0..1]
 
-  // rhythm (time-based)
-  float phase = uRhW * uTime;
-  float rhythmMul = mix(1.0, 0.5 + 0.5*sin(phase), uRhMix);
+      // geometry-derived diffusion
+      float activity = abs(lap);
+      float kappaDerived = 1.0 + 3.0 * smoothstep(0.02, 0.20, activity);
+      float kappa = uKappaBase * uKappaMul * kappaDerived;
 
-  // geometry-derived diffusion
-  float activity = abs(lap);
-  float kappaDerived = 1.0 + 3.0 * smoothstep(0.02, 0.20, activity);
-  float kappa = uKappaBase * uKappaMul * kappaDerived;
+      // node injection
+      float inj = 0.0;
+      for(int i=0;i<8;i++){
+        if(i>=uNodeCount) break;
+        inj += uNodeStrength[i] * gauss(vUv, uNodes[i], uNodeSigma);
+      }
+      inj *= uNodeGain;
+      inj *= rhythmMul;
 
-  // node injection
-  float inj = 0.0;
-  for(int i=0;i<8;i++){
-    if(i>=uNodeCount) break;
-    inj += uNodeStrength[i] * gauss(vUv, uNodes[i], uNodeSigma);
-  }
-  inj *= uNodeGain;
-  inj *= rhythmMul;
+      // signed basin target in [-1..1]
+      float r = length(vUv - 0.5);
+      float basin = exp(-r*r*(4.0 + 6.0*uA)); // [0..1]
+      float basinTarget = 2.0*basin - 1.0;    // [-1..1]
 
-  // basin "well" (pull phi toward basin-shaped target)
-  float r = length(vUv - 0.5);
-  float basin = exp(-r*r*(4.0 + 6.0*uA));
-  float basinTarget = basin; // try also (2.0*basin-1.0)
-  float basinWell = uBasinGain * (basinTarget - phi) * rhythmMul;
+      // "well" pulls phi toward basinTarget (stable, signed)
+      float basinWell = uBasinGain * (basinTarget - phi) * rhythmMul;
 
-  float dphi = kappa*lap - uGamma*(phi - uPhi0) + inj + basinWell;
+      // signed PDE: relax to 0 via -gamma*phi
+      float dphi = kappa*lap - uGamma*phi + inj + basinWell;
 
-  float phiN = phi + uDt * dphi;
-  phiN = clamp(phiN, -2.0, 2.0);
-  gl_FragColor = vec4(phiN,0.0,0.0,1.0);
-}
-`
+      float phiN = phi + uDt * dphi;
+      phiN = clamp(phiN, -2.0, 2.0);
+
+      gl_FragColor = vec4(phiN, 0.0, 0.0, 1.0);
+    }
+  `
 });
 
 simScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), simMat));
@@ -475,12 +477,17 @@ function samplePhi_raw(x, y, time){
   const dy = v - 0.5;
   const r  = Math.sqrt(dx*dx + dy*dy);
 
-  const basin = Math.exp(-r*r*(4 + 6*params.attractor));
+  const basin = Math.exp(-r*r*(4 + 6*params.attractor));        // [0..1]
   const speed = 0.8 + 3.5*params.rhythm;
   const kk    = 10 + 22*params.rhythm;
-  const rings = 0.5 + 0.5*Math.cos(kk*r - time*speed);
+  const rings = 0.5 + 0.5*Math.cos(kk*r - time*speed);          // [0..1]
 
-  return 2.2*basin + 1.8*rings;
+  // zero-center both components
+  const basinS = (basin - 0.5) * 2.0;  // [-1..1]
+  const ringsS = (rings - 0.5) * 2.0;  // [-1..1]
+
+  // signed field
+  return 1.1*basinS + 0.9*ringsS;      // tune weights as you like
 }
 
 function meanPhi(time){
@@ -593,7 +600,7 @@ simUniforms.uDt.value   = 1/60;
 simUniforms.uPrev.value = rtRead.texture;
 
 simUniforms.uTime.value = time;
-simUniforms.uPhi0.value = phi0;
+
 
 simUniforms.uA.value    = fieldMat.uniforms.uA.value;
 
