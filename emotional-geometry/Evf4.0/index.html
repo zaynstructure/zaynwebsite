@@ -222,6 +222,14 @@ const ptsMat  = new THREE.PointsMaterial({
   opacity:0.9
 });
 const points = new THREE.Points(ptsGeom, ptsMat);
+// --- SHARP node dots ---
+ptsMat.size = 10;                 // bigger = easier to see
+ptsMat.opacity = 1.0;             // fully opaque
+ptsMat.transparent = false;       // avoids soft blending from alpha
+ptsMat.depthWrite = false;        // don't punch holes in other layers
+ptsMat.depthTest = false;         // always draw on top
+ptsMat.blending = THREE.NoBlending; // crisp (no additive glow)
+  
 scene.add(points);
 
 // rings
