@@ -159,17 +159,9 @@ const fieldMat = new THREE.ShaderMaterial({
       }
       phiA += uNodeGain * injA;
 
-      // --- PDE field sample ---
-      float phiP = 0.0;
-      
-        phiP = texture2D(uFieldTex, uv).r;
-      }
-
-      // blend
-      float phi = mix(phiA, phiP, uPdeMix);
-      float phiPDE = texture2D(uFieldTex, uv).r;
-      phi = mix(phi, phiPDE, uPdeMix);
-
+      /// --- PDE field sample + blend (clean) ---
+float phiPDE = texture2D(uFieldTex, uv).r;
+float phi = mix(phiA, phiPDE, uPdeMix);
       vec3 col = vec3(phi) * vec3(0.85,0.92,1.0);
       gl_FragColor = vec4(col,1.0);
     }
