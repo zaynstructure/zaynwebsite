@@ -582,24 +582,24 @@ function animate(t){
 
   // ======== SIM STEP (PDE) ========
   simUniforms.uNodeCount.value = Math.min(nodes.length, 8);
-  for (let i = 0; i < simUniforms.uNodeCount.value; i++){
-    const u = nodes[i].x * 0.5 + 0.5;
-    const v = nodes[i].y * 0.5 + 0.5;
-    simUniforms.uNodes.value[i].set(u, v);
-    simUniforms.uNodeStrength.value[i] = strengths[i]; // reuse the computed strengths
-  }
+for (let i = 0; i < simUniforms.uNodeCount.value; i++){
+  const u = nodes[i].x * 0.5 + 0.5;
+  const v = nodes[i].y * 0.5 + 0.5;
+  simUniforms.uNodes.value[i].set(u, v);
+  simUniforms.uNodeStrength.value[i] = strengths[i];
+}
 
-  simUniforms.uDt.value   = 1/60;
+simUniforms.uDt.value   = 1/60;
 simUniforms.uPrev.value = rtRead.texture;
 
 simUniforms.uTime.value = time;
+simUniforms.uPhi0.value = phi0;
+
 simUniforms.uA.value    = fieldMat.uniforms.uA.value;
 
 simUniforms.uRhA.value   = fieldMat.uniforms.uRhA.value;
 simUniforms.uRhW.value   = fieldMat.uniforms.uRhW.value;
 simUniforms.uRhMix.value = fieldMat.uniforms.uRhMix.value;
-
-simUniforms.uPhi0.value = phi0; // IMPORTANT baseline target
 
 simUniforms.uKappaMul.value = THREE.MathUtils.clamp(
   0.6 + 0.8 * (k / 0.6),
