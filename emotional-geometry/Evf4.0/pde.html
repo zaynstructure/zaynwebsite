@@ -51,6 +51,134 @@ const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 
 const MAX_NODES = 8;
 
+// ===================== PDE FIELD (ping-pong) =====================
+const simRes = 512; // 256 (fast), 512 (good), 1024 (heavy)
+const rtOpts = {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.LinearFilter,
+  format: THREE.RGBAFormat,
+  type: THREE.FloatType,          // requires OES_texture_float / WebGL2 float support
+  depthBuffer: false,
+  stencilBuffer: false
+};
+
+const rtA = new THREE.WebGLRenderTarget(simRes, simRes, rtOpts);
+const rtB = new THREE.WebGLRenderTarget(simRes, simRes, rtOpts);
+
+let rtRead = rtA;
+let rtWrite = rtB;
+
+// init texture (optional): clear to 0.5 baseline gray
+renderer.setRenderTarget(rtRead);
+renderer.clearColor();
+renderer.clear();
+renderer.setRenderTarget(null);
+
+// sim scene
+const simScene = new THREE.Scene();
+const simCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+// uniforms for simulation step
+const simUniforms = {
+  uPrev: { value: rtRead.texture },
+  uDt:   { value: 1 / 60 },
+  uKappa:{ value: 0.08 },   // diffusion κ
+  uGamma:{ value: 0.35 },   // damping γ
+  uPhi0: { value: 0.0 },    // baseline φ0 (can be 0)
+  uNodeCount:    { value: 0 },
+  uNodes:        { value: Array.from({ length: 8 }, () => new THREE.Vector2()) },
+  uNodeStrength: { value: new Float32Array(8) },
+  uNodeSigma:    { value: 0.06 },  // in UV space
+  uNodeGain:     { value: 0.8 }    // injection gain
+};
+
+const simMat = new THREE.ShaderMaterial({
+  uniforms: simUniforms,
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = vec4(position.xy, 0.0, 1.0);
+    }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+
+    uniform sampler2D uPrev;
+    uniform float uDt;
+    uniform float uKappa;
+    uniform float uGamma;
+    uniform float uPhi0;
+
+    uniform int   uNodeCount;
+    uniform vec2  uNodes[8];
+    uniform float uNodeStrength[8];
+    uniform float uNodeSigma;
+    uniform float uNodeGain;
+
+    float gauss(vec2 uv, vec2 c, float sigma){
+      vec2 d = uv - c;
+      float s2 = sigma*sigma + 1e-6;
+      return exp(-dot(d,d) / (2.0*s2));
+    }
+
+    void main(){
+      // read previous φ from red channel
+      float phi = texture2D(uPrev, vUv).r;
+
+      // Laplacian (5-point stencil)
+      vec2 texel = vec2(1.0) / vec2(textureSize(uPrev, 0));
+      float up    = texture2D(uPrev, vUv + vec2(0.0, texel.y)).r;
+      float down  = texture2D(uPrev, vUv - vec2(0.0, texel.y)).r;
+      float left  = texture2D(uPrev, vUv - vec2(texel.x, 0.0)).r;
+      float right = texture2D(uPrev, vUv + vec2(texel.x, 0.0)).r;
+      float lap = (up + down + left + right - 4.0 * phi);
+
+      // node injection
+      float inj = 0.0;
+      for (int i=0; i<8; i++){
+        if (i >= uNodeCount) break;
+        inj += uNodeStrength[i] * gauss(vUv, uNodes[i], uNodeSigma);
+      }
+      inj *= uNodeGain;
+
+      // PDE step
+      float dphi = (uKappa * lap) - (uGamma * (phi - uPhi0)) + inj;
+      float phiN = phi + uDt * dphi;
+
+      // clamp to avoid blowups (optional)
+      phiN = clamp(phiN, -2.0, 2.0);
+
+      gl_FragColor = vec4(phiN, 0.0, 0.0, 1.0);
+    }
+  `
+});
+
+const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), simMat);
+simScene.add(simQuad);
+
+// display material: show the simulated φ texture
+fieldMat.uniforms.uFieldTex = { value: rtRead.texture };
+fieldMat.fragmentShader = fieldMat.fragmentShader.replace(
+  "vec2 uv=vUv;",
+  `
+  vec2 uv=vUv;
+  // sampled PDE field
+  float phiPDE = texture2D(uFieldTex, uv).r;
+  `
+).replace(
+  "float phi=0.55*basin+0.20*smoothTex+0.22*rings+grain;",
+  `
+  // mix PDE with your aesthetic field (tune blend)
+  float phi = mix(0.55*basin+0.20*smoothTex+0.22*rings+grain, phiPDE, 0.85);
+  `
+);
+
+fieldMat.needsUpdate = true;
+// ================================================================
+  
+
 // ---------- EVF field shader ----------
 const fieldMat = new THREE.ShaderMaterial({
   uniforms:{
@@ -300,6 +428,11 @@ gui.add(params,"etaBase",0.0,1.0,0.01).name("baseline η");
 gui.add(params,"motionBoost",0.0,20.0,0.1).name("debug: motionBoost");
 gui.add(params,"freezeBase").name("debug: freeze base");
 
+ gui.add(simUniforms.uKappa, "value", 0.0, 0.3, 0.001).name("diffusion κ");
+gui.add(simUniforms.uGamma, "value", 0.0, 2.0, 0.01).name("damping γ");
+gui.add(simUniforms.uNodeGain, "value", 0.0, 2.0, 0.01).name("inj gain");
+gui.add(simUniforms.uNodeSigma, "value", 0.01, 0.2, 0.001).name("inj sigma"); 
+
 // ---------- resize ----------
 addEventListener("resize",()=>{
   renderer.setSize(innerWidth,innerHeight);
@@ -416,6 +549,36 @@ function animate(t){
   rings.geometry.setFromPoints(nodes);
   points.geometry.setFromPoints(nodes);
   updateEdges();
+
+  // ======== SIM STEP (each frame) ========
+
+// push nodes into sim shader (UV space)
+simUniforms.uNodeCount.value = Math.min(nodes.length, 8);
+for (let i = 0; i < simUniforms.uNodeCount.value; i++){
+  const u = nodes[i].x * 0.5 + 0.5;
+  const v = nodes[i].y * 0.5 + 0.5;
+  simUniforms.uNodes.value[i].set(u, v);
+  simUniforms.uNodeStrength.value[i] = fieldMat.uniforms.uNodeStrength.value[i]; // reuse your strengths
+}
+
+// timestep (fixed)
+simUniforms.uDt.value = 1/60;
+
+// ping-pong
+simUniforms.uPrev.value = rtRead.texture;
+renderer.setRenderTarget(rtWrite);
+renderer.render(simScene, simCam);
+renderer.setRenderTarget(null);
+
+// swap
+const tmp = rtRead;
+rtRead = rtWrite;
+rtWrite = tmp;
+
+// feed display
+fieldMat.uniforms.uFieldTex.value = rtRead.texture;
+
+// ================================
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
