@@ -223,6 +223,7 @@ const simMat = new THREE.ShaderMaterial({
 
     uniform sampler2D uPrev;
     uniform float uDt, uKappa, uGamma, uPhi0;
+    uniform float uA;
     uniform vec2  uTexel;
 
     uniform int   uNodeCount;
@@ -532,6 +533,8 @@ function animate(t){
   rings.geometry.setFromPoints(nodes);
   points.geometry.setFromPoints(nodes);
   updateEdges();
+
+  simUniforms.uA.value = fieldMat.uniforms.uA.value; // share attractor slider
 
   // ======== SIM STEP (PDE) ========
   simUniforms.uNodeCount.value = Math.min(nodes.length, 8);
