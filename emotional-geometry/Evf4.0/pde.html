@@ -202,6 +202,7 @@ const simUniforms = {
   uGamma: { value: 0.35 }, // damping γ
   uPhi0:  { value: 0.0 },
   uTexel: { value: new THREE.Vector2(1/simRes, 1/simRes) }, // (C)
+  uA: { value: 0.7 }, // reuse same attractor slider if you want
 
   uNodeCount:    { value: 0 },
   uNodes:        { value: Array.from({ length: 8 }, () => new THREE.Vector2()) },
@@ -254,12 +255,22 @@ const simMat = new THREE.ShaderMaterial({
       inj *= uNodeGain;
 
       float dphi = uKappa*lap - uGamma*(phi - uPhi0) + inj;
-      float phiN = phi + uDt*dphi;
+
+// attractor basin potential term (adds global well)
+float r = length(vUv - 0.5);
+float basin = exp(-r*r*(4.0 + 6.0*uA));
+dphi += 0.4 * basin;
+
+float phiN = phi + uDt*dphi;
+      
 
       phiN = clamp(phiN, -2.0, 2.0);
       gl_FragColor = vec4(phiN,0.0,0.0,1.0);
     }
-  `
+    float r = length(vUv - 0.5);
+float basin = exp(-r*r*(4.0+6.0*uA));
+dphi += basin * 0.4;
+
 });
 
 simScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), simMat));
