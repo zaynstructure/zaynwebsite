@@ -20,7 +20,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 document.body.appendChild(renderer.domElement);
 
- function makeRingTexture(size=128){
+function makeRingTexture(size=128){
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const ctx = c.getContext("2d");
@@ -40,33 +40,35 @@ document.body.appendChild(renderer.domElement);
   ctx.arc(cx,cy,rOuter,0,Math.PI*2);
   ctx.fill();
 
-  return new THREE.CanvasTexture(c);
-} 
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
 
 // ---------- scene ----------
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 
 const MAX_NODES = 8;
-  
+
 // ---------- EVF field shader ----------
 const fieldMat = new THREE.ShaderMaterial({
   uniforms:{
-  uTime:{value:0},
-  uRes:{value:new THREE.Vector2(innerWidth,innerHeight)},
-  uXi:{value:0.35},
-  uGamma:{value:0.6},
-  uA:{value:0.7},
-  uR:{value:0.5},
-  uRhA:{value:0.18},
-  uRhW:{value:1.20},
-  uRhMix:{value:0.60},
-  uNodeCount:{value:0},
-  uNodeGain:  { value: 0.25 },  // strength of injection
-  uNodeSigma: { value: 0.18 },  // width in UV space
-  uNodes:     { value: Array.from({ length: 8 }, () => new THREE.Vector2()) },
-  uNodeStrength: { value: new Float32Array(MAX_NODES) },
-},
+    uTime:{value:0},
+    uRes:{value:new THREE.Vector2(innerWidth,innerHeight)},
+    uXi:{value:0.35},
+    uGamma:{value:0.6},
+    uA:{value:0.7},
+    uR:{value:0.5},
+    uRhA:{value:0.18},
+    uRhW:{value:1.20},
+    uRhMix:{value:0.60},
+    uNodeCount:{value:0},
+    uNodeGain:  { value: 0.25 },
+    uNodeSigma: { value: 0.18 },
+    uNodes:     { value: Array.from({ length: 8 }, () => new THREE.Vector2()) },
+    uNodeStrength: { value: new Float32Array(MAX_NODES) },
+  },
   vertexShader:`
     varying vec2 vUv;
     void main(){
@@ -87,16 +89,16 @@ const fieldMat = new THREE.ShaderMaterial({
     uniform float uRhW;
     uniform float uRhMix;
     uniform int   uNodeCount;
-uniform float uNodeGain;
-uniform float uNodeSigma;
-uniform vec2  uNodes[8];
-uniform float uNodeStrength[8];
+    uniform float uNodeGain;
+    uniform float uNodeSigma;
+    uniform vec2  uNodes[8];
+    uniform float uNodeStrength[8];
 
-float gauss(vec2 uv, vec2 c, float sigma){
-  vec2 d = uv - c;
-  float s2 = sigma * sigma + 1e-6;
-  return exp(-dot(d,d) / (2.0 * s2));
-}
+    float gauss(vec2 uv, vec2 c, float sigma){
+      vec2 d = uv - c;
+      float s2 = sigma * sigma + 1e-6;
+      return exp(-dot(d,d) / (2.0 * s2));
+    }
 
     float hash(vec2 p){
       return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);
@@ -121,82 +123,70 @@ float gauss(vec2 uv, vec2 c, float sigma){
     void main(){
       vec2 uv=vUv;
 
-      // ----- EVF phi computation block -----
       vec2 p=uv-0.5;
       float r=length(p);
-      // --- explicit rhythm forcing F(x,t) ---
+
       float basePhase = uTime * uRhW;
       float F = uRhA * sin(basePhase);
 
-// strongest near center, fades outward
-float gate = exp(-r*r*2.0);
-float force = F * gate;
+      float gate = exp(-r*r*2.0);
+      float force = F * gate;
 
-      // attractor basin
       float basin=exp(-r*r*(4.0+6.0*uA));
 
-    
-      // rhythm rings
-      float w = (1.2 + 4.0*uR);                 // speed
-      float k = (10.0 + 22.0*uR);               // frequency
+      float w = (1.2 + 4.0*uR);
+      float k = (10.0 + 22.0*uR);
 
-// rhythm explicitly phase-shifts rings
-      float phaseShift = uRhMix * force * 6.28318; // ~2π scaling
+      float phaseShift = uRhMix * force * 6.28318;
       float rings = 0.5 + 0.5*cos(k*r - uTime*w + phaseShift);
       rings *= exp(-r*r*1.6);
 
-      // tension texture
       float phase = uTime * (0.4 + 2.2*uR);
       float tex = ridged(noise((uv + vec2(cos(phase), sin(phase))*0.08) * (5.0+3.0*uR)));
 
-      // damping
       float smoothTex=mix(tex,basin,uGamma*0.6);
 
-      // grain noise
       float grain=(noise(uv*uRes*0.4+uTime*12.0)-0.5)*(0.10+0.35*uXi);
 
       float phi=0.55*basin+0.20*smoothTex+0.22*rings+grain;
       float breath = 0.85 + 0.15*sin(uTime*(0.8 + 2.5*uR));
       phi *= breath;
-      // forcing also modulates overall field brightness
       phi += (1.0 - uRhMix) * force;
-      
-      // -------------------------------------
-// --- nodes -> field injection ---
-float inj = 0.0;
-for (int i = 0; i < 8; i++){
-  if (i >= uNodeCount) break;
-  inj += uNodeStrength[i] * gauss(uv, uNodes[i], uNodeSigma);
 
-}
-phi += uNodeGain * inj;
+      float inj = 0.0;
+      for (int i = 0; i < 8; i++){
+        if (i >= uNodeCount) break;
+        inj += uNodeStrength[i] * gauss(uv, uNodes[i], uNodeSigma);
+      }
+      phi += uNodeGain * inj;
+
       vec3 col=vec3(phi)*vec3(0.85,0.92,1.0);
       gl_FragColor=vec4(col,1.0);
     }
   `
 });
 
-const field=new THREE.Mesh(new THREE.PlaneGeometry(2,2),fieldMat);
+const field = new THREE.Mesh(new THREE.PlaneGeometry(2,2), fieldMat);
 scene.add(field);
 
+// ---------- params + gui ----------
 const params = {
-  xi:0.35, gamma:0.6, attractor:0.7, rhythm:0.5, k:0.18, debugNoDamping:false,
+  xi:0.35, gamma:0.6, attractor:0.7, rhythm:0.5, k:0.18,
+  debugNoDamping:false,
   etaBase:0.15, baseSample:0.0,
-
-  rhA:0.18,
-  rhW:1.20,
-  rhMix:0.60,
-
-  alphaS: 0.10,   // imprint rate
-  gammaS: 0.20,   // decay
-  bGain:  0.15,   // basin scaling
-  bClamp: 1.0,    // cap
+  rhA:0.18, rhW:1.20, rhMix:0.60,
+  alphaS: 0.10,
+  gammaS: 0.20,
+  bGain:  0.15,
+  bClamp: 1.0,
+  motionBoost: 10.0,
+  freezeBase: false
 };
 
-  let phi0 = 0.0;               // baseline state (you also need this)
+let phi0 = 0.0;
 const gui = new GUI({ width: 180 });
 gui.title("EVF");
-  
+
 // ---------- EVF relational graph ----------
 const baseNodes = [
   new THREE.Vector3(-0.15, 0.10, 0.01),
@@ -206,41 +196,37 @@ const baseNodes = [
 
 const nodes = baseNodes.map(v => v.clone());
 const S = new Float32Array(nodes.length).fill(0.0);
-
 const edgePairs = [[0,1],[1,2],[2,0]];
 
-// ----- edges -----
-const edgePos = new Float32Array(edgePairs.length * 2 * 3);
+// edges
+const edgePos  = new Float32Array(edgePairs.length * 2 * 3);
 const edgeGeom = new THREE.BufferGeometry();
 edgeGeom.setAttribute("position", new THREE.BufferAttribute(edgePos,3));
 
 const edgeMat = new THREE.LineBasicMaterial({
-  color: 0xffffff,
-  transparent: true,
-  opacity: 0.45
+  color:0xffffff,
+  transparent:true,
+  opacity:0.45
 });
 
 const edges = new THREE.LineSegments(edgeGeom, edgeMat);
 scene.add(edges);
 
-// ----- node points -----
+// points
 const ptsGeom = new THREE.BufferGeometry().setFromPoints(nodes);
-
-const ptsMat = new THREE.PointsMaterial({
-  color: 0xffffff,
-  size: 8,
-  sizeAttenuation: false,
-  transparent: true,
-  opacity: 0.9
+const ptsMat  = new THREE.PointsMaterial({
+  color:0xffffff,
+  size:8,
+  sizeAttenuation:false,
+  transparent:true,
+  opacity:0.9
 });
-
 const points = new THREE.Points(ptsGeom, ptsMat);
 scene.add(points);
 
-// ----- basin rings -----
+// rings
 const ringGeom = new THREE.BufferGeometry().setFromPoints(nodes);
-
-const ringMat = new THREE.PointsMaterial({
+const ringMat  = new THREE.PointsMaterial({
   map: makeRingTexture(),
   size: 28,
   transparent: true,
@@ -249,11 +235,10 @@ const ringMat = new THREE.PointsMaterial({
   color: 0xffffff,
   alphaTest: 0.01
 });
-
 const rings = new THREE.Points(ringGeom, ringMat);
 scene.add(rings);
 
-// ----- draw order / depth -----
+// draw order / depth
 field.renderOrder  = 0;
 edges.renderOrder  = 1;
 rings.renderOrder  = 2;
@@ -263,25 +248,19 @@ points.material.depthTest = false;
 rings.material.depthTest  = false;
 edges.material.depthTest  = false;
 
-// ----- edge updater -----
 function updateEdges(){
   const pos = edgeGeom.attributes.position.array;
   let k = 0;
-
   for (const [a,b] of edgePairs){
     const A = nodes[a];
     const B = nodes[b];
-
     pos[k++] = A.x; pos[k++] = A.y; pos[k++] = A.z;
     pos[k++] = B.x; pos[k++] = B.y; pos[k++] = B.z;
   }
-
   edgeGeom.attributes.position.needsUpdate = true;
-}true;
+}
 
-  
-  
-// ---------- 
+// ---------- GUI wiring ----------
 gui.add(params,"xi",0,1,0.01).name("noise ξ")
   .onChange(v=>fieldMat.uniforms.uXi.value=v);
 
@@ -293,10 +272,10 @@ gui.add(params,"attractor",0,1,0.01).name("attractor A")
 
 gui.add(params,"rhythm",0,1,0.01).name("rhythm R")
   .onChange(v=>fieldMat.uniforms.uR.value=v);
-  
-  gui.add(params,"k",0,0.6,0.01).name("coupling k");
 
-  gui.add(params,"rhA",0,1,0.01).name("rhythm amp")
+gui.add(params,"k",0,0.6,0.01).name("coupling k");
+
+gui.add(params,"rhA",0,1,0.01).name("rhythm amp")
   .onChange(v=>fieldMat.uniforms.uRhA.value=v);
 
 gui.add(params,"rhW",0,6,0.01).name("rhythm ω")
@@ -305,16 +284,14 @@ gui.add(params,"rhW",0,6,0.01).name("rhythm ω")
 gui.add(params,"rhMix",0,1,0.01).name("rhythm mix")
   .onChange(v=>fieldMat.uniforms.uRhMix.value=v);
 
-  gui.add(fieldMat.uniforms.uNodeGain,  "value", 0.0, 1.0, 0.01).name("node→field gain");
-gui.add(fieldMat.uniforms.uNodeSigma, "value", 0.02, 0.5, 0.01).name("node→field sigma");
+gui.add(fieldMat.uniforms.uNodeGain,"value",0.0,1.0,0.01).name("node→field gain");
+gui.add(fieldMat.uniforms.uNodeSigma,"value",0.02,0.5,0.01).name("node→field sigma");
 
+gui.add(params,"debugNoDamping").name("debug: no damping");
+gui.add(params,"etaBase",0.0,1.0,0.01).name("baseline η");
+gui.add(params,"motionBoost",0.0,20.0,0.1).name("debug: motionBoost");
+gui.add(params,"freezeBase").name("debug: freeze base");
 
-  
-
-// add to GUI
-gui.add(params, "debugNoDamping").name("debug: no damping");
-gui.add(params, "etaBase", 0.0, 1.0, 0.01).name("baseline η");
-gui.add(params, "baseSample").name("phi0").disable();
 // ---------- resize ----------
 addEventListener("resize",()=>{
   renderer.setSize(innerWidth,innerHeight);
@@ -322,17 +299,7 @@ addEventListener("resize",()=>{
   fieldMat.uniforms.uRes.value.set(innerWidth,innerHeight);
 });
 
-// ---------- animate ----------
-
-  // ---- GUI additions (put after your existing gui.add(params,"k"... ) ) ----
-params.motionBoost = 10.0;     // exaggerate k effect on motion (debug)
-
-params.freezeBase  = false;   // if true, disable pull to base (debug)
-
-gui.add(params, "motionBoost", 0.0, 20.0, 0.1).name("debug: motionBoost");
-gui.add(params, "freezeBase").name("debug: freeze base");
-
-// ---- helpers ----
+// ---------- helpers ----------
 function samplePhi_raw(x, y, time){
   const u = x*0.5 + 0.5;
   const v = y*0.5 + 0.5;
@@ -348,15 +315,10 @@ function samplePhi_raw(x, y, time){
   return 2.2*basin + 1.8*rings;
 }
 
-  function meanPhi(time){
-  // sample a few fixed points in NDC
-  const pts = [
-    [-0.5, -0.5], [0.5, -0.5],
-    [-0.5,  0.5], [0.5,  0.5],
-    [0.0,   0.0]
-  ];
+function meanPhi(time){
+  const pts = [[-0.5,-0.5],[0.5,-0.5],[-0.5,0.5],[0.5,0.5],[0.0,0.0]];
   let s = 0;
-  for (const [x,y] of pts) s += samplePhi_raw(x,y,time); // raw, NOT baseline-subtracted
+  for (const [x,y] of pts) s += samplePhi_raw(x,y,time);
   return s / pts.length;
 }
 
@@ -364,105 +326,93 @@ function samplePhi(x,y,time){
   return samplePhi_raw(x,y,time) - phi0;
 }
 
-
 function gradientPhi(x, y, time){
-  const e  = 0.01; // larger step => stronger, less noisy gradient estimate
+  const e  = 0.01;
   const gx = samplePhi(x + e, y, time) - samplePhi(x - e, y, time);
   const gy = samplePhi(x, y + e, time) - samplePhi(x, y - e, time);
   return { x: gx, y: gy };
 }
 
+// ---------- animate ----------
 function animate(t){
   const time = t * 0.001;
   fieldMat.uniforms.uTime.value = time;
 
-  // --- send node positions to shader (NDC -> UV) ---
-fieldMat.uniforms.uNodeCount.value = Math.min(nodes.length, MAX_NODES);
-for (let i = 0; i < fieldMat.uniforms.uNodeCount.value; i++){
-  const u = nodes[i].x * 0.5 + 0.5;
-  const v = nodes[i].y * 0.5 + 0.5;
-  fieldMat.uniforms.uNodes.value[i].set(u, v);
-}
+  // send node positions to shader (NDC -> UV)
+  fieldMat.uniforms.uNodeCount.value = Math.min(nodes.length, MAX_NODES);
+  for (let i = 0; i < fieldMat.uniforms.uNodeCount.value; i++){
+    const u = nodes[i].x * 0.5 + 0.5;
+    const v = nodes[i].y * 0.5 + 0.5;
+    fieldMat.uniforms.uNodes.value[i].set(u, v);
+  }
 
-  // IMPORTANT: make k literal (no baseline, no squaring)
+  // k breath + damping
   const phase = time * (0.8 + 4.0 * params.rhythm);
-const kBreath = 0.65 + 0.35 * Math.sin(phase); // rhythmic renormalization
-const k = params.k * kBreath;
+  const kBreath = 0.65 + 0.35 * Math.sin(phase);
+  const k = params.k * kBreath;
+
   const gamma = (params.debugNoDamping || params.freezeBase) ? 0.0 : params.gamma * 0.05;
 
-  // cosmetic: show coupling intensity
   edges.material.opacity  = 0.10 + 0.90 * (k / 0.6);
   points.material.opacity = 0.25 + 0.75 * (k / 0.6);
-  
 
-  const vx = new Array(nodes.length).fill(0);
-  const vy = new Array(nodes.length).fill(0);
+  const dt = 1/60;
+  const m = meanPhi(time);
+  phi0 += params.etaBase * (m - phi0) * dt;
+  params.baseSample = phi0;
 
-const dt = 1/60; // or compute from lastTime for accuracy
-const m = meanPhi(time);
-phi0 += params.etaBase * (m - phi0) * dt;
-params.baseSample = phi0;
+  // basin -> per-node strength
+  const strengths = fieldMat.uniforms.uNodeStrength.value;
+  strengths.fill(0);
 
-// --- attachment basin -> per-node injection strength (A) ---
-const strengths = fieldMat.uniforms.uNodeStrength.value; // Float32Array
-strengths.fill(0);
+  for (let i = 0; i < nodes.length && i < MAX_NODES; i++){
+    const x = nodes[i].x;
+    const y = nodes[i].y;
 
-for (let i = 0; i < nodes.length && i < MAX_NODES; i++){
-  const x = nodes[i].x;
-  const y = nodes[i].y;
+    const phi_i = samplePhi_raw(x, y, time);
 
-  // use RAW field potential (not baseline-subtracted)
-  const phi_i = samplePhi_raw(x, y, time);
+    S[i] += dt * (params.alphaS * phi_i - params.gammaS * S[i]);
+    if (S[i] < 0) S[i] = 0;
 
-  // salience memory update: S_i += dt*(alphaS*phi_i - gammaS*S_i)
-  S[i] += dt * (params.alphaS * phi_i - params.gammaS * S[i]);
-  if (S[i] < 0) S[i] = 0;
+    const Ci = k;
+    const Bi = phi_i * S[i] * Ci;
 
-  // coupling coherence (v0) = global k
-  const Ci = k;
+    strengths[i] = Math.min(params.bClamp, Math.max(0, params.bGain * Bi));
+  }
 
-  // basin B_i = phi_i * S_i * C_i
-  const Bi = phi_i * S[i] * Ci;
-
-  // map basin -> strength (clamped)
-  strengths[i] = Math.min(params.bClamp, Math.max(0, params.bGain * Bi));
-}
-
+  // ring sizing (avg)
   let Bavg = 0;
-for(let i=0;i<nodes.length;i++){
-  Bavg += strengths[i];
-}
-Bavg /= nodes.length;
+  for(let i=0;i<nodes.length;i++) Bavg += strengths[i];
+  Bavg /= nodes.length;
 
-// basin → ring size + opacity
-ringMat.opacity = 0.15 + 0.6*Math.min(1,Bavg);
-ringMat.size    = 18 + 28*Math.min(1,Bavg);
-rings.geometry.setFromPoints(nodes);
-points.geometry.setFromPoints(nodes);
+  ringMat.opacity = 0.15 + 0.6*Math.min(1,Bavg);
+  ringMat.size    = 18 + 28*Math.min(1,Bavg);
 
-  const bx = baseNodes[i].x;
-  const by = baseNodes[i].y;
-
+  // ---- node motion integration (YOU LOST THIS IN YOUR PASTE) ----
+  for (let i = 0; i < nodes.length; i++){
+    const x  = nodes[i].x;
+    const y  = nodes[i].y;
+    const bx = baseNodes[i].x;
+    const by = baseNodes[i].y;
 
     const g = gradientPhi(x, y, time);
 
-    // motion velocity (proportional to k)
-    vx[i] = g.x * k * params.motionBoost;
-    vy[i] = g.y * k * params.motionBoost;
+    nodes[i].x = x + g.x * k * params.motionBoost;
+    nodes[i].y = y + g.y * k * params.motionBoost;
 
-    // integrate
-    nodes[i].x = x + vx[i];
-    nodes[i].y = y + vy[i];
-
-    // pull back toward base (damping)
     nodes[i].x += (bx - nodes[i].x) * gamma;
     nodes[i].y += (by - nodes[i].y) * gamma;
   }
-  updateEdges(); // make sure your updateEdges() function exists above
+
+  // update overlay geometries AFTER nodes move
+  rings.geometry.setFromPoints(nodes);
+  points.geometry.setFromPoints(nodes);
+  updateEdges();
+
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
-// ---- start loop ----
+
 requestAnimationFrame(animate);
 
 </script>
