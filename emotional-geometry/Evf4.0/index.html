@@ -232,7 +232,19 @@ const ptsMat=new THREE.PointsMaterial({
   opacity:0.8
 });
 const points=new THREE.Points(ptsGeom,ptsMat);
-scene.add(points);
+
+  scene.add(points);
+scene.add(rings);
+
+// --- draw order / depth ---
+field.renderOrder  = 0;
+edges.renderOrder  = 1;
+rings.renderOrder  = 2;
+points.renderOrder = 3;
+
+points.material.depthTest = false;
+rings.material.depthTest  = false;
+edges.material.depthTest  = false;
 
   // ---- basin ring layer ----
 const ringGeom = new THREE.BufferGeometry().setFromPoints(nodes);
@@ -422,6 +434,8 @@ ringMat.opacity = 0.15 + 0.6*Math.min(1,Bavg);
 ringMat.size    = 18 + 28*Math.min(1,Bavg);
 
 ringGeom.setFromPoints(nodes);
+  ptsGeom.setFromPoints(nodes);
+ptsGeom.attributes.position.needsUpdate = true;
 ringGeom.attributes.position.needsUpdate = true;
   for (let i = 0; i < nodes.length; i++){
   const x  = nodes[i].x;
