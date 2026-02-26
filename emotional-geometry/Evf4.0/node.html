@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EVF demo — node-driven smear field</title>
+  <style>
+    html,body { margin:0; height:100%; background:#0b0c10; overflow:hidden; }
+    canvas { display:block; }
+  </style>
+</head>
+<body>
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js";
+import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm";
+
+// ---------------- renderer ----------------
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// ---------------- scenes/cameras ----------------
+const scene = new THREE.Scene();
+const cam   = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+
+const fbScene = new THREE.Scene();
+const fbCam   = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+
+// ---------------- ping-pong textures ----------------
+const simRes = 512;
+
+const rtOpts = {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.LinearFilter,
+  format: THREE.RGBAFormat,
+  type: THREE.HalfFloatType,
+  depthBuffer:false,
+  stencilBuffer:false
+};
+
+const rtA = new THREE.WebGLRenderTarget(simRes, simRes, rtOpts);
+const rtB = new THREE.WebGLRenderTarget(simRes, simRes, rtOpts);
+let rtRead = rtA, rtWrite = rtB;
+
+// init clear
+renderer.setRenderTarget(rtRead);
+renderer.clearColor();
+renderer.clear();
+renderer.setRenderTarget(null);
+
+// ---------------- parameters ----------------
+const params = {
+  // EVF-ish
+  k: 0.25,           // coupling strength
+  A: 0.55,           // attractor (basin pull)
+  R: 0.55,           // rhythm depth
+  w: 1.2,            // rhythm omega
+  rhMix: 0.65,       // rhythm mix
+  gamma: 0.12,       // node damping
+  stiffness: 0.18,   // spring stiffness multiplier (extra feel)
+
+  // diffusion as smear
+  kappa: 0.55,       // smear strength
+  sigma: 0.09,       // node influence radius
+  inj: 0.8,          // injection amount
+  fade: 0.985,       // field decay (acts like global damping of trace)
+  trail: 0.9,        // how much advect vs inject
+
+  // visuals
+  pdeMix: 0.95,      // "field weight" vs overlay
+  overlay: 0.35      // how much analytic overlay brightens
+};
+
+// ---------------- node system ----------------
+const N = 3;
+const baseNodes = [
+  new THREE.Vector2(-0.15,  0.10),
+  new THREE.Vector2( 0.35, -0.05),
+  new THREE.Vector2( 0.05, -0.35)
+];
+
+const nodes = baseNodes.map(v => v.clone());
+const vels  = baseNodes.map(_ => new THREE.Vector2(0,0));
+const edgePairs = [[0,1],[1,2],[2,0]];
+
+// springs (rest lengths fixed from base)
+const rest = edgePairs.map(([a,b]) => nodes[a].distanceTo(nodes[b]));
+
+// ---------------- overlay (nodes/edges) ----------------
+const edgePos  = new Float32Array(edgePairs.length * 2 * 3);
+const edgeGeom = new THREE.BufferGeometry();
+edgeGeom.setAttribute("position", new THREE.BufferAttribute(edgePos, 3));
+const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.35 });
+const edges = new THREE.LineSegments(edgeGeom, edgeMat);
+scene.add(edges);
+
+const ptsGeom = new THREE.BufferGeometry().setFromPoints(nodes.map(p => new THREE.Vector3(p.x,p.y,0.01)));
+const ptsMat  = new THREE.PointsMaterial({ color:0xffffff, size:10, sizeAttenuation:false });
+const points  = new THREE.Points(ptsGeom, ptsMat);
+scene.add(points);
+
+function updateEdges(){
+  const pos = edgeGeom.attributes.position.array;
+  let k = 0;
+  for (const [a,b] of edgePairs){
+    pos[k++] = nodes[a].x; pos[k++] = nodes[a].y; pos[k++] = 0.01;
+    pos[k++] = nodes[b].x; pos[k++] = nodes[b].y; pos[k++] = 0.01;
+  }
+  edgeGeom.attributes.position.needsUpdate = true;
+
+  const pts = nodes.map(p => new THREE.Vector3(p.x,p.y,0.01));
+  ptsGeom.setFromPoints(pts);
+}
+
+// ---------------- field display material ----------------
+const fieldMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTex:     { value: rtRead.texture },
+    uRes:     { value: new THREE.Vector2(innerWidth, innerHeight) },
+    uTime:    { value: 0 },
+    uOverlay: { value: params.overlay },
+    uPdeMix:  { value: params.pdeMix },
+    uA:       { value: params.A },
+    uR:       { value: params.R },
+    uW:       { value: params.w },
+    uRhMix:   { value: params.rhMix },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = vec4(position.xy,0.0,1.0); }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+
+    uniform sampler2D uTex;
+    uniform vec2  uRes;
+    uniform float uTime;
+    uniform float uOverlay;
+    uniform float uPdeMix;
+    uniform float uA, uR, uW, uRhMix;
+
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    float noise(vec2 p){
+      vec2 i=floor(p), f=fract(p);
+      float a=hash(i), b=hash(i+vec2(1,0)), c=hash(i+vec2(0,1)), d=hash(i+vec2(1,1));
+      vec2 u=f*f*(3.0-2.0*f);
+      return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;
+    }
+    float ridged(float n){ n=abs(n*2.0-1.0); return 1.0-n; }
+
+    void main(){
+      vec2 uv = vUv;
+
+      // read feedback field (signed-ish stored in R)
+      float phi = texture2D(uTex, uv).r;
+
+      // map signed-ish to visible
+      float base = 0.5 + 0.5 * clamp(phi, -1.0, 1.0);
+
+      // lightweight “analytic” overlay texture (not driving dynamics)
+      vec2 p = uv - 0.5;
+      float r = length(p);
+      float basin = exp(-r*r*(4.0+6.0*uA));
+      float phase = uTime * uW;
+      float breath = 0.5 + 0.5*sin(phase);
+      float rings = 0.5 + 0.5*cos((10.0+22.0*uR)*r - uTime*(1.2+4.0*uR));
+      rings *= exp(-r*r*1.6);
+      float tex = ridged(noise((uv + vec2(cos(uTime), sin(uTime))*0.06) * (5.0+3.0*uR)));
+      float aVis = clamp(0.35 + 0.30*(0.55*basin + 0.25*rings + 0.20*tex) * (0.85 + 0.15*breath), 0.0, 1.0);
+
+      // preserve field: keep base dominant, overlay subtle
+      float outVis = clamp(base + uOverlay * (aVis - 0.5), 0.0, 1.0);
+
+      vec3 col = vec3(outVis) * vec3(0.85, 0.92, 1.0);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), fieldMat));
+
+// ---------------- feedback update shader (node-driven smear) ----------------
+const MAXN = 8;
+
+const fbUniforms = {
+  uPrev:   { value: rtRead.texture },
+  uTexel:  { value: new THREE.Vector2(1/simRes, 1/simRes) },
+  uDt:     { value: 1/60 },
+  uTime:   { value: 0.0 },
+
+  // “diffusion” as smear
+  uKappa:  { value: params.kappa },
+  uFade:   { value: params.fade },
+  uSigma:  { value: params.sigma },
+  uInj:    { value: params.inj },
+  uTrail:  { value: params.trail },
+
+  // rhythm
+  uW:      { value: params.w },
+  uRhMix:  { value: params.rhMix },
+
+  // nodes
+  uNodeCount: { value: N },
+  uNodes:     { value: Array.from({length:MAXN}, ()=> new THREE.Vector2()) },
+  uVels:      { value: Array.from({length:MAXN}, ()=> new THREE.Vector2()) }
+};
+
+const fbMat = new THREE.ShaderMaterial({
+  uniforms: fbUniforms,
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = vec4(position.xy,0.0,1.0); }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+
+    uniform sampler2D uPrev;
+    uniform vec2  uTexel;
+    uniform float uDt;
+    uniform float uTime;
+
+    uniform float uKappa;
+    uniform float uFade;
+    uniform float uSigma;
+    uniform float uInj;
+    uniform float uTrail;
+
+    uniform float uW;
+    uniform float uRhMix;
+
+    uniform int   uNodeCount;
+    uniform vec2  uNodes[8];
+    uniform vec2  uVels[8];
+
+    float gauss(vec2 d, float s){
+      float s2 = s*s + 1e-6;
+      return exp(-dot(d,d) / (2.0*s2));
+    }
+
+    void main(){
+      vec2 uv = vUv;
+
+      // base: previous field
+      float prev = texture2D(uPrev, uv).r;
+
+      // rhythm multiplier (0..1) blended toward 1
+      float phase = uW * uTime;
+      float rhythm01 = 0.5 + 0.5*sin(phase);
+      float rhythmMul = mix(1.0, rhythm01, uRhMix);
+
+      // smear/advect: sample a slightly shifted coordinate based on nearby node velocity
+      vec2 flow = vec2(0.0);
+      float inj = 0.0;
+
+      for(int i=0;i<8;i++){
+        if(i>=uNodeCount) break;
+
+        vec2 c  = uNodes[i];
+        vec2 dv = uVels[i];
+
+        vec2 d = uv - c;
+        float w = gauss(d, uSigma);
+
+        // flow accumulates (velocity is in NDC-ish; scale down)
+        flow += w * dv;
+
+        // inject energy (signed-ish): push positive where nodes are
+        inj += w;
+      }
+
+      // advect strength depends on kappa + rhythm
+      vec2 uv2 = uv - (uKappa * rhythmMul) * 0.10 * flow;
+
+      float adv = texture2D(uPrev, uv2).r;
+
+      // injection centered in [-1..1] (so it can create contrast)
+      float injSigned = (inj * uInj) - 0.35;
+
+      // combine: mostly advected trail + some fresh injection + global fade
+      float phi = mix(prev, adv, uTrail);
+      phi = phi * uFade + injSigned * rhythmMul * 0.35;
+
+      // clamp symmetric
+      phi = clamp(phi, -2.0, 2.0);
+
+      gl_FragColor = vec4(phi, 0.0, 0.0, 1.0);
+    }
+  `
+});
+
+fbScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), fbMat));
+
+// ---------------- GUI ----------------
+const gui = new GUI({ width: 200 });
+gui.title("EVF demo");
+
+gui.add(params, "k", 0.0, 0.8, 0.01).name("coupling k");
+gui.add(params, "A", 0.0, 1.0, 0.01).name("attractor A");
+gui.add(params, "R", 0.0, 1.0, 0.01).name("rhythm R");
+gui.add(params, "w", 0.1, 6.0, 0.01).name("rhythm ω")
+  .onChange(v => { fbUniforms.uW.value = v; fieldMat.uniforms.uW.value = v; });
+gui.add(params, "rhMix", 0.0, 1.0, 0.01).name("rhythm mix")
+  .onChange(v => { fbUniforms.uRhMix.value = v; fieldMat.uniforms.uRhMix.value = v; });
+gui.add(params, "gamma", 0.0, 0.5, 0.001).name("node damping γ");
+gui.add(params, "kappa", 0.0, 2.0, 0.01).name("diffusion κ (smear)")
+  .onChange(v => fbUniforms.uKappa.value = v);
+gui.add(params, "sigma", 0.02, 0.25, 0.001).name("node radius σ")
+  .onChange(v => fbUniforms.uSigma.value = v);
+gui.add(params, "inj", 0.0, 2.0, 0.01).name("injection")
+  .onChange(v => fbUniforms.uInj.value = v);
+gui.add(params, "fade", 0.90, 1.0, 0.001).name("field fade")
+  .onChange(v => fbUniforms.uFade.value = v);
+gui.add(params, "trail", 0.0, 1.0, 0.01).name("trail (advect)")
+  .onChange(v => fbUniforms.uTrail.value = v);
+
+gui.add(params, "overlay", 0.0, 1.0, 0.01).name("overlay amount")
+  .onChange(v => fieldMat.uniforms.uOverlay.value = v);
+
+// ---------------- force model (simple, legible) ----------------
+function basinForce(x){
+  // radial basin toward center, strength shaped by A
+  const p = x.clone();
+  const r = p.length() + 1e-6;
+  const well = Math.exp(-r*r * (2.0 + 4.0*params.A));
+  // pull inward
+  return p.multiplyScalar(- (0.9 + 1.6*params.A) * well);
+}
+
+function rhythmMul(t){
+  const r01 = 0.5 + 0.5*Math.sin(params.w * t);
+  return (1.0 - params.rhMix) * 1.0 + params.rhMix * r01;
+}
+
+function stepNodes(dt, t){
+  const rm = rhythmMul(t);
+  // coupling springs
+  for (let i=0;i<N;i++){
+    let F = new THREE.Vector2(0,0);
+
+    // basin
+    F.add( basinForce(nodes[i]) );
+
+    // springs
+    for (let e=0;e<edgePairs.length;e++){
+      const [a,b] = edgePairs[e];
+      if (i!==a && i!==b) continue;
+
+      const j = (i===a) ? b : a;
+      const d = nodes[i].clone().sub(nodes[j]);
+      const dist = d.length() + 1e-6;
+      d.multiplyScalar(1.0/dist);
+
+      // rhythm modulates rest length (breathing linkage)
+      const L0 = rest[e] * (0.85 + 0.30*rm*params.R);
+
+      const stretch = (dist - L0);
+      const kSpring = params.k * params.stiffness * (0.8 + 1.2*rm);
+      F.add( d.multiplyScalar(-kSpring * stretch) );
+    }
+
+    // apply
+    vels[i].add(F.multiplyScalar(dt * 60.0)); // scale to feel lively
+  }
+
+  // damping + integrate
+  for (let i=0;i<N;i++){
+    vels[i].multiplyScalar(1.0 - params.gamma);
+    nodes[i].add( vels[i].clone().multiplyScalar(dt) );
+
+    // soft bounds
+    nodes[i].x = THREE.MathUtils.clamp(nodes[i].x, -0.95, 0.95);
+    nodes[i].y = THREE.MathUtils.clamp(nodes[i].y, -0.95, 0.95);
+  }
+}
+
+// ---------------- animation loop ----------------
+function animate(ms){
+  const t = ms * 0.001;
+  const dt = 1/60;
+
+  // update params -> uniforms
+  fieldMat.uniforms.uTime.value = t;
+  fieldMat.uniforms.uA.value = params.A;
+  fieldMat.uniforms.uR.value = params.R;
+
+  fbUniforms.uTime.value = t;
+
+  // step nodes
+  stepNodes(dt, t);
+  updateEdges();
+
+  // push nodes/vels to feedback shader (UV space)
+  fbUniforms.uNodeCount.value = N;
+  for (let i=0;i<N;i++){
+    const u = nodes[i].x * 0.5 + 0.5;
+    const v = nodes[i].y * 0.5 + 0.5;
+    fbUniforms.uNodes.value[i].set(u,v);
+
+    // velocity mapping (NDC-ish to UV-ish)
+    fbUniforms.uVels.value[i].set(vels[i].x, vels[i].y);
+  }
+
+  // feedback step: write rtWrite from rtRead
+  fbUniforms.uPrev.value = rtRead.texture;
+
+  renderer.setRenderTarget(rtWrite);
+  renderer.render(fbScene, fbCam);
+  renderer.setRenderTarget(null);
+
+  // swap
+  { const tmp = rtRead; rtRead = rtWrite; rtWrite = tmp; }
+
+  // display uses rtRead
+  fieldMat.uniforms.uTex.value = rtRead.texture;
+
+  renderer.render(scene, cam);
+  requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(animate);
+
+// ---------------- resize ----------------
+addEventListener("resize", ()=>{
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  fieldMat.uniforms.uRes.value.set(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
