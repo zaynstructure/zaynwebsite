@@ -2,170 +2,341 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>EVF Field Viewer</title>
-
+<title>EVF Field Viewer v2</title>
 <style>
-body {
-    background:#111;
-    color:white;
-    font-family:sans-serif;
-    text-align:center;
+body{
+  background:#111;
+  color:#eee;
+  font-family:Arial, sans-serif;
+  text-align:center;
 }
-
 canvas{
-    border:1px solid #333;
-    margin-top:10px;
+  border:1px solid #333;
+  margin-top:12px;
+}
+.controls{
+  margin-top:12px;
+  display:flex;
+  justify-content:center;
+  gap:18px;
+  flex-wrap:wrap;
+}
+.control{
+  font-size:14px;
+}
+label{
+  display:block;
+  margin-bottom:4px;
+}
+.readout{
+  margin-top:10px;
+  font-size:14px;
+  color:#bbb;
 }
 </style>
-
 </head>
-
 <body>
 
-<h2>EVF Meaning Field</h2>
+<h2>EVF Viewer v2 — Flow, Carving, Circulation</h2>
+<canvas id="canvas" width="700" height="700"></canvas>
 
-<canvas id="canvas" width="600" height="600"></canvas>
+<div class="controls">
+  <div class="control">
+    <label>Noise</label>
+    <input id="noise" type="range" min="0" max="0.25" step="0.005" value="0.05">
+  </div>
+  <div class="control">
+    <label>Gradient Pull</label>
+    <input id="drift" type="range" min="0" max="2.5" step="0.01" value="1.0">
+  </div>
+  <div class="control">
+    <label>Carving</label>
+    <input id="carve" type="range" min="0" max="0.08" step="0.001" value="0.01">
+  </div>
+  <div class="control">
+    <label>Circulation Memory</label>
+    <input id="circulation" type="range" min="0" max="0.08" step="0.001" value="0.015">
+  </div>
+  <div class="control">
+    <label>Memory Decay</label>
+    <input id="memoryDecay" type="range" min="0" max="0.02" step="0.0005" value="0.003">
+  </div>
+</div>
 
-<br><br>
+<div style="margin-top:12px;">
+  <button onclick="resetSystem()">Reset</button>
+  <button onclick="togglePause()">Pause / Resume</button>
+</div>
 
-Noise
-<input id="noise" type="range" min="0" max="0.3" step="0.01" value="0.08">
-
-Drift
-<input id="drift" type="range" min="0" max="2" step="0.01" value="1">
-
-<button onclick="reset()">Reset</button>
+<div class="readout" id="readout"></div>
 
 <script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-const canvas = document.getElementById("canvas")
-const ctx = canvas.getContext("2d")
+const W = canvas.width;
+const H = canvas.height;
+const N = 140;
+const scale = 140;
+const worldMin = -2.5;
+const worldMax =  2.5;
+const worldSize = worldMax - worldMin;
+const dx = worldSize / (N - 1);
 
-let particle = {x:0.2,y:1.2}
+let paused = false;
 
-let trajectory = []
+// ----------------------------
+// Sliders
+// ----------------------------
+const noiseSlider = document.getElementById("noise");
+const driftSlider = document.getElementById("drift");
+const carveSlider = document.getElementById("carve");
+const circulationSlider = document.getElementById("circulation");
+const memoryDecaySlider = document.getElementById("memoryDecay");
+const readout = document.getElementById("readout");
 
-let scale = 120
+// ----------------------------
+// State
+// ----------------------------
+let particle;
+let trajectory;
+let Phi;     // potential landscape
+let Cx, Cy;  // circulation memory fields
 
-function potential(x,y){
-
-    let basin1 = -2*Math.exp(-((x+0.9)**2+(y+0.3)**2)/0.3)
-    let basin2 = -1.8*Math.exp(-((x-0.8)**2+(y-0.6)**2)/0.25)
-    let ridge  =  0.9*Math.exp(-((x-0.1)**2+(y+0.2)**2)/0.15)
-
-    return 0.35*(x*x+y*y)+basin1+basin2+ridge
+function idx(i,j){
+  return j * N + i;
 }
 
-function gradient(x,y){
+function worldX(i){
+  return worldMin + i * dx;
+}
 
-    let eps = 0.01
+function worldY(j){
+  return worldMin + j * dx;
+}
 
-    let dx = (potential(x+eps,y)-potential(x-eps,y))/(2*eps)
-    let dy = (potential(x,y+eps)-potential(x,y-eps))/(2*eps)
+function createField(fillValue=0){
+  return new Float32Array(N * N).fill(fillValue);
+}
 
-    return {x:dx,y:dy}
+function basePotential(x,y){
+  const basin1 = -2.2 * Math.exp(-(((x+0.9)**2 + (y+0.3)**2) / 0.22));
+  const basin2 = -1.7 * Math.exp(-(((x-0.8)**2 + (y-0.7)**2) / 0.25));
+  const ridge  =  0.9 * Math.exp(-(((x-0.1)**2 + (y+0.2)**2) / 0.12));
+  const bowl   =  0.35 * (x*x + y*y);
+  return bowl + basin1 + basin2 + ridge;
+}
+
+function initializeLandscape(){
+  Phi = createField();
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const x = worldX(i);
+      const y = worldY(j);
+      Phi[idx(i,j)] = basePotential(x,y);
+    }
+  }
+}
+
+function resetSystem(){
+  particle = {x:0.15, y:1.2};
+  trajectory = [];
+  initializeLandscape();
+  Cx = createField(0);
+  Cy = createField(0);
+}
+
+function togglePause(){
+  paused = !paused;
+}
+
+// ----------------------------
+// Interpolation
+// ----------------------------
+function clamp(v,a,b){
+  return Math.max(a, Math.min(b, v));
+}
+
+function sampleField(F, x, y){
+  const fx = (x - worldMin) / dx;
+  const fy = (y - worldMin) / dx;
+
+  const i = clamp(Math.floor(fx), 0, N-2);
+  const j = clamp(Math.floor(fy), 0, N-2);
+
+  const tx = fx - i;
+  const ty = fy - j;
+
+  const f00 = F[idx(i,   j)];
+  const f10 = F[idx(i+1, j)];
+  const f01 = F[idx(i,   j+1)];
+  const f11 = F[idx(i+1, j+1)];
+
+  return (
+    (1-tx)*(1-ty)*f00 +
+    tx*(1-ty)*f10 +
+    (1-tx)*ty*f01 +
+    tx*ty*f11
+  );
+}
+
+function gradientAt(x,y){
+  const eps = dx;
+  const gx = (sampleField(Phi, x+eps, y) - sampleField(Phi, x-eps, y)) / (2*eps);
+  const gy = (sampleField(Phi, x, y+eps) - sampleField(Phi, x, y-eps)) / (2*eps);
+  return {x:gx, y:gy};
+}
+
+// ----------------------------
+// Terrain carving + circulation memory
+// ----------------------------
+function applyLocalKernel(field, px, py, amount, width){
+  for(let j=0;j<N;j++){
+    const y = worldY(j);
+    for(let i=0;i<N;i++){
+      const x = worldX(i);
+      const r2 = (x-px)*(x-px) + (y-py)*(y-py);
+      const k = Math.exp(-r2 / width);
+      field[idx(i,j)] += amount * k;
+    }
+  }
+}
+
+function decayField(field, decayAmount){
+  const factor = 1 - decayAmount;
+  for(let k=0;k<field.length;k++){
+    field[k] *= factor;
+  }
+}
+
+// ----------------------------
+// Dynamics
+// ----------------------------
+function stepSystem(){
+  const dt = 0.03;
+  const noise = parseFloat(noiseSlider.value);
+  const drift = parseFloat(driftSlider.value);
+  const carve = parseFloat(carveSlider.value);
+  const circGain = parseFloat(circulationSlider.value);
+  const memDecay = parseFloat(memoryDecaySlider.value);
+
+  const grad = gradientAt(particle.x, particle.y);
+
+  const circX = sampleField(Cx, particle.x, particle.y);
+  const circY = sampleField(Cy, particle.x, particle.y);
+
+  const oldX = particle.x;
+  const oldY = particle.y;
+
+  particle.x += (-grad.x * drift + circX) * dt + noise * (Math.random() - 0.5);
+  particle.y += (-grad.y * drift + circY) * dt + noise * (Math.random() - 0.5);
+
+  particle.x = clamp(particle.x, worldMin, worldMax);
+  particle.y = clamp(particle.y, worldMin, worldMax);
+
+  const vx = particle.x - oldX;
+  const vy = particle.y - oldY;
+
+  trajectory.push({x:particle.x, y:particle.y});
+  if(trajectory.length > 1800) trajectory.shift();
+
+  // Carve the terrain where the particle visits
+  // Lower potential = deeper basin
+  applyLocalKernel(Phi, particle.x, particle.y, -carve, 0.08);
+
+  // Build circulation memory from recent direction of motion
+  // Perpendicular memory creates local rotation
+  applyLocalKernel(Cx, particle.x, particle.y,  circGain * vy, 0.06);
+  applyLocalKernel(Cy, particle.x, particle.y, -circGain * vx, 0.06);
+
+  // Decay circulation memory
+  decayField(Cx, memDecay);
+  decayField(Cy, memDecay);
+
+  // Mild terrain relaxation so everything does not collapse forever
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const x = worldX(i);
+      const y = worldY(j);
+      const k = idx(i,j);
+      const target = basePotential(x,y);
+      Phi[k] += 0.0008 * (target - Phi[k]);
+    }
+  }
+
+  // Readout
+  const gradMag = Math.sqrt(grad.x*grad.x + grad.y*grad.y);
+  const circMag = Math.sqrt(circX*circX + circY*circY);
+  readout.textContent =
+    `state=(${particle.x.toFixed(2)}, ${particle.y.toFixed(2)}) | ` +
+    `|∇Φ|=${gradMag.toFixed(3)} | ` +
+    `circulation=${circMag.toFixed(3)} | ` +
+    `trajectory=${trajectory.length}`;
+}
+
+// ----------------------------
+// Drawing
+// ----------------------------
+function potentialColor(v){
+  // tuned for this landscape
+  let c = Math.floor(135 + v * 55);
+  c = clamp(c, 20, 235);
+  const b = clamp(c + 35, 30, 255);
+  return `rgb(${c},${c},${b})`;
 }
 
 function drawField(){
-
-    let step = 4
-
-    for(let i=0;i<canvas.width;i+=step){
-
-        for(let j=0;j<canvas.height;j+=step){
-
-            let x = (i-canvas.width/2)/scale
-            let y = (j-canvas.height/2)/scale
-
-            let p = potential(x,y)
-
-            let c = Math.floor(120 + p*50)
-
-            ctx.fillStyle = `rgb(${c},${c},${180})`
-            ctx.fillRect(i,j,step,step)
-
-        }
-
+  const step = W / N;
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const v = Phi[idx(i,j)];
+      ctx.fillStyle = potentialColor(v);
+      ctx.fillRect(i*step, j*step, step+1, step+1);
     }
-
+  }
 }
 
 function drawTrajectory(){
-
-    ctx.strokeStyle="white"
-    ctx.beginPath()
-
-    for(let i=0;i<trajectory.length;i++){
-
-        let px = canvas.width/2 + trajectory[i].x*scale
-        let py = canvas.height/2 + trajectory[i].y*scale
-
-        if(i===0) ctx.moveTo(px,py)
-        else ctx.lineTo(px,py)
-
-    }
-
-    ctx.stroke()
-
+  if(trajectory.length < 2) return;
+  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for(let k=0;k<trajectory.length;k++){
+    const px = ((trajectory[k].x - worldMin) / worldSize) * W;
+    const py = ((trajectory[k].y - worldMin) / worldSize) * H;
+    if(k===0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
 }
 
 function drawParticle(){
-
-    let px = canvas.width/2 + particle.x*scale
-    let py = canvas.height/2 + particle.y*scale
-
-    ctx.fillStyle="red"
-    ctx.beginPath()
-    ctx.arc(px,py,5,0,Math.PI*2)
-    ctx.fill()
-
+  const px = ((particle.x - worldMin) / worldSize) * W;
+  const py = ((particle.y - worldMin) / worldSize) * H;
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(px, py, 5, 0, Math.PI*2);
+  ctx.fill();
 }
 
-function step(){
-
-    let g = gradient(particle.x,particle.y)
-
-    let noise = parseFloat(noiseSlider.value)
-    let drift = parseFloat(driftSlider.value)
-
-    particle.x += (-g.x*drift + noise*(Math.random()-0.5))
-    particle.y += (-g.y*drift + noise*(Math.random()-0.5))
-
-    trajectory.push({x:particle.x,y:particle.y})
-
-    if(trajectory.length>2000) trajectory.shift()
-
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  drawField();
+  drawTrajectory();
+  drawParticle();
 }
 
 function animate(){
-
-    ctx.clearRect(0,0,canvas.width,canvas.height)
-
-    drawField()
-
-    step()
-
-    drawTrajectory()
-
-    drawParticle()
-
-    requestAnimationFrame(animate)
-
+  if(!paused){
+    stepSystem();
+  }
+  draw();
+  requestAnimationFrame(animate);
 }
 
-function reset(){
-
-    particle={x:0.2,y:1.2}
-    trajectory=[]
-
-}
-
-const noiseSlider=document.getElementById("noise")
-const driftSlider=document.getElementById("drift")
-
-animate()
-
+// Start
+resetSystem();
+animate();
 </script>
-
 </body>
 </html>
