@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EVF-Sim Density v0.1</title>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--text:#e8eaed;--muted:#a7b0be;--line:#2a3140;--accent:#7aa2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+.wrap{display:grid;grid-template-columns:320px 1fr;min-height:100vh}
+.sidebar{padding:18px;border-right:1px solid var(--line);background:var(--panel)}
+h1{margin:0 0 10px;font-size:20px}
+h2{margin:18px 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.control{margin:10px 0}
+label{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
+input[type=range]{width:100%}
+button,select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#11151d;color:var(--text)}
+button:hover{border-color:var(--accent);cursor:pointer}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.main{display:grid;grid-template-rows:auto 1fr auto}
+.topbar{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.canvas-wrap{display:grid;place-items:center;padding:16px}
+canvas{width:min(88vmin,920px);height:min(88vmin,920px);max-width:100%;max-height:calc(100vh - 180px);border:1px solid var(--line);background:#0d1016}
+.status{padding:12px 16px;border-top:1px solid var(--line);color:var(--muted);font-family:ui-monospace,monospace;white-space:pre-wrap}
+.small{color:var(--muted);font-size:12px}.pill{padding:4px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside class="sidebar">
+<h1>EVF-Sim Density</h1>
+<div class="small">Field-first browser simulation: emotional activation as a continuous density moving on a fixed meaning landscape.</div>
+
+<h2>Landscape</h2>
+<div class="control">
+<label for="landscapePreset"><span>Preset</span></label>
+<select id="landscapePreset">
+<option value="dual">Dual basin + ridge</option>
+<option value="single">Single basin</option>
+<option value="anxiety">Anxiety valley</option>
+</select>
+</div>
+
+<h2>Dynamics</h2>
+<div class="control"><label for="diffusion"><span>Diffusion D</span><span id="diffusionVal"></span></label><input id="diffusion" type="range" min="0" max="0.02" step="0.0005" value="0.006"></div>
+<div class="control"><label for="drift"><span>Gradient pull λ</span><span id="driftVal"></span></label><input id="drift" type="range" min="0" max="3.0" step="0.02" value="1.2"></div>
+<div class="control"><label for="noise"><span>Noise σ</span><span id="noiseVal"></span></label><input id="noise" type="range" min="0" max="0.02" step="0.0005" value="0.002"></div>
+<div class="control"><label for="circ"><span>Circulation ω</span><span id="circVal"></span></label><input id="circ" type="range" min="0" max="1.5" step="0.02" value="0.25"></div>
+
+<h2>Plasticity</h2>
+<div class="control"><label for="carve"><span>Carving α</span><span id="carveVal"></span></label><input id="carve" type="range" min="0" max="0.02" step="0.0005" value="0.002"></div>
+<div class="control"><label for="relax"><span>Relaxation ε</span><span id="relaxVal"></span></label><input id="relax" type="range" min="0" max="0.01" step="0.0002" value="0.001"></div>
+
+<h2>View</h2>
+<div class="control">
+<label><input id="showTerrain" type="checkbox" checked> Show terrain</label>
+<label><input id="showDensity" type="checkbox" checked> Show density</label>
+<label><input id="showCentroid" type="checkbox"> Show centroid</label>
+</div>
+
+<h2>Actions</h2>
+<div class="row">
+<button id="resetBtn">Reset</button>
+<button id="pauseBtn">Pause</button>
+</div>
+<div class="control" style="margin-top:8px;"><button id="seedBtn">New field seed</button></div>
+
+<h2>Predicted regime</h2>
+<div id="regimeBox" class="small"></div>
+</aside>
+
+<main class="main">
+<div class="topbar">
+<div><strong>Density-first simulation</strong> <span class="pill">EVF-Sim v0.1ρ</span></div>
+<div class="small">Focus on one layer first: activation density + terrain.</div>
+</div>
+<div class="canvas-wrap"><canvas id="canvas" width="840" height="840"></canvas></div>
+<div id="status" class="status"></div>
+</main>
+</div>
+
+<script>
+(() => {
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const N = 120, W = canvas.width, H = canvas.height;
+const worldMin = -2.5, worldMax = 2.5, worldSize = worldMax - worldMin;
+const dx = worldSize / (N - 1);
+const dt = 0.06;
+
+const els = {
+  landscapePreset: document.getElementById("landscapePreset"),
+  diffusion: document.getElementById("diffusion"),
+  drift: document.getElementById("drift"),
+  noise: document.getElementById("noise"),
+  circ: document.getElementById("circ"),
+  carve: document.getElementById("carve"),
+  relax: document.getElementById("relax"),
+  showTerrain: document.getElementById("showTerrain"),
+  showDensity: document.getElementById("showDensity"),
+  showCentroid: document.getElementById("showCentroid"),
+  resetBtn: document.getElementById("resetBtn"),
+  pauseBtn: document.getElementById("pauseBtn"),
+  seedBtn: document.getElementById("seedBtn"),
+  regimeBox: document.getElementById("regimeBox"),
+  status: document.getElementById("status"),
+};
+const valueLabels = {
+  diffusion: document.getElementById("diffusionVal"),
+  drift: document.getElementById("driftVal"),
+  noise: document.getElementById("noiseVal"),
+  circ: document.getElementById("circVal"),
+  carve: document.getElementById("carveVal"),
+  relax: document.getElementById("relaxVal"),
+};
+
+let Phi0, Phi, rho, nextRho;
+let paused = false, steps = 0;
+
+function idx(i,j){ return j*N + i; }
+function wx(i){ return worldMin + i*dx; }
+function wy(j){ return worldMin + j*dx; }
+function field(fill=0){ return new Float32Array(N*N).fill(fill); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+function basePotential(x,y,preset){
+  if (preset === "single") return 0.28*(x*x+y*y) - 2.3*Math.exp(-((x*x+y*y)/0.35));
+  if (preset === "anxiety") return 0.28*x*x + 0.20*(Math.pow(y,4) - 1.9*y*y) + 0.35*Math.exp(-(x*x + Math.pow(y+0.1,2))/0.12);
+  const basin1 = -2.2 * Math.exp(-(((x+0.9)**2 + (y+0.3)**2) / 0.22));
+  const basin2 = -1.7 * Math.exp(-(((x-0.8)**2 + (y-0.7)**2) / 0.25));
+  const ridge  =  0.9 * Math.exp(-(((x-0.1)**2 + (y+0.2)**2) / 0.12));
+  const bowl   =  0.35 * (x*x + y*y);
+  return bowl + basin1 + basin2 + ridge;
+}
+
+function initLandscape(){
+  const preset = els.landscapePreset.value;
+  Phi0 = field();
+  Phi = field();
+  for(let j=0;j<N;j++){
+    const y = wy(j);
+    for(let i=0;i<N;i++){
+      const x = wx(i);
+      const v = basePotential(x,y,preset);
+      Phi0[idx(i,j)] = v;
+      Phi[idx(i,j)] = v;
+    }
+  }
+}
+
+function seedDensity(){
+  rho = field();
+  nextRho = field();
+  const preset = els.landscapePreset.value;
+  let cx = 0.2, cy = 1.1, spread = 0.12;
+  if (preset === "single") { cx = 0.8*(Math.random()-0.5); cy = 1.0 + 0.2*(Math.random()-0.5); }
+  if (preset === "anxiety") { cx = 0.15*(Math.random()-0.5); cy = 1.2 + 0.2*(Math.random()-0.5); spread = 0.10; }
+  if (preset === "dual") { cx = 0.15 + 0.35*(Math.random()-0.5); cy = 1.1 + 0.2*(Math.random()-0.5); }
+  let total = 0;
+  for(let j=0;j<N;j++){
+    const y = wy(j);
+    for(let i=0;i<N;i++){
+      const x = wx(i);
+      const r2 = (x-cx)*(x-cx) + (y-cy)*(y-cy);
+      const v = Math.exp(-r2/spread);
+      rho[idx(i,j)] = v;
+      total += v;
+    }
+  }
+  normalizeDensity(total);
+}
+
+function normalizeDensity(total){
+  if (total === undefined) {
+    total = 0;
+    for(let k=0;k<rho.length;k++) total += rho[k];
+  }
+  const inv = total > 0 ? 1/total : 1;
+  for(let k=0;k<rho.length;k++) rho[k] *= inv;
+}
+
+function reset(){
+  initLandscape();
+  seedDensity();
+  steps = 0;
+}
+
+function centroid(){
+  let sx = 0, sy = 0, total = 0;
+  for(let j=0;j<N;j++){
+    const y = wy(j);
+    for(let i=0;i<N;i++){
+      const x = wx(i);
+      const m = rho[idx(i,j)];
+      sx += x*m; sy += y*m; total += m;
+    }
+  }
+  if (total <= 0) return {x:0,y:0};
+  return {x:sx/total, y:sy/total};
+}
+
+function step(){
+  const D = +els.diffusion.value;
+  const drift = +els.drift.value;
+  const sigma = +els.noise.value;
+  const omega = +els.circ.value;
+  const carve = +els.carve.value;
+  const relax = +els.relax.value;
+
+  const c = centroid();
+  let total = 0;
+
+  for(let j=1;j<N-1;j++){
+    const y = wy(j);
+    for(let i=1;i<N-1;i++){
+      const x = wx(i);
+      const k = idx(i,j);
+
+      const center = rho[k];
+      const left = rho[idx(i-1,j)];
+      const right = rho[idx(i+1,j)];
+      const up = rho[idx(i,j-1)];
+      const down = rho[idx(i,j+1)];
+
+      const lap = (left + right + up + down - 4*center)/(dx*dx);
+
+      const dPhidx = (Phi[idx(i+1,j)] - Phi[idx(i-1,j)])/(2*dx);
+      const dPhidy = (Phi[idx(i,j+1)] - Phi[idx(i,j-1)])/(2*dx);
+
+      const rx = x - c.x;
+      const ry = y - c.y;
+      const local = Math.exp(-(rx*rx + ry*ry)/0.45);
+      const vx = -drift*dPhidx + omega * local * ( ry );
+      const vy = -drift*dPhidy + omega * local * (-rx );
+
+      const drdx = (right - left)/(2*dx);
+      const drdy = (down - up)/(2*dx);
+      const adv = -(vx*drdx + vy*drdy);
+
+      const noise = sigma * (Math.random() - 0.5);
+
+      let val = center + dt*(D*lap + adv + noise);
+      if (val < 0) val = 0;
+      nextRho[k] = val;
+      total += val;
+    }
+  }
+
+  for(let i=0;i<N;i++){
+    nextRho[idx(i,0)] = 0; nextRho[idx(i,N-1)] = 0;
+    nextRho[idx(0,i)] = 0; nextRho[idx(N-1,i)] = 0;
+  }
+
+  let tmp = rho; rho = nextRho; nextRho = tmp;
+  normalizeDensity(total);
+
+  if (carve > 0) {
+    for(let k=0;k<Phi.length;k++) Phi[k] -= carve * rho[k];
+  }
+
+  if (relax > 0) {
+    for(let k=0;k<Phi.length;k++) Phi[k] += relax * (Phi0[k] - Phi[k]);
+  }
+
+  steps++;
+  updateStatus(c);
+}
+
+function densityMax(){
+  let m = 0;
+  for(let i=0;i<rho.length;i++) if (rho[i] > m) m = rho[i];
+  return m || 1e-6;
+}
+
+function pathEntropy(){
+  let Hs = 0;
+  for(let k=0;k<rho.length;k++){
+    const p = rho[k];
+    if (p > 1e-12) Hs -= p*Math.log(p);
+  }
+  return Hs;
+}
+
+function terrainColor(v){
+  let c = Math.floor(135 + v*55);
+  c = clamp(c, 20, 235);
+  return [c, c, clamp(c+35, 30, 255)];
+}
+function densityColor(a){
+  const alpha = clamp(a, 0, 1);
+  return "rgba(255,80,80," + alpha + ")";
+}
+
+function draw(){
+  const cellW = W / N;
+  const showTerrain = els.showTerrain.checked;
+  const showDensity = els.showDensity.checked;
+  const dMax = densityMax();
+
+  ctx.clearRect(0,0,W,H);
+
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const k = idx(i,j);
+      let base = [18,22,30];
+      if (showTerrain) base = terrainColor(Phi[k]);
+
+      ctx.fillStyle = "rgb(" + base[0] + "," + base[1] + "," + base[2] + ")";
+      ctx.fillRect(i*cellW, j*cellW, cellW+1, cellW+1);
+
+      if (showDensity) {
+        const a = Math.pow(rho[k]/dMax, 0.65) * 0.92;
+        if (a > 0.02) {
+          ctx.fillStyle = densityColor(a);
+          ctx.fillRect(i*cellW, j*cellW, cellW+1, cellW+1);
+        }
+      }
+    }
+  }
+
+  if (els.showCentroid.checked) {
+    const c = centroid();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(((c.x-worldMin)/worldSize)*W, ((c.y-worldMin)/worldSize)*H, 4.2, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function regimeGuess(){
+  const D = +els.diffusion.value;
+  const drift = +els.drift.value;
+  const sigma = +els.noise.value;
+  const omega = +els.circ.value;
+  const carve = +els.carve.value;
+
+  if (omega > 0.7 && carve > 0.006) return "circulating / rumination-like vortex";
+  if (sigma > 0.01 && D < 0.004) return "turbulent wandering / unstable spread";
+  if (carve > 0.006 && sigma < 0.006) return "groove deepening / attractor stabilization";
+  if (D > 0.01 && drift < 1.0) return "diffuse calming / spread-out activation";
+  return "biased drift with partial recurrence";
+}
+
+function updateStatus(c){
+  const Hs = pathEntropy();
+  const peak = densityMax();
+  els.status.textContent =
+"steps: " + steps +
+"\ncentroid: (" + c.x.toFixed(3) + ", " + c.y.toFixed(3) + ")" +
+"\npath entropy: " + Hs.toFixed(3) +
+"\npeak density: " + peak.toFixed(5) +
+"\nmass conserved: ~1.0";
+  els.regimeBox.textContent =
+"Preset: " + els.landscapePreset.value +
+"\nLikely pattern: " + regimeGuess() +
+"\n\nRead density as active emotional weather, not the whole psyche.";
+}
+
+function animate(){
+  if (!paused) step();
+  draw();
+  requestAnimationFrame(animate);
+}
+
+Object.keys(valueLabels).forEach((k) => {
+  const slider = els[k];
+  const el = valueLabels[k];
+  const refresh = () => el.textContent = slider.value;
+  slider.addEventListener("input", refresh);
+  refresh();
+});
+
+els.resetBtn.addEventListener("click", reset);
+els.seedBtn.addEventListener("click", seedDensity);
+els.pauseBtn.addEventListener("click", () => paused = !paused);
+els.landscapePreset.addEventListener("change", reset);
+
+reset();
+animate();
+})();
+</script>
+</body>
+</html>
