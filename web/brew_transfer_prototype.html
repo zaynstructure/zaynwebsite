@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brew Transfer Prototype</title>
+  <style>
+    :root {
+      --bg: #111315;
+      --panel: #1b1f24;
+      --panel-2: #242a31;
+      --text: #f2f4f7;
+      --muted: #a7b0ba;
+      --good: #41d17d;
+      --warn: #f5c451;
+      --bad: #ef6b73;
+      --line: #39424c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+    }
+    .sub {
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+    .control { margin-bottom: 16px; }
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .control small { color: var(--muted); }
+    input[type="range"] { width: 100%; }
+    select, button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 14px;
+    }
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    button { cursor: pointer; }
+    .top-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      min-height: 110px;
+    }
+    .card .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+    .card .value {
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .card .unit {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .status {
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    .good { background: rgba(65,209,125,.16); color: var(--good); }
+    .warn { background: rgba(245,196,81,.16); color: var(--warn); }
+    .bad { background: rgba(239,107,115,.16); color: var(--bad); }
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 16px;
+    }
+    .flowbar-wrap {
+      background: #0d0f11;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      height: 24px;
+      overflow: hidden;
+      margin: 12px 0 10px;
+      position: relative;
+    }
+    .flowbar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #5aa0ff, #58e0ff);
+      transition: width .15s linear;
+    }
+    .band {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: rgba(65,209,125,.22);
+      border-left: 1px solid rgba(65,209,125,.55);
+      border-right: 1px solid rgba(65,209,125,.55);
+    }
+    .pipe {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+      color: var(--muted);
+    }
+    .node, .linebox {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+    .linebox.active { color: #7dd3fc; border-color: #3a7aa5; }
+    .mini {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    canvas {
+      width: 100%;
+      height: 220px;
+      display: block;
+      background: #0d0f11;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .footer-note {
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    @media (max-width: 900px) {
+      .grid, .main-grid, .top-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Small Brewery Transfer Prototype</h1>
+    <div class="sub">Manual-first transfer dashboard: pump moves, valve trims, meter shows.</div>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Controls</h2>
+
+        <div class="control">
+          <label for="preset">Transfer path <small id="presetLabel">Bright tank transfer</small></label>
+          <select id="preset">
+            <option value="bright">Bright tank transfer</option>
+            <option value="kettle">Kettle to fermenter</option>
+            <option value="cip">CIP return</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="pump">Pump setting <small><span id="pumpVal">62</span>%</small></label>
+          <input id="pump" type="range" min="0" max="100" value="62" />
+        </div>
+
+        <div class="control">
+          <label for="valve">Valve opening <small><span id="valveVal">54</span>°</small></label>
+          <input id="valve" type="range" min="0" max="90" value="54" />
+        </div>
+
+        <div class="control">
+          <label for="resistance">Line resistance / fouling <small><span id="resVal">20</span>%</small></label>
+          <input id="resistance" type="range" min="0" max="100" value="20" />
+        </div>
+
+        <div class="control">
+          <label for="volume">Batch volume <small><span id="volVal">22</span> hL</small></label>
+          <input id="volume" type="range" min="5" max="40" value="22" />
+        </div>
+
+        <div class="button-row">
+          <button id="startBtn">Start transfer</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+
+        <div class="footer-note">
+          Version 1: one flow meter, one readout, no automation. Use this to test operator visibility and target bands.
+        </div>
+      </div>
+
+      <div>
+        <div class="top-cards">
+          <div class="card">
+            <div class="label">Current flow</div>
+            <div class="value" id="flowValue">0.0</div>
+            <div class="unit">L/min</div>
+          </div>
+          <div class="card">
+            <div class="label">Target band</div>
+            <div class="value" id="bandValue">85–105</div>
+            <div class="unit">L/min</div>
+          </div>
+          <div class="card">
+            <div class="label">Elapsed time</div>
+            <div class="value" id="timeValue">0:00</div>
+            <div class="unit">mm:ss</div>
+          </div>
+          <div class="card">
+            <div class="label">Estimated remaining</div>
+            <div class="value" id="remainValue">--</div>
+            <div class="unit">min</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div id="status" class="status warn">Ready</div>
+          <div class="mini" id="statusText">Set the pump and valve, then start the transfer.</div>
+
+          <div class="flowbar-wrap">
+            <div class="band" id="bandMarker"></div>
+            <div class="flowbar" id="flowBar"></div>
+          </div>
+
+          <div class="main-grid">
+            <div>
+              <h2>Transfer line</h2>
+              <div class="pipe">
+                <div class="node">Source tank</div>
+                <div class="linebox active">Pump</div>
+                <div class="linebox active">Flow meter</div>
+                <div class="linebox active">Butterfly valve</div>
+                <div class="node">Destination tank</div>
+              </div>
+              <div class="mini" style="margin-top:14px">
+                This prototype treats the pump as coarse control and the valve as trim. The flow meter shows whether the operator is in the working band for the selected transfer path.
+              </div>
+            </div>
+            <div>
+              <h2>Interpretation</h2>
+              <div class="mini" id="interpretation">
+                Waiting for transfer start.
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px">
+            <h2>Flow trend</h2>
+            <canvas id="trend" width="680" height="220"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const presetEl = document.getElementById('preset');
+  const pumpEl = document.getElementById('pump');
+  const valveEl = document.getElementById('valve');
+  const resistanceEl = document.getElementById('resistance');
+  const volumeEl = document.getElementById('volume');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const flowValue = document.getElementById('flowValue');
+  const bandValue = document.getElementById('bandValue');
+  const timeValue = document.getElementById('timeValue');
+  const remainValue = document.getElementById('remainValue');
+  const status = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const interpretation = document.getElementById('interpretation');
+  const flowBar = document.getElementById('flowBar');
+  const bandMarker = document.getElementById('bandMarker');
+
+  const pumpVal = document.getElementById('pumpVal');
+  const valveVal = document.getElementById('valveVal');
+  const resVal = document.getElementById('resVal');
+  const volVal = document.getElementById('volVal');
+  const presetLabel = document.getElementById('presetLabel');
+
+  const canvas = document.getElementById('trend');
+  const ctx = canvas.getContext('2d');
+
+  const presets = {
+    bright: { name: 'Bright tank transfer', min: 85, max: 105, base: 120 },
+    kettle: { name: 'Kettle to fermenter', min: 70, max: 90, base: 100 },
+    cip: { name: 'CIP return', min: 110, max: 140, base: 155 }
+  };
+
+  let running = false;
+  let elapsed = 0;
+  let volumeMovedL = 0;
+  let history = [];
+  let currentFlow = 0;
+
+  function nonlinearValveFactor(deg) {
+    const x = Math.max(0, Math.min(90, deg)) / 90;
+    return Math.sin((Math.PI / 2) * x) ** 1.9;
+  }
+
+  function computeFlow() {
+    const p = Number(pumpEl.value) / 100;
+    const v = Number(valveEl.value);
+    const r = Number(resistanceEl.value) / 100;
+    const preset = presets[presetEl.value];
+
+    const pumpPart = preset.base * Math.pow(p, 1.35);
+    const valvePart = nonlinearValveFactor(v);
+    const resistancePart = 1 - 0.55 * r;
+    const noise = running ? (Math.sin(elapsed * 0.7) * 1.6 + Math.sin(elapsed * 0.13) * 0.9) : 0;
+
+    let flow = pumpPart * valvePart * resistancePart + noise;
+    flow = Math.max(0, flow);
+    return flow;
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function setStatus(flow) {
+    const p = presets[presetEl.value];
+    const targetMid = (p.min + p.max) / 2;
+    const tooTouchy = Number(valveEl.value) < 25 && flow > 0;
+    const overthrottled = Number(valveEl.value) < 18 && Number(pumpEl.value) > 70;
+
+    status.className = 'status';
+    if (!running) {
+      status.classList.add('warn');
+      status.textContent = 'Ready';
+      statusText.textContent = 'Set the pump and valve, then start the transfer.';
+      interpretation.textContent = 'Waiting for transfer start.';
+      return;
+    }
+
+    if (flow < p.min) {
+      status.classList.add('bad');
+      status.textContent = 'Below range';
+      statusText.textContent = 'Transfer is slower than the working band.';
+    } else if (flow > p.max) {
+      status.classList.add('bad');
+      status.textContent = 'Above range';
+      statusText.textContent = 'Transfer is more aggressive than the working band.';
+    } else {
+      status.classList.add('good');
+      status.textContent = 'In range';
+      statusText.textContent = 'Transfer is sitting in the target band.';
+    }
+
+    if (overthrottled) {
+      interpretation.textContent = 'Pump is high while valve is nearly shut. This is the classic “let the pump do too much, then choke it down” pattern. Better to back off the pump a bit and open the valve more.';
+    } else if (tooTouchy) {
+      interpretation.textContent = 'Valve is in a touchy region. Small handle movements can create larger-than-expected flow jumps. Good reminder that butterfly valves are less friendly at low openings.';
+    } else if (Math.abs(flow - targetMid) < 4) {
+      interpretation.textContent = 'This is the calm operating region. Pump is doing coarse work, valve is trimming, and the meter is confirming. This is what repeatability looks like.';
+    } else {
+      interpretation.textContent = 'You are moving product, but not in the calmest zone. This is useful for training: operators can see whether they are under-driving, over-driving, or trimming in a stable band.';
+    }
+  }
+
+  function drawTrend() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#2c3440';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const y = 20 + (i * 45);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+
+    const p = presets[presetEl.value];
+    const maxFlow = 180;
+    const yMin = canvas.height - (p.min / maxFlow) * (canvas.height - 30) - 10;
+    const yMax = canvas.height - (p.max / maxFlow) * (canvas.height - 30) - 10;
+
+    ctx.fillStyle = 'rgba(65, 209, 125, 0.16)';
+    ctx.fillRect(0, yMax, canvas.width, yMin - yMax);
+
+    ctx.strokeStyle = '#6ee7b7';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    history.forEach((f, i) => {
+      const x = (i / Math.max(1, history.length - 1)) * canvas.width;
+      const y = canvas.height - (f / maxFlow) * (canvas.height - 30) - 10;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    ctx.fillStyle = '#a7b0ba';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('Flow trend', 10, 16);
+    ctx.fillText(`Target ${p.min}-${p.max} L/min`, canvas.width - 135, 16);
+  }
+
+  function updateDisplay() {
+    const p = presets[presetEl.value];
+    currentFlow = computeFlow();
+
+    if (running) {
+      elapsed += 0.25;
+      volumeMovedL += currentFlow * 0.25 / 60;
+      history.push(currentFlow);
+      if (history.length > 120) history.shift();
+    }
+
+    flowValue.textContent = currentFlow.toFixed(1);
+    bandValue.textContent = `${p.min}–${p.max}`;
+    timeValue.textContent = formatTime(elapsed);
+
+    const batchLiters = Number(volumeEl.value) * 100;
+    const remainingL = Math.max(0, batchLiters - volumeMovedL);
+    remainValue.textContent = running && currentFlow > 1 ? (remainingL / currentFlow).toFixed(1) : '--';
+
+    const barMax = 180;
+    flowBar.style.width = `${Math.min(100, (currentFlow / barMax) * 100)}%`;
+    bandMarker.style.left = `${(p.min / barMax) * 100}%`;
+    bandMarker.style.width = `${((p.max - p.min) / barMax) * 100}%`;
+
+    pumpVal.textContent = pumpEl.value;
+    valveVal.textContent = valveEl.value;
+    resVal.textContent = resistanceEl.value;
+    volVal.textContent = volumeEl.value;
+    presetLabel.textContent = p.name;
+
+    setStatus(currentFlow);
+    drawTrend();
+  }
+
+  function resetAll() {
+    running = false;
+    elapsed = 0;
+    volumeMovedL = 0;
+    history = [0, 0, 0, 0, 0];
+    updateDisplay();
+  }
+
+  [presetEl, pumpEl, valveEl, resistanceEl, volumeEl].forEach(el => {
+    el.addEventListener('input', updateDisplay);
+    el.addEventListener('change', updateDisplay);
+  });
+
+  startBtn.addEventListener('click', () => {
+    running = !running;
+    startBtn.textContent = running ? 'Pause transfer' : 'Start transfer';
+    updateDisplay();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    startBtn.textContent = 'Start transfer';
+    resetAll();
+  });
+
+  setInterval(updateDisplay, 250);
+  resetAll();
+})();
+</script>
+</body>
+</html>
