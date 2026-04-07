@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>EVF Geometric Force Sandbox</title>
+<style>
+  :root{--bg:#f5f5f5;--panel:#ffffff;--ink:#111;--muted:#666}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);display:grid;grid-template-columns:320px 1fr;min-height:100vh}
+  .panel{background:var(--panel);border-right:1px solid #ddd;padding:16px;overflow:auto}
+  h1{font-size:18px;margin:0 0 12px}
+  .small,.legend,.footer{font-size:12px;color:var(--muted);line-height:1.35}
+  .small{margin-bottom:16px}
+  .row{margin:10px 0 14px}
+  label{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:6px}
+  input[type="range"]{width:100%}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 12px}
+  button{border:1px solid #ccc;background:#fafafa;padding:8px 10px;border-radius:8px;cursor:pointer}
+  button:hover{background:#f0f0f0}
+  .stage-wrap{display:flex;align-items:center;justify-content:center;padding:20px}
+  svg{width:min(900px,92vw);height:min(900px,92vw);background:white;border:1px solid #ddd}
+  .legend{margin-top:10px}
+  .footer{margin-top:10px}
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h1>EVF Geometric Force Sandbox</h1>
+    <div class="small">Black-and-white geometric study. Each force is its own layer. Coherence is shown by alignment and interference between layers.</div>
+
+    <div class="btns">
+      <button data-preset="neutral">Neutral</button>
+      <button data-preset="sadness">Sadness</button>
+      <button data-preset="yearning">Yearning</button>
+      <button data-preset="grief">Grief</button>
+    </div>
+
+    <div class="row"><label>Damping <span id="v-damping">45</span></label><input id="damping" type="range" min="0" max="100" value="45"></div>
+    <div class="row"><label>Diffusion <span id="v-diffusion">45</span></label><input id="diffusion" type="range" min="0" max="100" value="45"></div>
+    <div class="row"><label>Drift <span id="v-drift">20</span></label><input id="drift" type="range" min="0" max="100" value="20"></div>
+    <div class="row"><label>Attractor <span id="v-attractor">25</span></label><input id="attractor" type="range" min="0" max="100" value="25"></div>
+    <div class="row"><label>Noise <span id="v-noise">10</span></label><input id="noise" type="range" min="0" max="100" value="10"></div>
+    <div class="row"><label>Rhythm <span id="v-rhythm">25</span></label><input id="rhythm" type="range" min="0" max="100" value="25"></div>
+
+    <div class="legend">
+      <div><strong>Damping</strong>: horizontal compression bands</div>
+      <div><strong>Diffusion</strong>: nested square contours</div>
+      <div><strong>Drift</strong>: directional wedge</div>
+      <div><strong>Attractor</strong>: converging basin</div>
+      <div><strong>Noise</strong>: fragmented scatter</div>
+      <div><strong>Rhythm</strong>: repeated interval arcs</div>
+    </div>
+    <div class="footer">Open this file locally in a browser. Everything is self-contained.</div>
+  </div>
+
+  <div class="stage-wrap">
+    <svg viewBox="0 0 800 800" aria-label="EVF geometric force scene">
+      <rect x="40" y="40" width="720" height="720" fill="none" stroke="#ddd" stroke-width="2"/>
+      <g id="g-diffusion"></g>
+      <g id="g-rhythm"></g>
+      <g id="g-drift"></g>
+      <g id="g-attractor"></g>
+      <g id="g-damping"></g>
+      <g id="g-noise"></g>
+    </svg>
+  </div>
+
+<script>
+const ids=["damping","diffusion","drift","attractor","noise","rhythm"];
+const els=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
+const vals=Object.fromEntries(ids.map(id=>[id,document.getElementById("v-"+id)]));
+const groups={
+  damping:document.getElementById("g-damping"),
+  diffusion:document.getElementById("g-diffusion"),
+  drift:document.getElementById("g-drift"),
+  attractor:document.getElementById("g-attractor"),
+  noise:document.getElementById("g-noise"),
+  rhythm:document.getElementById("g-rhythm"),
+};
+function lerp(a,b,t){return a+(b-a)*t}
+function svgEl(name,attrs){
+  const el=document.createElementNS("http://www.w3.org/2000/svg",name);
+  for(const [k,v] of Object.entries(attrs)) el.setAttribute(k,v);
+  return el;
+}
+function clear(node){while(node.firstChild) node.removeChild(node.firstChild);}
+
+function draw(){
+  const D=+els.damping.value/100, F=+els.diffusion.value/100, G=+els.drift.value/100, A=+els.attractor.value/100, N=+els.noise.value/100, R=+els.rhythm.value/100;
+  ids.forEach(id=>vals[id].textContent=els[id].value);
+
+  clear(groups.diffusion);
+  const count=Math.round(lerp(2,9,F));
+  const outer=lerp(110,290,F);
+  for(let i=0;i<count;i++){
+    const t=count===1?0:i/(count-1), s=lerp(90,outer,t), alpha=lerp(0.18,0.45,1-t);
+    groups.diffusion.appendChild(svgEl("rect",{x:400-s,y:400-s,width:2*s,height:2*s,fill:"none",stroke:"#111","stroke-opacity":alpha.toFixed(3),"stroke-width":lerp(1.2,2.4,F).toFixed(2)}));
+  }
+
+  clear(groups.rhythm);
+  const rCount=Math.round(lerp(2,7,R)), spread=lerp(18,46,R);
+  for(let i=0;i<rCount;i++){
+    const rr=120+i*spread;
+    const yoff=Math.sin((performance.now()/700)+(i*0.8))*lerp(0,8,R);
+    const d1=`M ${400-rr} ${400+yoff} A ${rr} ${rr*0.6} 0 0 1 ${400+rr} ${400+yoff}`;
+    const d2=`M ${400-rr} ${400-yoff} A ${rr} ${rr*0.6} 0 0 0 ${400+rr} ${400-yoff}`;
+    groups.rhythm.appendChild(svgEl("path",{d:d1,fill:"none",stroke:"#333","stroke-opacity":0.22,"stroke-width":"1.5"}));
+    groups.rhythm.appendChild(svgEl("path",{d:d2,fill:"none",stroke:"#333","stroke-opacity":0.16,"stroke-width":"1.2"}));
+  }
+
+  clear(groups.drift);
+  const angle=lerp(0,32,G)*Math.PI/180;
+  const cx=lerp(400,560,G), len=lerp(120,290,G), half=lerp(30,110,G);
+  const p1=[400-len*Math.cos(angle),400-len*Math.sin(angle)], p2=[cx,400-half], p3=[cx,400+half];
+  groups.drift.appendChild(svgEl("polygon",{points:`${p1[0]},${p1[1]} ${p2[0]},${p2[1]} ${p3[0]},${p3[1]}`,fill:"#111","fill-opacity":lerp(0.06,0.22,G).toFixed(3),stroke:"#111","stroke-opacity":"0.6","stroke-width":"2"}));
+  for(let i=0;i<3;i++){
+    const off=i*18;
+    groups.drift.appendChild(svgEl("line",{x1:p1[0]+off*0.7,y1:p1[1]+off*0.15,x2:cx-off*0.4,y2:400-half+off,stroke:"#111","stroke-opacity":"0.28","stroke-width":"2"}));
+  }
+
+  clear(groups.attractor);
+  const layers=Math.round(lerp(2,8,A));
+  const focusX=lerp(400,480,G*0.6), focusY=400;
+  for(let i=0;i<layers;i++){
+    const t=i/(layers-1||1), w=lerp(180,26,t)*lerp(0.7,1.2,1-A*0.2), h=lerp(140,18,t);
+    const pts=[[focusX,focusY-h],[focusX+w,focusY],[focusX,focusY+h],[focusX-w,focusY]].map(p=>p.join(",")).join(" ");
+    groups.attractor.appendChild(svgEl("polygon",{points:pts,fill:"none",stroke:"#111","stroke-opacity":lerp(0.18,0.68,1-t).toFixed(3),"stroke-width":lerp(1.2,3.2,A).toFixed(2)}));
+  }
+  if(A>0.08) groups.attractor.appendChild(svgEl("circle",{cx:focusX,cy:focusY,r:lerp(2,9,A),fill:"#111","fill-opacity":"0.5"}));
+
+  clear(groups.damping);
+  const bandCount=5, span=lerp(300,110,D), thick=lerp(6,22,D);
+  for(let i=0;i<bandCount;i++){
+    const y=400-span/2+i*(span/(bandCount-1)), xInset=Math.abs(i-2)*lerp(6,18,D);
+    groups.damping.appendChild(svgEl("rect",{x:180+xInset,y:y-thick/2,width:440-2*xInset,height:thick,rx:"2",fill:"#111","fill-opacity":lerp(0.08,0.22,D).toFixed(3),stroke:"#111","stroke-opacity":"0.35","stroke-width":"1"}));
+  }
+
+  clear(groups.noise);
+  const nCount=Math.round(lerp(8,110,N));
+  let seed=12345;
+  function rand(){seed=(seed*1103515245+12345)%2147483648; return seed/2147483648;}
+  for(let i=0;i<nCount;i++){
+    const x=lerp(130,670,rand()), y=lerp(130,670,rand()), w=lerp(2,12,rand()*N+0.1), h=lerp(2,10,rand()*N+0.1), rot=lerp(-35,35,rand()), op=lerp(0.08,0.55,N)*lerp(0.5,1,rand());
+    groups.noise.appendChild(svgEl("rect",{x:x,y:y,width:w,height:h,fill:"#111","fill-opacity":op.toFixed(3),transform:`rotate(${rot.toFixed(2)} ${x} ${y})`}));
+  }
+}
+function setPreset(name){
+  const presets={
+    neutral:{damping:45,diffusion:45,drift:20,attractor:25,noise:10,rhythm:25},
+    sadness:{damping:78,diffusion:50,drift:12,attractor:20,noise:8,rhythm:30},
+    yearning:{damping:42,diffusion:35,drift:85,attractor:58,noise:8,rhythm:48},
+    grief:{damping:82,diffusion:42,drift:48,attractor:82,noise:55,rhythm:28},
+  };
+  const p=presets[name]; ids.forEach(id=>els[id].value=p[id]); draw();
+}
+ids.forEach(id=>els[id].addEventListener("input",draw));
+document.querySelectorAll("button[data-preset]").forEach(btn=>btn.addEventListener("click",()=>setPreset(btn.dataset.preset)));
+function animate(){draw(); requestAnimationFrame(animate);}
+setPreset("neutral"); animate();
+</script>
+</body>
+</html>
