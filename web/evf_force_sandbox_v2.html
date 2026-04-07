@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EVF Force Sandbox v2</title>
+  <style>
+    :root {
+      --bg: #0d1014;
+      --panel: #151922;
+      --ink: #edf2f8;
+      --muted: #98a2b3;
+      --line: #2a3140;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+    }
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 18px 16px 24px;
+      overflow: auto;
+    }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    p { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 0 0 14px; }
+    .row { margin: 14px 0; }
+    label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    input[type="range"] { width: 100%; }
+    .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    button {
+      background: #212733;
+      color: var(--ink);
+      border: 1px solid #394355;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    button:hover { background: #2a3140; }
+    .checks { display: flex; gap: 14px; font-size: 13px; margin: 10px 0 18px; }
+    .stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-width: 0;
+    }
+    svg {
+      width: min(92vw, 1100px);
+      height: min(88vh, 760px);
+      display: block;
+    }
+    .legend {
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(13,16,20,0.76);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      max-width: 470px;
+      backdrop-filter: blur(6px);
+    }
+    .key { margin-top: 10px; color: #cbd5e1; font-size: 12px; line-height: 1.45; }
+    @media (max-width: 920px) {
+      body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .panel { border-right: 0; border-bottom: 1px solid var(--line); }
+      svg { width: 100vw; height: 62vh; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="panel">
+    <h1>EVF Force Sandbox v2</h1>
+    <p>Stronger, more obvious mappings. Each slider now drives one dominant visual variable so the force differences are easier to read.</p>
+
+    <div class="btns">
+      <button data-preset="neutral">Neutral</button>
+      <button data-preset="sadness">Sadness</button>
+      <button data-preset="yearning">Yearning</button>
+      <button data-preset="grief">Grief</button>
+      <button id="reset">Reset</button>
+    </div>
+
+    <div class="checks">
+      <label><input id="mono" type="checkbox"> Monochrome</label>
+      <label><input id="labels" type="checkbox" checked> Labels</label>
+    </div>
+
+    <div id="controls"></div>
+
+    <div class="key">
+      <strong>Primary mappings</strong><br>
+      damping = global compression<br>
+      diffusion = spread radius<br>
+      drift = sideways pull<br>
+      attractor = local sink depth<br>
+      noise = jitter density<br>
+      rhythm = pulse amplitude
+    </div>
+  </aside>
+
+  <main class="stage">
+    <svg viewBox="0 0 1100 760" aria-label="EVF force scene v2">
+      <defs>
+        <filter id="blur4"><feGaussianBlur stdDeviation="4"/></filter>
+        <filter id="blur10"><feGaussianBlur stdDeviation="10"/></filter>
+      </defs>
+
+      <rect x="0" y="0" width="1100" height="760" fill="#0d1014"/>
+      <ellipse cx="550" cy="630" rx="270" ry="40" fill="#000" opacity="0.20" filter="url(#blur10)"/>
+
+      <g id="scene">
+        <!-- diffusion -->
+        <g id="diffusion-group">
+          <circle class="diff-ring" cx="550" cy="350" r="70" fill="none" stroke="#8fb7ff" stroke-width="10" opacity="0.16"></circle>
+          <circle class="diff-ring" cx="550" cy="350" r="120" fill="none" stroke="#8fb7ff" stroke-width="18" opacity="0.10" filter="url(#blur4)"></circle>
+          <circle class="diff-ring" cx="550" cy="350" r="170" fill="none" stroke="#8fb7ff" stroke-width="24" opacity="0.06" filter="url(#blur10)"></circle>
+        </g>
+
+        <!-- drift -->
+        <g id="drift-group">
+          <path id="drift" d="M 320 346 C 455 298, 650 298, 820 344 C 660 390, 470 398, 320 346 Z" fill="#ffd27a" opacity="0.20"></path>
+        </g>
+
+        <!-- attractor -->
+        <g id="attractor-group">
+          <path id="attractor" d="M 450 335 C 485 255, 615 255, 650 335 C 610 470, 490 470, 450 335 Z" fill="#7fa6ff" opacity="0.18"></path>
+          <path id="attractor-inner" d="M 500 346 C 515 305, 585 305, 600 346 C 580 408, 520 408, 500 346 Z" fill="#d9e4ff" opacity="0.00"></path>
+        </g>
+
+        <!-- damping -->
+        <g id="damping-group">
+          <rect id="damping-shell" x="365" y="260" width="370" height="220" rx="54" fill="#e7ebf4" opacity="0.10"></rect>
+          <rect id="damping-core" x="410" y="300" width="280" height="145" rx="40" fill="#ffffff" opacity="0.08"></rect>
+        </g>
+
+        <!-- rhythm -->
+        <g id="rhythm-group">
+          <path class="rh-wave" d="M 280 220 C 350 200, 420 240, 490 220 C 560 200, 630 240, 700 220 C 770 200, 840 240, 910 220" fill="none" stroke="#93f0ca" stroke-width="5" opacity="0.10"></path>
+          <path class="rh-wave" d="M 280 500 C 350 480, 420 520, 490 500 C 560 480, 630 520, 700 500 C 770 480, 840 520, 910 500" fill="none" stroke="#93f0ca" stroke-width="5" opacity="0.10"></path>
+        </g>
+
+        <!-- noise -->
+        <g id="noise-group"></g>
+
+        <g id="labels-group" font-size="15" font-family="system-ui, sans-serif" fill="#f4f7fc" opacity="0.92">
+          <text x="840" y="336">drift</text>
+          <text x="690" y="202">diffusion</text>
+          <text x="664" y="456">attractor</text>
+          <text x="548" y="560">damping</text>
+          <text x="830" y="500">noise</text>
+          <text x="864" y="222">rhythm</text>
+        </g>
+      </g>
+    </svg>
+
+    <div class="legend">This version exaggerates each force. The goal is legibility first, finesse later. If a slider still feels ambiguous, its mapping should be simplified further rather than decorated.</div>
+  </main>
+
+  <script>
+    const spec = {
+      damping: { min: 0, max: 1, step: 0.01, value: 0.15 },
+      diffusion: { min: 0, max: 1, step: 0.01, value: 0.15 },
+      drift: { min: 0, max: 1, step: 0.01, value: 0.15 },
+      attractor: { min: 0, max: 1, step: 0.01, value: 0.15 },
+      noise: { min: 0, max: 1, step: 0.01, value: 0.08 },
+      rhythm: { min: 0, max: 1, step: 0.01, value: 0.12 }
+    };
+
+    const presets = {
+      neutral:  { damping: 0.15, diffusion: 0.15, drift: 0.15, attractor: 0.15, noise: 0.08, rhythm: 0.12 },
+      sadness:  { damping: 0.82, diffusion: 0.48, drift: 0.06, attractor: 0.18, noise: 0.06, rhythm: 0.14 },
+      yearning: { damping: 0.28, diffusion: 0.22, drift: 0.86, attractor: 0.46, noise: 0.08, rhythm: 0.44 },
+      grief:    { damping: 0.74, diffusion: 0.26, drift: 0.42, attractor: 0.92, noise: 0.54, rhythm: 0.24 }
+    };
+
+    const controls = document.getElementById('controls');
+    const state = structuredClone(Object.fromEntries(Object.entries(spec).map(([k,v]) => [k, v.value])));
+    const mono = document.getElementById('mono');
+    const labelsToggle = document.getElementById('labels');
+
+    for (const [name, s] of Object.entries(spec)) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `
+        <label for="${name}"><span>${name}</span><span id="${name}-val">${s.value.toFixed(2)}</span></label>
+        <input id="${name}" type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.value}">
+      `;
+      controls.appendChild(row);
+      const input = row.querySelector('input');
+      input.addEventListener('input', () => {
+        state[name] = parseFloat(input.value);
+        document.getElementById(`${name}-val`).textContent = state[name].toFixed(2);
+        draw(performance.now());
+      });
+    }
+
+    for (const btn of document.querySelectorAll('[data-preset]')) {
+      btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    }
+    document.getElementById('reset').addEventListener('click', () => applyPreset('neutral'));
+    mono.addEventListener('change', () => draw(performance.now()));
+    labelsToggle.addEventListener('change', () => draw(performance.now()));
+
+    function applyPreset(name) {
+      const p = presets[name];
+      for (const k in p) {
+        state[k] = p[k];
+        document.getElementById(k).value = p[k];
+        document.getElementById(`${k}-val`).textContent = p[k].toFixed(2);
+      }
+      draw(performance.now());
+    }
+
+    const diffRings = document.querySelectorAll('.diff-ring');
+    const driftEl = document.getElementById('drift');
+    const attractorEl = document.getElementById('attractor');
+    const attractorInner = document.getElementById('attractor-inner');
+    const dampingShell = document.getElementById('damping-shell');
+    const dampingCore = document.getElementById('damping-core');
+    const noiseGroup = document.getElementById('noise-group');
+    const rhythmWaves = document.querySelectorAll('.rh-wave');
+    const labelsGroup = document.getElementById('labels-group');
+    const scene = document.getElementById('scene');
+
+    function createNoise() {
+      noiseGroup.innerHTML = '';
+      for (let i = 0; i < 160; i++) {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.dataset.bx = 360 + Math.random() * 420;
+        c.dataset.by = 250 + Math.random() * 230;
+        c.dataset.br = 1 + Math.random() * 4;
+        noiseGroup.appendChild(c);
+      }
+    }
+    createNoise();
+
+    function setMonoColors() {
+      const on = mono.checked;
+      return on ? {
+        diffusion: '#d8d8d8', drift: '#f0f0f0', attractor: '#b8b8b8', attractorInner: '#ffffff', damping: '#f2f2f2', rhythm: '#d0d0d0', noise: '#ffffff'
+      } : {
+        diffusion: '#8fb7ff', drift: '#ffd27a', attractor: '#7fa6ff', attractorInner: '#d9e4ff', damping: '#ffffff', rhythm: '#93f0ca', noise: '#ffffff'
+      };
+    }
+
+    function draw(t = 0) {
+      const cols = setMonoColors();
+
+      // damping: obvious global compression
+      const damp = state.damping;
+      const shellW = 370 + damp * 110;
+      const shellH = 220 - damp * 110;
+      const shellX = 550 - shellW / 2;
+      const shellY = 300 + damp * 95 - shellH / 2;
+      dampingShell.setAttribute('x', shellX.toFixed(1));
+      dampingShell.setAttribute('y', shellY.toFixed(1));
+      dampingShell.setAttribute('width', shellW.toFixed(1));
+      dampingShell.setAttribute('height', shellH.toFixed(1));
+      dampingShell.setAttribute('rx', (54 + damp * 22).toFixed(1));
+      dampingShell.setAttribute('fill', cols.damping);
+      dampingShell.setAttribute('opacity', (0.08 + damp * 0.72).toFixed(2));
+
+      const coreW = 280 + damp * 70;
+      const coreH = 145 - damp * 74;
+      const coreX = 550 - coreW / 2;
+      const coreY = 354 + damp * 58 - coreH / 2;
+      dampingCore.setAttribute('x', coreX.toFixed(1));
+      dampingCore.setAttribute('y', coreY.toFixed(1));
+      dampingCore.setAttribute('width', coreW.toFixed(1));
+      dampingCore.setAttribute('height', coreH.toFixed(1));
+      dampingCore.setAttribute('rx', (40 + damp * 14).toFixed(1));
+      dampingCore.setAttribute('fill', cols.damping);
+      dampingCore.setAttribute('opacity', (0.06 + damp * 0.52).toFixed(2));
+
+      // diffusion: obvious spread radius
+      const diff = state.diffusion;
+      const radii = [55 + diff * 120, 95 + diff * 170, 140 + diff * 230];
+      const widths = [8 + diff * 10, 12 + diff * 18, 18 + diff * 28];
+      const opacities = [0.10 + diff * 0.44, 0.06 + diff * 0.28, 0.03 + diff * 0.16];
+      diffRings.forEach((r, i) => {
+        r.setAttribute('r', radii[i].toFixed(1));
+        r.setAttribute('stroke-width', widths[i].toFixed(1));
+        r.setAttribute('stroke', cols.diffusion);
+        r.setAttribute('opacity', opacities[i].toFixed(2));
+      });
+
+      // drift: very obvious sideways pull
+      const dr = state.drift;
+      const dx = dr * 230;
+      const yLift = dr * 42;
+      driftEl.setAttribute('d', `M ${320 + dx*0.08} ${346 - yLift*0.2} C ${455 + dx*0.55} ${298 - yLift}, ${650 + dx*0.95} ${298 - yLift*0.35}, ${820 + dx} ${344 - yLift*0.15} C ${660 + dx*0.86} 390, ${470 + dx*0.24} 398, ${320 + dx*0.08} ${346 - yLift*0.2} Z`);
+      driftEl.setAttribute('fill', cols.drift);
+      driftEl.setAttribute('opacity', (0.08 + dr * 0.84).toFixed(2));
+
+      // attractor: strong local sink depth
+      const att = state.attractor;
+      const depth = 40 + att * 140;
+      const width = 80 + att * 70;
+      attractorEl.setAttribute('d', `M ${550-width} 335 C ${550-width*0.7} ${335-depth}, ${550+width*0.7} ${335-depth}, ${550+width} 335 C ${550+width*0.6} ${335+depth*1.25}, ${550-width*0.6} ${335+depth*1.25}, ${550-width} 335 Z`);
+      attractorEl.setAttribute('fill', cols.attractor);
+      attractorEl.setAttribute('opacity', (0.10 + att * 0.78).toFixed(2));
+      const innerDepth = 18 + att * 68;
+      const innerWidth = 34 + att * 38;
+      attractorInner.setAttribute('d', `M ${550-innerWidth} 346 C ${550-innerWidth*0.68} ${346-innerDepth}, ${550+innerWidth*0.68} ${346-innerDepth}, ${550+innerWidth} 346 C ${550+innerWidth*0.55} ${346+innerDepth}, ${550-innerWidth*0.55} ${346+innerDepth}, ${550-innerWidth} 346 Z`);
+      attractorInner.setAttribute('fill', cols.attractorInner);
+      attractorInner.setAttribute('opacity', (att * 0.55).toFixed(2));
+
+      // noise: much more visible jitter density
+      const n = state.noise;
+      noiseGroup.setAttribute('opacity', (0.04 + n * 0.92).toFixed(2));
+      Array.from(noiseGroup.children).forEach((c, i) => {
+        const bx = parseFloat(c.dataset.bx);
+        const by = parseFloat(c.dataset.by);
+        const br = parseFloat(c.dataset.br);
+        const amp = 2 + n * 22;
+        const x = bx + Math.sin(t / (180 - n * 90) + i * 0.7) * amp;
+        const y = by + Math.cos(t / (160 - n * 80) + i * 0.5) * amp;
+        c.setAttribute('cx', x.toFixed(1));
+        c.setAttribute('cy', y.toFixed(1));
+        c.setAttribute('r', (br + n * 1.4).toFixed(1));
+        c.setAttribute('fill', cols.noise);
+        c.setAttribute('opacity', (0.08 + n * 0.62).toFixed(2));
+      });
+
+      // rhythm: obvious pulse amplitude in wave motion
+      const r = state.rhythm;
+      const amp = 4 + r * 34;
+      const y1 = 220 + Math.sin(t/520) * amp;
+      const y2 = 500 + Math.sin(t/520 + Math.PI) * amp;
+      rhythmWaves[0].setAttribute('d', `M 280 ${y1} C 350 ${y1-20}, 420 ${y1+20}, 490 ${y1} C 560 ${y1-20}, 630 ${y1+20}, 700 ${y1} C 770 ${y1-20}, 840 ${y1+20}, 910 ${y1}`);
+      rhythmWaves[1].setAttribute('d', `M 280 ${y2} C 350 ${y2-20}, 420 ${y2+20}, 490 ${y2} C 560 ${y2-20}, 630 ${y2+20}, 700 ${y2} C 770 ${y2-20}, 840 ${y2+20}, 910 ${y2}`);
+      rhythmWaves.forEach((w, i) => {
+        w.setAttribute('stroke', cols.rhythm);
+        w.setAttribute('stroke-width', (3 + r * 6).toFixed(1));
+        w.setAttribute('opacity', (0.06 + r * (0.78 - i * 0.12)).toFixed(2));
+      });
+
+      // composition cue only
+      scene.setAttribute('transform', `translate(0 ${(damp * 14).toFixed(1)})`);
+      labelsGroup.style.display = labelsToggle.checked ? 'block' : 'none';
+    }
+
+    function tick(ts) {
+      draw(ts);
+      requestAnimationFrame(tick);
+    }
+    draw();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
