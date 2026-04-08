@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>EVF 6x6 Snapshot Sandbox</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#111111;
+    --muted:#666666;
+    --border:#dddddd;
+    --grid:#e9e9e9;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+  #app{display:grid;grid-template-columns:340px 1fr;min-height:100vh}
+  aside{padding:16px 14px;border-right:1px solid var(--border);overflow:auto}
+  main{display:flex;align-items:center;justify-content:center;padding:18px}
+  h1{font-size:18px;margin:0 0 8px}
+  .small{font-size:12px;color:var(--muted);line-height:1.4;margin-bottom:12px}
+  details{margin:12px 0;border:1px solid #ececec;border-radius:10px;overflow:hidden}
+  summary{padding:10px 12px;cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#444;background:#fff;user-select:none}
+  details[open] summary{background:#fafafa;border-bottom:1px solid #f1f1f1}
+  .body{padding:10px 12px}
+  .row{margin:8px 0 12px}
+  label{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:4px}
+  input[type="range"], select, input[type="text"]{width:100%}
+  input[type="text"], select{padding:7px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#111;font:inherit}
+  button{border:1px solid #ccc;background:#fff;color:#111;padding:7px 10px;border-radius:8px;cursor:pointer;font:inherit}
+  button:hover{background:#f7f7f7}
+  .btns,.toolbar{display:flex;flex-wrap:wrap;gap:8px}
+  .note{font-size:11px;color:#666;line-height:1.35;margin-top:6px}
+  .readout{font-size:12px;display:grid;gap:4px}
+  #stage{width:min(980px,95vw);height:min(800px,90vh);border:1px solid var(--border);background:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <h1>EVF 6×6 Snapshot Sandbox</h1>
+    <div class="small">6×6 learning grid. One energy. Toggle between fill, line, and hybrid cell views. Damping is a translucent mask clipped to the whole field.</div>
+
+    <div class="toolbar">
+      <button id="expand-all">Expand all</button>
+      <button id="collapse-all">Collapse all</button>
+    </div>
+
+    <details open>
+      <summary>Presets</summary>
+      <div class="body">
+        <div class="btns">
+          <button data-preset="neutral">Neutral</button>
+          <button data-preset="sadness">Sadness</button>
+          <button data-preset="yearning">Yearning</button>
+          <button data-preset="grief">Grief</button>
+        </div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>View</summary>
+      <div class="body">
+        <div class="row">
+          <label>Cell display</label>
+          <select id="view-mode">
+            <option value="fill" selected>fill</option>
+            <option value="line">line</option>
+            <option value="hybrid">hybrid</option>
+          </select>
+        </div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Boundary</summary>
+      <div class="body">
+        <div class="row"><label>Rigidity <span id="v-rigidity">50</span></label><input id="rigidity" type="range" min="0" max="100" value="50"></div>
+        <div class="row"><label>Permeability <span id="v-permeability">40</span></label><input id="permeability" type="range" min="0" max="100" value="40"></div>
+        <div class="row"><label>Integrity <span id="v-integrity">90</span></label><input id="integrity" type="range" min="0" max="100" value="90"></div>
+        <div class="note">Rigidity = resistance to deformation. Permeability = transmission across the whole boundary. Integrity = how continuous and intact the enclosure is.</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Damping mask</summary>
+      <div class="body">
+        <div class="row"><label>Damping <span id="v-damping">45</span></label><input id="damping" type="range" min="0" max="100" value="45"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Attractor</summary>
+      <div class="body">
+        <div class="row"><button id="add-attractor">Add attractor</button></div>
+        <div class="row"><label>Strength <span id="v-attractor-strength">60</span></label><input id="attractor-strength" type="range" min="0" max="100" value="60"></div>
+        <div class="row"><label>Label</label><input id="attractor-label" type="text" value="meaning center"></div>
+        <div class="row"><label>Mode</label>
+          <select id="attractor-mode">
+            <option value="weak">weak</option>
+            <option value="stable" selected>stable</option>
+            <option value="broken">broken</option>
+          </select>
+        </div>
+        <div class="row"><label>Placement</label>
+          <select id="attractor-placement">
+            <option value="internal" selected>internal</option>
+            <option value="external">external</option>
+          </select>
+        </div>
+        <div class="note">Attractors snap to cells. Drag the attractor dot to another cell.</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Drift</summary>
+      <div class="body">
+        <div class="row"><label>Magnitude <span id="v-drift-magnitude">30</span></label><input id="drift-magnitude" type="range" min="0" max="100" value="30"></div>
+        <div class="row"><label>Angle <span id="v-drift-angle">0</span></label><input id="drift-angle" type="range" min="-180" max="180" value="0"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Diffusion</summary>
+      <div class="body">
+        <div class="row"><label>Radius <span id="v-diffusion-radius">45</span></label><input id="diffusion-radius" type="range" min="0" max="100" value="45"></div>
+        <div class="row"><label>Continuity <span id="v-diffusion-continuity">70</span></label><input id="diffusion-continuity" type="range" min="0" max="100" value="70"></div>
+        <div class="row"><label>Source</label>
+          <select id="diffusion-source-mode">
+            <option value="attractor" selected>attractor</option>
+            <option value="drift">drift</option>
+            <option value="noise">noise</option>
+            <option value="center">center</option>
+          </select>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Noise</summary>
+      <div class="body">
+        <div class="row"><label>Magnitude <span id="v-noise">15</span></label><input id="noise" type="range" min="0" max="100" value="15"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Rhythm</summary>
+      <div class="body">
+        <div class="row"><label>Magnitude <span id="v-rhythm">30</span></label><input id="rhythm" type="range" min="0" max="100" value="30"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Coupling</summary>
+      <div class="body">
+        <div class="row"><label>Internal coupling <span id="v-internal-coupling">35</span></label><input id="internal-coupling" type="range" min="0" max="100" value="35"></div>
+        <div class="row"><label>External coupling <span id="v-external-coupling">20</span></label><input id="external-coupling" type="range" min="0" max="100" value="20"></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Coherence readout</summary>
+      <div class="body">
+        <div class="readout">
+          <div id="readout-cs">Cs: 0.00</div>
+          <div id="readout-ct">Ct: 0.00</div>
+          <div id="readout-ch">Ch: 0.00</div>
+        </div>
+      </div>
+    </details>
+  </aside>
+
+  <main>
+    <svg id="stage" viewBox="0 0 1000 800" aria-label="EVF 6x6 snapshot sandbox"></svg>
+  </main>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("stage");
+
+const state = {
+  grid: 6,
+  field: {
+    x: 490,
+    y: 400,
+    size: 360,
+    rigidity: 0.50,
+    permeability: 0.40,
+    integrity: 0.90,
+    damping: 0.45,
+    driftMagnitude: 0.30,
+    driftAngle: 0,
+    diffusionRadius: 0.45,
+    diffusionContinuity: 0.70,
+    diffusionSource: "attractor",
+    noise: 0.15,
+    rhythm: 0.30,
+    internalCoupling: 0.35,
+    externalCoupling: 0.20,
+    viewMode: "fill",
+    coherence: {Cs:0.6, Ct:0.6, Ch:0.6}
+  },
+  attractors: [
+    { id:"a1", row:2, col:3, strength:0.60, label:"meaning center", mode:"stable", placement:"internal" }
+  ],
+  externalNode: { x: 840, y: 300, label:"other / context" },
+  barrier: { x1:730, y1:230, x2:730, y2:510 },
+  ui: { selectedAttractorId:"a1", drag:null }
+};
+
+function E(name, attrs={}) {
+  const el = document.createElementNS(NS, name);
+  for (const [k,v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+function clear(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+function lerp(a,b,t){ return a + (b-a)*t; }
+function clamp(x,a,b){ return Math.max(a, Math.min(b,x)); }
+function selectedAttractor(){ return state.attractors.find(a => a.id === state.ui.selectedAttractorId) || state.attractors[0]; }
+
+function gridMetrics(){
+  const n = state.grid;
+  const {x,y,size} = state.field;
+  const cell = size / n;
+  const left = x - size/2;
+  const top = y - size/2;
+  return {n,cell,left,top,size,x,y};
+}
+function cellCenter(row,col){
+  const g = gridMetrics();
+  return {
+    x: g.left + (col+0.5)*g.cell,
+    y: g.top + (row+0.5)*g.cell
+  };
+}
+function snapToCell(x,y){
+  const g = gridMetrics();
+  const col = clamp(Math.floor((x - g.left) / g.cell), 0, g.n-1);
+  const row = clamp(Math.floor((y - g.top) / g.cell), 0, g.n-1);
+  return {row, col};
+}
+
+function boundaryPath(){
+  const f = state.field;
+  const rx = lerp(192,175,f.rigidity);
+  const ry = lerp(152,140,f.rigidity);
+  const wobble = (1-f.rigidity)*14;
+  const breakBias = (1-f.integrity)*18;
+  const x = state.field.x, y = state.field.y;
+  return [
+    `M ${x} ${y-ry}`,
+    `Q ${x+rx+wobble} ${y-ry*0.52} ${x+rx} ${y}`,
+    `Q ${x+rx*0.55} ${y+ry+breakBias*0.15} ${x} ${y+ry}`,
+    `Q ${x-rx-wobble} ${y+ry*0.52} ${x-rx} ${y}`,
+    `Q ${x-rx*0.55} ${y-ry-breakBias*0.15} ${x} ${y-ry}`,
+    `Z`
+  ].join(" ");
+}
+
+function computeActivation(){
+  const g = gridMetrics();
+  const f = state.field;
+  const values = Array.from({length:g.n}, () => Array(g.n).fill(0));
+  let sourceCells = [];
+
+  if (f.diffusionSource === "attractor" && state.attractors.length){
+    const a = selectedAttractor();
+    sourceCells.push({row:a.row, col:a.col, w:1.0});
+  } else if (f.diffusionSource === "center"){
+    sourceCells.push({row:2, col:2, w:1.0});
+    sourceCells.push({row:2, col:3, w:0.8});
+    sourceCells.push({row:3, col:2, w:0.8});
+    sourceCells.push({row:3, col:3, w:1.0});
+  } else if (f.diffusionSource === "noise"){
+    sourceCells.push({row:4, col:1, w:1.0});
+  } else if (f.diffusionSource === "drift"){
+    const ang = f.driftAngle * Math.PI / 180;
+    const dx = Math.cos(ang), dy = Math.sin(ang);
+    const row = clamp(Math.round(2.5 + dy*1.5), 0, g.n-1);
+    const col = clamp(Math.round(2.5 + dx*1.5), 0, g.n-1);
+    sourceCells.push({row, col, w:1.0});
+  }
+
+  const driftX = Math.cos(f.driftAngle*Math.PI/180) * f.driftMagnitude;
+  const driftY = Math.sin(f.driftAngle*Math.PI/180) * f.driftMagnitude;
+
+  for (let r=0; r<g.n; r++){
+    for (let c=0; c<g.n; c++){
+      let v = 0;
+      for (const s of sourceCells){
+        const manhattan = Math.abs(r-s.row) + Math.abs(c-s.col);
+        const spread = Math.max(0, 1 - manhattan / lerp(1.5, 6.0, f.diffusionRadius));
+        v += spread * s.w * (0.65 + 0.35*f.diffusionContinuity);
+      }
+
+      // drift biases one side of the grid
+      const nx = (c - 2.5) / 2.5;
+      const ny = (r - 2.5) / 2.5;
+      v += (nx*driftX + ny*driftY) * 0.28;
+
+      // noise
+      const noiseSeed = ((r+1)*73 + (c+1)*91) % 17;
+      v += (noiseSeed/16 - 0.5) * f.noise * 0.6;
+
+      // damping attenuates
+      v *= (1 - f.damping*0.55);
+
+      values[r][c] = clamp(v, 0, 1);
+    }
+  }
+
+  return values;
+}
+
+function computeEdgeLoading(values){
+  const g = gridMetrics();
+  const f = state.field;
+  const loads = Array.from({length:g.n}, () => Array(g.n).fill(0));
+  for (let r=0; r<g.n; r++){
+    for (let c=0; c<g.n; c++){
+      const edge = r===0 || c===0 || r===g.n-1 || c===g.n-1;
+      if (!edge) continue;
+      let load = values[r][c];
+      load *= (1 - f.permeability*0.75);
+      // directional edge loading
+      const nx = (c - 2.5) / 2.5;
+      const ny = (r - 2.5) / 2.5;
+      load += (nx*Math.cos(f.driftAngle*Math.PI/180)*f.driftMagnitude +
+               ny*Math.sin(f.driftAngle*Math.PI/180)*f.driftMagnitude) * 0.18;
+      loads[r][c] = clamp(load, 0, 1);
+    }
+  }
+  return loads;
+}
+
+function computeCoherence(values){
+  const f = state.field;
+  const a = selectedAttractor();
+
+  let edgeVariance = 0, total = 0;
+  for (let r=0;r<6;r++) for (let c=0;c<6;c++) total += values[r][c];
+  const mean = total / 36;
+
+  let rough = 0;
+  for (let r=0;r<6;r++){
+    for (let c=0;c<6;c++){
+      if (r<5) rough += Math.abs(values[r][c]-values[r+1][c]);
+      if (c<5) rough += Math.abs(values[r][c]-values[r][c+1]);
+    }
+  }
+
+  const Cs = clamp(0.95 - rough/20 - f.noise*0.35 + f.internalCoupling*0.18, 0, 1);
+  const Ct = clamp(0.30 + f.damping*0.45 + f.rhythm*0.20 - f.noise*0.40, 0, 1);
+  const Ch = clamp(0.22 + (a ? a.strength*0.65 : 0) - ((a && a.mode==="broken") ? 0.2 : 0), 0, 1);
+  state.field.coherence = {Cs, Ct, Ch};
+}
+
+function renderGrid(){
+  const g = gridMetrics();
+  svg.appendChild(E("rect",{x:40,y:40,width:920,height:720,fill:"none",stroke:"#e2e2e2","stroke-width":2}));
+  for (let x=120;x<=920;x+=80) svg.appendChild(E("line",{x1:x,y1:40,x2:x,y2:760,stroke:"#efefef"}));
+  for (let y=120;y<=680;y+=80) svg.appendChild(E("line",{x1:40,y1:y,x2:960,y2:y,stroke:"#efefef"}));
+
+  svg.appendChild(E("path",{d:boundaryPath(),fill:"none",stroke:"#111","stroke-width":lerp(2,7,state.field.rigidity), "data-boundary":"main"}));
+}
+
+function renderContext(){
+  const n = state.externalNode, b = state.barrier;
+  svg.appendChild(E("circle",{cx:n.x,cy:n.y,r:26,fill:"#fff",stroke:"#111","stroke-width":2}));
+  svg.appendChild(E("circle",{cx:n.x,cy:n.y,r:10,fill:"#111"}));
+  for(let i=0;i<5;i++){
+    const y=210+i*45;
+    svg.appendChild(E("line",{x1:760,y1:y,x2:900,y2:y,stroke:"#bdbdbd","stroke-width":2}));
+    svg.appendChild(E("polygon",{points:`900,${y} 888,${y-6} 888,${y+6}`,fill:"#bdbdbd"}));
+  }
+  svg.appendChild(E("line",{x1:b.x1,y1:b.y1,x2:b.x2,y2:b.y2,stroke:"#888","stroke-width":6}));
+}
+
+function renderCells(values, edgeLoads){
+  const g = gridMetrics();
+  const mode = state.field.viewMode;
+
+  // clip everything to the field membrane
+  const defs = E("defs");
+  const clip = E("clipPath",{id:"fieldClip"});
+  clip.appendChild(E("path",{d:boundaryPath()}));
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+
+  const group = E("g",{"clip-path":"url(#fieldClip)"});
+
+  for (let r=0; r<g.n; r++){
+    for (let c=0; c<g.n; c++){
+      const x = g.left + c*g.cell;
+      const y = g.top + r*g.cell;
+      const v = values[r][c];
+      const edge = r===0 || c===0 || r===g.n-1 || c===g.n-1;
+      const load = edgeLoads[r][c];
+
+      if (mode === "fill" || mode === "hybrid"){
+        group.appendChild(E("rect",{
+          x, y, width:g.cell, height:g.cell,
+          fill:"#111",
+          "fill-opacity": 0.03 + v*0.55 + load*0.18
+        }));
+      }
+
+      if (mode === "line" || mode === "hybrid"){
+        const lines = Math.max(1, Math.round(1 + v*7));
+        for (let i=0;i<lines;i++){
+          const yy = y + 6 + i*((g.cell-12)/Math.max(1,lines-1));
+          group.appendChild(E("line",{
+            x1:x+5, y1:yy, x2:x+g.cell-5, y2:yy,
+            stroke:"#111",
+            "stroke-opacity": 0.10 + v*0.45,
+            "stroke-width": 1
+          }));
+        }
+      }
+
+      // cell border
+      group.appendChild(E("rect",{
+        x, y, width:g.cell, height:g.cell,
+        fill:"none", stroke:"#d9d9d9", "stroke-width":1
+      }));
+
+      // edge loading marks
+      if (edge && load > 0.16){
+        const cx = x + g.cell/2, cy = y + g.cell/2;
+        group.appendChild(E("circle",{
+          cx, cy, r: 3 + load*5,
+          fill:"none", stroke:"#111", "stroke-opacity":0.18 + load*0.35, "stroke-width":1.5
+        }));
+      }
+    }
+  }
+
+  svg.appendChild(group);
+}
+
+function renderBoundaryEffects(edgeLoads){
+  const g = gridMetrics();
+  const f = state.field;
+
+  // distributed permeability pores across whole contour
+  const pores = Math.round(lerp(0,22,f.permeability));
+  let seed = 1234567;
+  function rnd(){ seed=(seed*1664525+1013904223)%4294967296; return seed/4294967296; }
+
+  const rx = lerp(192,175,f.rigidity), ry = lerp(152,140,f.rigidity);
+  for(let i=0;i<pores;i++){
+    const t = rnd()*Math.PI*2;
+    const cx = f.x + Math.cos(t)*rx*0.96;
+    const cy = f.y + Math.sin(t)*ry*0.96;
+    const ang = t*180/Math.PI;
+    svg.appendChild(E("ellipse",{
+      cx, cy, rx:lerp(2,5,f.permeability), ry:1.2,
+      transform:`rotate(${ang} ${cx} ${cy})`,
+      fill:"#fff", stroke:"#111", "stroke-opacity":0.22 + f.permeability*0.35, "stroke-width":0.8
+    }));
+  }
+
+  // integrity cracks
+  const cracks = Math.round(lerp(0,8,1-f.integrity));
+  for(let i=0;i<cracks;i++){
+    const t = (i/Math.max(1,cracks))*Math.PI*2 + 0.2;
+    const px = f.x + Math.cos(t)*rx*0.92;
+    const py = f.y + Math.sin(t)*ry*0.92;
+    svg.appendChild(E("path",{
+      d:`M ${px} ${py} l 8 8 l -6 9 l 11 10`,
+      fill:"none", stroke:"#111", "stroke-width":1.8
+    }));
+  }
+
+  // localized edge bulges from edge loading
+  const sideLoads = {
+    top:    Math.max(...edgeLoads[0]),
+    bottom: Math.max(...edgeLoads[5]),
+    left:   Math.max(...edgeLoads.map(row => row[0])),
+    right:  Math.max(...edgeLoads.map(row => row[5]))
+  };
+  if (sideLoads.top > 0.22)    svg.appendChild(E("path",{d:`M 430 248 Q 490 ${248 - sideLoads.top*22} 550 248`,fill:"none",stroke:"#111","stroke-opacity":0.22 + sideLoads.top*0.30,"stroke-width":2}));
+  if (sideLoads.bottom > 0.22) svg.appendChild(E("path",{d:`M 430 552 Q 490 ${552 + sideLoads.bottom*22} 550 552`,fill:"none",stroke:"#111","stroke-opacity":0.22 + sideLoads.bottom*0.30,"stroke-width":2}));
+  if (sideLoads.left > 0.22)   svg.appendChild(E("path",{d:`M 314 340 Q ${314 - sideLoads.left*20} 400 314 460`,fill:"none",stroke:"#111","stroke-opacity":0.22 + sideLoads.left*0.30,"stroke-width":2}));
+  if (sideLoads.right > 0.22)  svg.appendChild(E("path",{d:`M 666 340 Q ${666 + sideLoads.right*20} 400 666 460`,fill:"none",stroke:"#111","stroke-opacity":0.22 + sideLoads.right*0.30,"stroke-width":2}));
+}
+
+function renderDampingMask(){
+  const f = state.field;
+  const defs = E("defs");
+  const clip = E("clipPath",{id:"fieldClip2"});
+  clip.appendChild(E("path",{d:boundaryPath()}));
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+
+  const g = E("g",{"clip-path":"url(#fieldClip2)"});
+  // translucent mask
+  g.appendChild(E("path",{
+    d: boundaryPath(),
+    fill:"#111",
+    "fill-opacity": 0.02 + f.damping*0.18
+  }));
+  // subtle internal compression bands under the mask
+  const count = 4, span = lerp(220,100,f.damping), thick = lerp(2,16,f.damping);
+  for(let i=0;i<count;i++){
+    const yy = f.y - span/2 + i*(span/(count-1));
+    const inset = Math.abs(i-1.5) * lerp(2,12,f.damping);
+    g.appendChild(E("rect",{
+      x:f.x-170+inset, y:yy-thick/2, width:340-2*inset, height:thick, rx:2,
+      fill:"#111", "fill-opacity":0.03 + f.damping*0.06
+    }));
+  }
+  svg.appendChild(g);
+}
+
+function renderAttractors(){
+  const g = gridMetrics();
+  for (const a of state.attractors){
+    let cx, cy;
+    if (a.placement === "internal"){
+      ({x:cx, y:cy} = cellCenter(a.row, a.col));
+    } else {
+      cx = 790; cy = 470;
+    }
+
+    const layers = Math.round(lerp(2,7,a.strength));
+    for(let i=0;i<layers;i++){
+      const t = i/Math.max(1,layers-1);
+      const w = lerp(g.cell*0.9, 12, t);
+      const h = lerp(g.cell*0.65, 8, t);
+      if (a.mode === "broken" && i < layers-1){
+        svg.appendChild(E("polyline",{
+          points:`${cx},${cy-h} ${cx+w*0.55},${cy} ${cx+10},${cy+8}`,
+          fill:"none", stroke:"#111", "stroke-width":lerp(1.2,3.2,a.strength), "stroke-opacity":0.6 - t*0.3
+        }));
+        svg.appendChild(E("polyline",{
+          points:`${cx-10},${cy-8} ${cx-w*0.55},${cy} ${cx},${cy+h}`,
+          fill:"none", stroke:"#111", "stroke-width":lerp(1.2,3.2,a.strength), "stroke-opacity":0.6 - t*0.3
+        }));
+      } else {
+        svg.appendChild(E("polygon",{
+          points:[[cx,cy-h],[cx+w,cy],[cx,cy+h],[cx-w,cy]].map(p=>p.join(",")).join(" "),
+          fill:"none", stroke:"#111", "stroke-width":lerp(1.2,3.2,a.strength), "stroke-opacity":0.66 - t*0.34
+        }));
+      }
+    }
+
+    const dot = E("circle",{cx,cy,r:6+6*a.strength,fill:"#111"});
+    dot.dataset.attr = a.id;
+    dot.style.cursor = "grab";
+    svg.appendChild(dot);
+
+    const t1 = E("text",{x:cx+12,y:cy-12,fill:"#111","font-size":12});
+    t1.textContent = a.label;
+    svg.appendChild(t1);
+
+    const t2 = E("text",{x:cx+12,y:cy+6,fill:"#666","font-size":11});
+    t2.textContent = `${a.placement} · ${a.mode}`;
+    svg.appendChild(t2);
+  }
+}
+
+function renderDrift(){
+  const f = state.field;
+  const a = selectedAttractor();
+  let angle = f.driftAngle * Math.PI / 180;
+  if (a && a.placement === "internal"){
+    const ctr = cellCenter(a.row, a.col);
+    const ba = Math.atan2(ctr.y - f.y, ctr.x - f.x);
+    angle = angle*0.65 + ba*0.35;
+  }
+  const len = lerp(60,190,f.driftMagnitude) * (1 - f.damping*0.35);
+  const half = lerp(18,55,f.driftMagnitude);
+  const tipX = f.x + Math.cos(angle)*len;
+  const tipY = f.y + Math.sin(angle)*len*0.55;
+  const baseX = f.x - Math.cos(angle)*40;
+  const baseY = f.y - Math.sin(angle)*25;
+  const px = -Math.sin(angle), py = Math.cos(angle);
+  svg.appendChild(E("polygon",{
+    points:[[baseX+px*half,baseY+py*half],[tipX,tipY],[baseX-px*half,baseY-py*half]].map(p=>p.join(",")).join(" "),
+    fill:"#111","fill-opacity":0.08 + f.driftMagnitude*0.14,
+    stroke:"#111","stroke-width":2
+  }));
+}
+
+function renderRhythm(){
+  const f = state.field;
+  let cx = f.x, cy = f.y;
+  const a = selectedAttractor();
+  if (f.rhythmAnchor === "attractor" && a && a.placement === "internal"){
+    ({x:cx, y:cy} = cellCenter(a.row, a.col));
+  }
+  if (f.rhythmAnchor === "external"){
+    cx = state.externalNode.x; cy = state.externalNode.y;
+  }
+  const count = Math.round(lerp(2,6,f.rhythm));
+  const spread = lerp(20,48,0.5);
+  const tn = performance.now()/900;
+  for(let i=0;i<count;i++){
+    const r = 55 + i*spread + Math.sin(tn+i*0.8)*(f.rhythm*5);
+    svg.appendChild(E("path",{
+      d:`M ${cx-r} ${cy} A ${r} ${r*0.55} 0 0 1 ${cx+r} ${cy}`,
+      fill:"none", stroke:"#111", "stroke-opacity":0.12 + 0.04*(count-i), "stroke-width":1.4
+    }));
+  }
+}
+
+function renderNoise(values){
+  const g = gridMetrics();
+  const f = state.field;
+  let seed = 987654321;
+  function rnd(){ seed=(seed*1664525+1013904223)%4294967296; return seed/4294967296; }
+  for(let r=0;r<g.n;r++){
+    for(let c=0;c<g.n;c++){
+      const v = values[r][c];
+      const count = Math.round((f.noise*5) * (0.3 + v));
+      const x = g.left + c*g.cell;
+      const y = g.top + r*g.cell;
+      for(let i=0;i<count;i++){
+        const rx = x + 5 + rnd()*(g.cell-10);
+        const ry = y + 5 + rnd()*(g.cell-10);
+        const w = 2 + rnd()*6;
+        const h = 2 + rnd()*5;
+        const rot = -35 + rnd()*70;
+        svg.appendChild(E("rect",{
+          x:rx,y:ry,width:w,height:h,
+          fill:"#111","fill-opacity":0.06 + f.noise*0.28,
+          transform:`rotate(${rot} ${rx} ${ry})`
+        }));
+      }
+    }
+  }
+}
+
+function renderInternalCoupling(values){
+  const g = gridMetrics();
+  const f = state.field;
+  const threshold = 0.28;
+  const links = [];
+  for(let r=0;r<g.n;r++){
+    for(let c=0;c<g.n;c++){
+      if (values[r][c] < threshold) continue;
+      if (c < g.n-1 && values[r][c+1] > threshold) links.push([[r,c],[r,c+1]]);
+      if (r < g.n-1 && values[r+1][c] > threshold) links.push([[r,c],[r+1,c]]);
+    }
+  }
+  const limit = Math.round(lerp(2,18,f.internalCoupling));
+  for(let i=0;i<Math.min(limit, links.length); i++){
+    const [[r1,c1],[r2,c2]] = links[i];
+    const p1 = cellCenter(r1,c1), p2 = cellCenter(r2,c2);
+    svg.appendChild(E("line",{
+      x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y,
+      stroke:"#111","stroke-opacity":0.12 + f.internalCoupling*0.45,"stroke-width":1.8 + f.internalCoupling*1.2
+    }));
+  }
+}
+
+function renderExternalCoupling(){
+  const f = state.field;
+  if (f.externalCoupling < 0.05) return;
+  const strength = f.externalCoupling;
+  const sx = f.x + 168, sy = f.y - 8;
+  const mx = lerp(sx, state.externalNode.x, 0.52), my = lerp(sy, state.externalNode.y, 0.52) - 40;
+  svg.appendChild(E("path",{
+    d:`M ${sx} ${sy} Q ${mx} ${my} ${state.externalNode.x-26} ${state.externalNode.y}`,
+    fill:"none", stroke:"#111",
+    "stroke-width":2 + strength*4,
+    "stroke-opacity":0.18 + strength*0.55,
+    "stroke-dasharray":"10 9"
+  }));
+}
+
+function renderLabels(){
+  const n = state.externalNode;
+  svg.appendChild(E("text",{x:n.x+34,y:n.y+4,fill:"#111","font-size":12})).textContent = n.label;
+}
+
+function renderReadout(values){
+  computeCoherence(values);
+  const c = state.field.coherence;
+  document.getElementById("readout-cs").textContent = `Cs: ${c.Cs.toFixed(2)}`;
+  document.getElementById("readout-ct").textContent = `Ct: ${c.Ct.toFixed(2)}`;
+  document.getElementById("readout-ch").textContent = `Ch: ${c.Ch.toFixed(2)}`;
+}
+
+function draw(){
+  clear(svg);
+  renderGrid();
+  renderContext();
+  renderExternalCoupling();
+  const values = computeActivation();
+  const edgeLoads = computeEdgeLoading(values);
+  renderCells(values, edgeLoads);
+  renderBoundaryEffects(edgeLoads);
+  renderDrift();
+  renderRhythm();
+  renderNoise(values);
+  renderInternalCoupling(values);
+  renderDampingMask();
+  renderAttractors();
+  renderLabels();
+  renderReadout(values);
+}
+
+function bindRange(id, stateKey, transform=(v)=>v/100){
+  const node = document.getElementById(id);
+  const label = document.getElementById("v-"+id);
+  label.textContent = node.value;
+  node.addEventListener("input", e => {
+    label.textContent = e.target.value;
+    state.field[stateKey] = transform(+e.target.value);
+    draw();
+  });
+}
+
+bindRange("rigidity", "rigidity");
+bindRange("permeability", "permeability");
+bindRange("integrity", "integrity");
+bindRange("damping", "damping");
+bindRange("drift-magnitude", "driftMagnitude");
+bindRange("drift-angle", "driftAngle", v => v);
+bindRange("diffusion-radius", "diffusionRadius");
+bindRange("diffusion-continuity", "diffusionContinuity");
+bindRange("noise", "noise");
+bindRange("rhythm", "rhythm");
+bindRange("internal-coupling", "internalCoupling");
+bindRange("external-coupling", "externalCoupling");
+
+document.getElementById("view-mode").addEventListener("change", e => {
+  state.field.viewMode = e.target.value;
+  draw();
+});
+document.getElementById("diffusion-source-mode").addEventListener("change", e => {
+  state.field.diffusionSource = e.target.value;
+  draw();
+});
+document.getElementById("attractor-strength").addEventListener("input", e => {
+  document.getElementById("v-attractor-strength").textContent = e.target.value;
+  selectedAttractor().strength = (+e.target.value)/100;
+  draw();
+});
+document.getElementById("attractor-label").addEventListener("input", e => {
+  selectedAttractor().label = e.target.value;
+  draw();
+});
+document.getElementById("attractor-mode").addEventListener("change", e => {
+  selectedAttractor().mode = e.target.value;
+  draw();
+});
+document.getElementById("attractor-placement").addEventListener("change", e => {
+  selectedAttractor().placement = e.target.value;
+  draw();
+});
+document.getElementById("add-attractor").addEventListener("click", () => {
+  const id = "a" + (state.attractors.length + 1);
+  state.attractors.push({id, row:3, col:3, strength:0.45, label:"new attractor", mode:"weak", placement:"internal"});
+  state.ui.selectedAttractorId = id;
+  syncAttractorUI();
+  draw();
+});
+
+function syncAttractorUI(){
+  const a = selectedAttractor();
+  document.getElementById("attractor-strength").value = Math.round(a.strength*100);
+  document.getElementById("v-attractor-strength").textContent = Math.round(a.strength*100);
+  document.getElementById("attractor-label").value = a.label;
+  document.getElementById("attractor-mode").value = a.mode;
+  document.getElementById("attractor-placement").value = a.placement;
+}
+
+function applyPreset(name){
+  const presets = {
+    neutral: {
+      rigidity:50, permeability:40, integrity:90, damping:45,
+      driftMagnitude:30, driftAngle:0, diffusionRadius:45, diffusionContinuity:70, diffusionSource:"attractor",
+      noise:15, rhythm:30, internalCoupling:35, externalCoupling:20, viewMode:"fill",
+      a:{row:2,col:3,strength:60,label:"meaning center",mode:"stable",placement:"internal"}
+    },
+    sadness: {
+      rigidity:72, permeability:35, integrity:92, damping:78,
+      driftMagnitude:12, driftAngle:-5, diffusionRadius:50, diffusionContinuity:75, diffusionSource:"center",
+      noise:8, rhythm:22, internalCoupling:44, externalCoupling:12, viewMode:"fill",
+      a:{row:3,col:2,strength:20,label:"low center",mode:"weak",placement:"internal"}
+    },
+    yearning: {
+      rigidity:48, permeability:62, integrity:88, damping:42,
+      driftMagnitude:82, driftAngle:-12, diffusionRadius:52, diffusionContinuity:72, diffusionSource:"drift",
+      noise:8, rhythm:46, internalCoupling:58, externalCoupling:72, viewMode:"hybrid",
+      a:{row:2,col:5,strength:58,label:"desired object",mode:"stable",placement:"external"}
+    },
+    grief: {
+      rigidity:66, permeability:46, integrity:68, damping:82,
+      driftMagnitude:48, driftAngle:-8, diffusionRadius:46, diffusionContinuity:45, diffusionSource:"attractor",
+      noise:52, rhythm:26, internalCoupling:30, externalCoupling:75, viewMode:"hybrid",
+      a:{row:4,col:5,strength:82,label:"absence",mode:"broken",placement:"external"}
+    }
+  };
+  const p = presets[name];
+  Object.assign(state.field, {
+    rigidity:p.rigidity/100,
+    permeability:p.permeability/100,
+    integrity:p.integrity/100,
+    damping:p.damping/100,
+    driftMagnitude:p.driftMagnitude/100,
+    driftAngle:p.driftAngle,
+    diffusionRadius:p.diffusionRadius/100,
+    diffusionContinuity:p.diffusionContinuity/100,
+    diffusionSource:p.diffusionSource,
+    noise:p.noise/100,
+    rhythm:p.rhythm/100,
+    internalCoupling:p.internalCoupling/100,
+    externalCoupling:p.externalCoupling/100,
+    viewMode:p.viewMode
+  });
+  Object.assign(selectedAttractor(), {
+    row:p.a.row, col:p.a.col, strength:p.a.strength/100, label:p.a.label, mode:p.a.mode, placement:p.a.placement
+  });
+
+  const map = {
+    "rigidity":p.rigidity, "permeability":p.permeability, "integrity":p.integrity, "damping":p.damping,
+    "drift-magnitude":p.driftMagnitude, "drift-angle":p.driftAngle,
+    "diffusion-radius":p.diffusionRadius, "diffusion-continuity":p.diffusionContinuity,
+    "noise":p.noise, "rhythm":p.rhythm, "internal-coupling":p.internalCoupling, "external-coupling":p.externalCoupling
+  };
+  for (const [id,val] of Object.entries(map)){
+    document.getElementById(id).value = val;
+    document.getElementById("v-"+id).textContent = val;
+  }
+  document.getElementById("view-mode").value = p.viewMode;
+  document.getElementById("diffusion-source-mode").value = p.diffusionSource;
+  syncAttractorUI();
+  draw();
+}
+
+document.querySelectorAll("[data-preset]").forEach(btn => {
+  btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
+});
+
+function svgPoint(evt){
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+svg.addEventListener("pointerdown", e => {
+  if (e.target.dataset.attr){
+    state.ui.selectedAttractorId = e.target.dataset.attr;
+    state.ui.drag = "attractor";
+    syncAttractorUI();
+  }
+});
+svg.addEventListener("pointermove", e => {
+  if (state.ui.drag !== "attractor") return;
+  const p = svgPoint(e);
+  const a = selectedAttractor();
+  if (a.placement === "internal"){
+    const snap = snapToCell(p.x, p.y);
+    a.row = snap.row;
+    a.col = snap.col;
+  }
+  draw();
+});
+svg.addEventListener("pointerup", () => state.ui.drag = null);
+svg.addEventListener("pointerleave", () => state.ui.drag = null);
+
+document.getElementById("expand-all").addEventListener("click", () => {
+  document.querySelectorAll("details").forEach(d => d.open = true);
+});
+document.getElementById("collapse-all").addEventListener("click", () => {
+  document.querySelectorAll("details").forEach((d,i) => d.open = i < 2);
+});
+
+syncAttractorUI();
+applyPreset("neutral");
+setInterval(draw, 120);
+</script>
+</body>
+</html>
