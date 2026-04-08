@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>EVF Geometry Sandbox</title>
+<style>
+:root{--bg:#fff;--ink:#111;--muted:#666;--grid:#efefef;--border:#ddd}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+#app{display:grid;grid-template-columns:340px 1fr 260px;min-height:100vh}
+aside,.right{padding:16px 14px;overflow:auto;background:#fff}
+aside{border-right:1px solid var(--border)}
+.right{border-left:1px solid var(--border)}
+main{display:flex;align-items:center;justify-content:center;padding:18px}
+h1{font-size:18px;margin:0 0 8px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#444;margin:0 0 10px}
+.small{font-size:12px;color:var(--muted);line-height:1.4;margin-bottom:12px}
+details{margin:12px 0;border:1px solid #ececec;border-radius:10px;overflow:hidden;background:#fff}
+summary{padding:10px 12px;cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#444;user-select:none}
+details[open] summary{background:#fafafa;border-bottom:1px solid #f1f1f1}
+.body{padding:10px 12px}
+.row{margin:8px 0 12px}
+label{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:4px}
+input[type="range"],select,input[type="text"]{width:100%}
+input[type="text"],select{padding:7px 8px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#111;font:inherit}
+button{border:1px solid #ccc;background:#fff;color:#111;padding:7px 10px;border-radius:8px;cursor:pointer;font:inherit}
+button:hover{background:#f7f7f7}
+.btns,.toolbar{display:flex;flex-wrap:wrap;gap:8px}
+.note{font-size:11px;color:#666;line-height:1.35;margin-top:6px}
+#stage{width:min(980px,95vw);height:min(820px,92vh);border:1px solid var(--border);background:#fff}
+.readout{font-size:12px;display:grid;gap:6px;color:#333}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.legend-item{margin:0 0 10px}
+.swatch{display:inline-block;width:12px;height:12px;border:1px solid #111;margin-right:8px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <h1>EVF Geometry Sandbox</h1>
+    <div class="small">A simplified EVF field sandbox for book diagrams and conceptual testing. One energy field. Geometry for membrane, basin, gradient, barrier, bridge, and rhythm.</div>
+    <div class="toolbar">
+      <button id="expand-all">Expand all</button>
+      <button id="collapse-all">Collapse all</button>
+    </div>
+
+    <details open>
+      <summary>Presets</summary>
+      <div class="body">
+        <div class="btns">
+          <button data-preset="neutral">Neutral</button>
+          <button data-preset="grounded">Grounded</button>
+          <button data-preset="rumination">Rumination</button>
+          <button data-preset="obsession">Obsession</button>
+          <button data-preset="yearning">Yearning</button>
+          <button data-preset="grief">Grief</button>
+          <button data-preset="instability">Instability</button>
+          <button data-preset="shutdown">Shutdown</button>
+        </div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Field</summary>
+      <div class="body">
+        <div class="row">
+          <label>Display mode</label>
+          <select id="view-mode">
+            <option value="fill" selected>fill</option>
+            <option value="line">line</option>
+            <option value="hybrid">hybrid</option>
+          </select>
+        </div>
+        <div class="row"><label>Damping <span id="v-damping">45</span></label><input id="damping" type="range" min="0" max="100" value="45"></div>
+        <div class="row"><label>Spread <span id="v-spread">45</span></label><input id="spread" type="range" min="0" max="100" value="45"></div>
+        <div class="row"><label>Noise <span id="v-noise">15</span></label><input id="noise" type="range" min="0" max="100" value="15"></div>
+        <div class="row"><label>Rhythm <span id="v-rhythm">25</span></label><input id="rhythm" type="range" min="0" max="100" value="25"></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Membrane</summary>
+      <div class="body">
+        <div class="row"><label>Rigidity <span id="v-rigidity">50</span></label><input id="rigidity" type="range" min="0" max="100" value="50"></div>
+        <div class="row"><label>Permeability <span id="v-permeability">40</span></label><input id="permeability" type="range" min="0" max="100" value="40"></div>
+        <div class="row"><label>Integrity <span id="v-integrity">90</span></label><input id="integrity" type="range" min="0" max="100" value="90"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Attractor / Basin</summary>
+      <div class="body">
+        <div class="row"><button id="add-attractor">Add attractor</button></div>
+        <div class="row"><label>Strength <span id="v-attractor-strength">55</span></label><input id="attractor-strength" type="range" min="0" max="100" value="55"></div>
+        <div class="row"><label>Label</label><input id="attractor-label" type="text" value="meaning center"></div>
+        <div class="row"><label>Mode</label>
+          <select id="attractor-mode">
+            <option value="weak">weak</option>
+            <option value="stable" selected>stable</option>
+            <option value="broken">broken</option>
+          </select>
+        </div>
+        <div class="row"><label>Placement</label>
+          <select id="attractor-placement">
+            <option value="internal" selected>internal</option>
+            <option value="external">external</option>
+          </select>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Context</summary>
+      <div class="body">
+        <div class="row"><label>Orientation</label>
+          <select id="orientation">
+            <option value="toward" selected>toward</option>
+            <option value="away">away</option>
+            <option value="mixed">mixed</option>
+          </select>
+        </div>
+        <div class="row"><label>Orientation strength</label>
+          <select id="orientation-strength">
+            <option value="low">low</option>
+            <option value="medium" selected>medium</option>
+            <option value="high">high</option>
+          </select>
+        </div>
+        <div class="row"><label>Access</label>
+          <select id="access">
+            <option value="open">open</option>
+            <option value="partial" selected>partial</option>
+            <option value="blocked">blocked</option>
+          </select>
+        </div>
+        <div class="row"><label>Salience <span id="v-salience">60</span></label><input id="salience" type="range" min="0" max="100" value="60"></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Coupling</summary>
+      <div class="body">
+        <div class="row"><label>Internal coupling <span id="v-internal-coupling">35</span></label><input id="internal-coupling" type="range" min="0" max="100" value="35"></div>
+        <div class="row"><label>External coupling <span id="v-external-coupling">20</span></label><input id="external-coupling" type="range" min="0" max="100" value="20"></div>
+      </div>
+    </details>
+  </aside>
+
+  <main>
+    <svg id="stage" viewBox="0 0 1000 820" aria-label="EVF geometry sandbox"></svg>
+  </main>
+
+  <div class="right">
+    <h2>State readout</h2>
+    <div class="readout">
+      <div id="state-title" class="mono">neutral</div>
+      <div id="readout-cs">Cs: 0.00</div>
+      <div id="readout-ct">Ct: 0.00</div>
+      <div id="readout-ch">Ch: 0.00</div>
+      <div id="readout-regime">regime: —</div>
+      <div id="readout-geometry">geometry: —</div>
+    </div>
+
+    <details open>
+      <summary>Legend</summary>
+      <div class="body">
+        <div class="legend-item"><span class="swatch" style="background:#fff"></span><strong>Field</strong>: neutral energy substrate</div>
+        <div class="legend-item"><span class="swatch" style="background:#bbb"></span><strong>Darkening</strong>: concentration / pooling</div>
+        <div class="legend-item"><span class="swatch" style="background:#fff;border-width:2px"></span><strong>Membrane</strong>: hold / leak / integrity</div>
+        <div class="legend-item"><strong>Basin</strong>: attractor / what matters</div>
+        <div class="legend-item"><strong>Gradient</strong>: orientation (toward / away / mixed)</div>
+        <div class="legend-item"><strong>Barrier</strong>: access (open / partial / blocked)</div>
+        <div class="legend-item"><strong>Bridge</strong>: coupling / linkage</div>
+        <div class="legend-item"><strong>Bands</strong>: rhythm / recurrence</div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Notes</summary>
+      <div class="body small">Use this to test the EVF field language rather than full simulation. The field is static: parameters shape the snapshot rather than literally animate process.</div>
+    </details>
+  </div>
+</div>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('stage');
+
+const state={
+  title:'neutral',
+  field:{
+    x:500,y:410,w:390,h:300,
+    viewMode:'fill',
+    damping:.45,spread:.45,noise:.15,rhythm:.25,
+    rigidity:.50,permeability:.40,integrity:.90,
+    salience:.60,internalCoupling:.35,externalCoupling:.20,
+    orientation:'toward',orientationStrength:'medium',access:'partial',
+    coherence:{Cs:.6,Ct:.6,Ch:.6}
+  },
+  attractors:[{id:'a1',x:540,y:385,strength:.55,label:'meaning center',mode:'stable',placement:'internal'}],
+  externalNode:{x:860,y:290,label:'outside / other'},
+  ui:{selectedAttractorId:'a1',drag:null}
+};
+
+function E(name,attrs={}){const el=document.createElementNS(NS,name); for(const [k,v] of Object.entries(attrs)) el.setAttribute(k,v); return el;}
+function clear(node){while(node.firstChild) node.removeChild(node.firstChild);}
+function lerp(a,b,t){return a+(b-a)*t;}
+function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
+function selectedAttractor(){return state.attractors.find(a=>a.id===state.ui.selectedAttractorId)||state.attractors[0];}
+
+function boundaryPath(){
+  const f=state.field,rx=lerp(210,185,f.rigidity),ry=lerp(164,148,f.rigidity),wobble=(1-f.rigidity)*16,frag=(1-f.integrity)*22,x=f.x,y=f.y;
+  return [`M ${x} ${y-ry}`,`Q ${x+rx+wobble} ${y-ry*0.55} ${x+rx} ${y}`,`Q ${x+rx*0.55} ${y+ry+frag*0.18} ${x} ${y+ry}`,`Q ${x-rx-wobble} ${y+ry*0.55} ${x-rx} ${y}`,`Q ${x-rx*0.55} ${y-ry-frag*0.18} ${x} ${y-ry}`,'Z'].join(' ');
+}
+function orientationVector(){
+  const map={low:.18,medium:.42,high:.78},mag=map[state.field.orientationStrength];
+  if(state.field.orientation==='toward') return {x:mag,y:-mag*.15};
+  if(state.field.orientation==='away') return {x:-mag,y:mag*.10};
+  return {x:0,y:mag*.25};
+}
+function fieldSample(x,y){
+  const f=state.field,a=selectedAttractor(),dx=(x-f.x)/(f.w*.5),dy=(y-f.y)/(f.h*.5),r=Math.sqrt(dx*dx+dy*dy);
+  let v=.20+(1-Math.min(1,r))*.12;
+
+  if(a){
+    const ax=(x-a.x)/140, ay=(y-a.y)/110, ar=Math.sqrt(ax*ax+ay*ay);
+    let basin=Math.max(0,1-ar);
+    if(a.mode==='broken') basin*=.72;
+    if(a.mode==='weak') basin*=.65;
+    v+=basin*a.strength*(.22+f.salience*.28);
+  }
+
+  v+=(1-Math.min(1,r))*f.spread*.16;
+  const ov=orientationVector();
+  v+=(dx*ov.x+dy*ov.y)*.13;
+
+  const edge=Math.max(Math.abs(dx),Math.abs(dy));
+  let edgeLoad=0;
+  if(edge>.68){
+    edgeLoad=(edge-.68)/.32;
+    edgeLoad*=(1-f.permeability*.75);
+    if(f.access==='blocked') edgeLoad*=1.35;
+    if(f.orientation==='toward'&&ov.x>0&&dx>.4) edgeLoad*=1.25;
+  }
+  v+=edgeLoad*.12;
+  return clamp(v,0,1);
+}
+function computeCoherence(){
+  const f=state.field,a=selectedAttractor();
+  const Cs=clamp(.82-f.noise*.36-(1-f.integrity)*.28+f.internalCoupling*.15,0,1);
+  const Ct=clamp(.28+f.damping*.45+f.rhythm*.22-f.noise*.38,0,1);
+  const Ch=clamp(.22+(a?a.strength*.60:0)+f.salience*.20-(a&&a.mode==='broken'?.18:0),0,1);
+  f.coherence={Cs,Ct,Ch};
+}
+function regimeLabel(){
+  const f=state.field,a=selectedAttractor();
+  if(f.damping>.75&&f.spread<.30) return 'shutdown / flattening';
+  if(f.integrity<.55&&f.spread>.65) return 'destabilized spread';
+  if(a&&a.strength>.70&&f.spread<.30) return 'rumination / localized trapping';
+  if(a&&a.strength>.70&&state.field.orientationStrength==='high') return 'obsession / fixation';
+  if(state.field.access==='blocked'&&state.field.orientation==='toward'&&a&&a.mode==='broken') return 'grief / blocked relation';
+  if(f.noise>.60&&f.damping<.35) return 'instability / overwhelm';
+  return 'balanced or mixed';
+}
+
+function renderGrid(){
+  svg.appendChild(E('rect',{x:40,y:40,width:920,height:740,fill:'none',stroke:'#e2e2e2','stroke-width':2}));
+  for(let x=120;x<=920;x+=80) svg.appendChild(E('line',{x1:x,y1:40,x2:x,y2:780,stroke:'#efefef'}));
+  for(let y=120;y<=760;y+=80) svg.appendChild(E('line',{x1:40,y1:y,x2:960,y2:y,stroke:'#efefef'}));
+}
+function renderField(){
+  const f=state.field,defs=E('defs'),clip=E('clipPath',{id:'fieldClip'});
+  clip.appendChild(E('path',{d:boundaryPath()}));
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+
+  const g=E('g',{'clip-path':'url(#fieldClip)'});
+  g.appendChild(E('path',{d:boundaryPath(),fill:'#111','fill-opacity':0.06}));
+
+  const cols=24,rows=18,left=f.x-f.w/2,top=f.y-f.h/2,tw=f.w/cols,th=f.h/rows;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const x=left+c*tw,y=top+r*th,cx=x+tw/2,cy=y+th/2;
+      let v=fieldSample(cx,cy);
+      const damp=1-f.damping*.42,mean=.22;
+      v=mean+(v-mean)*damp;
+
+      if(f.viewMode==='fill'||f.viewMode==='hybrid'){
+        g.appendChild(E('rect',{x,y,width:tw,height:th,fill:'#111','fill-opacity':0.02+v*.60}));
+      }
+      if(f.viewMode==='line'||f.viewMode==='hybrid'){
+        const lines=Math.max(1,Math.round(1+v*6));
+        for(let i=0;i<lines;i++){
+          const yy=y+2+i*((th-4)/Math.max(1,lines-1));
+          g.appendChild(E('line',{x1:x+2,y1:yy,x2:x+tw-2,y2:yy,stroke:'#111','stroke-opacity':0.08+v*.34,'stroke-width':1}));
+        }
+      }
+    }
+  }
+
+  let seed=918273645;
+  function rnd(){seed=(seed*1664525+1013904223)%4294967296; return seed/4294967296;}
+  const flecks=Math.round(180*f.noise);
+  for(let i=0;i<flecks;i++){
+    const x=left+rnd()*f.w,y=top+rnd()*f.h,w=1+rnd()*5,h=1+rnd()*3,rot=-35+rnd()*70;
+    g.appendChild(E('rect',{x,y,width:w,height:h,fill:'#111','fill-opacity':0.04+f.noise*.18,transform:`rotate(${rot} ${x} ${y})`}));
+  }
+
+  g.appendChild(E('path',{d:boundaryPath(),fill:'#111','fill-opacity':0.01+f.damping*.12}));
+  svg.appendChild(g);
+}
+function renderMembrane(){
+  const f=state.field;
+  svg.appendChild(E('path',{d:boundaryPath(),fill:'none',stroke:'#111','stroke-width':lerp(2,7,f.rigidity)}));
+
+  const pores=Math.round(lerp(0,20,f.permeability));
+  let seed=1234567;
+  function rnd(){seed=(seed*1664525+1013904223)%4294967296; return seed/4294967296;}
+  const rx=lerp(210,185,f.rigidity),ry=lerp(164,148,f.rigidity);
+  for(let i=0;i<pores;i++){
+    const t=rnd()*Math.PI*2,cx=f.x+Math.cos(t)*rx*.96,cy=f.y+Math.sin(t)*ry*.96,ang=t*180/Math.PI;
+    svg.appendChild(E('ellipse',{cx,cy,rx:lerp(2,5,f.permeability),ry:1.2,transform:`rotate(${ang} ${cx} ${cy})`,fill:'#fff',stroke:'#111','stroke-opacity':0.20+f.permeability*.34,'stroke-width':0.8}));
+  }
+
+  const cracks=Math.round(lerp(0,8,1-f.integrity));
+  for(let i=0;i<cracks;i++){
+    const t=(i/Math.max(1,cracks))*Math.PI*2+.18,px=f.x+Math.cos(t)*rx*.92,py=f.y+Math.sin(t)*ry*.92;
+    svg.appendChild(E('path',{d:`M ${px} ${py} l 8 8 l -6 9 l 11 10`,fill:'none',stroke:'#111','stroke-width':1.8}));
+  }
+}
+function renderAttractor(){
+  const a=selectedAttractor(),x=a.placement==='internal'?a.x:790,y=a.placement==='internal'?a.y:500,layers=Math.round(lerp(2,7,a.strength));
+  for(let i=0;i<layers;i++){
+    const t=i/Math.max(1,layers-1),w=lerp(110,18,t),h=lerp(76,10,t);
+    if(a.mode==='broken'&&i<layers-1){
+      svg.appendChild(E('polyline',{points:`${x},${y-h} ${x+w*.55},${y} ${x+10},${y+8}`,fill:'none',stroke:'#111','stroke-width':lerp(1.2,3.2,a.strength),'stroke-opacity':0.6-t*.3}));
+      svg.appendChild(E('polyline',{points:`${x-10},${y-8} ${x-w*.55},${y} ${x},${y+h}`,fill:'none',stroke:'#111','stroke-width':lerp(1.2,3.2,a.strength),'stroke-opacity':0.6-t*.3}));
+    } else {
+      svg.appendChild(E('polygon',{points:[[x,y-h],[x+w,y],[x,y+h],[x-w,y]].map(p=>p.join(',')).join(' '),fill:'none',stroke:'#111','stroke-width':lerp(1.2,3.2,a.strength),'stroke-opacity':0.66-t*.34}));
+    }
+  }
+  const dot=E('circle',{cx:x,cy:y,r:6+6*a.strength,fill:'#111'});
+  dot.dataset.attr=a.id;
+  dot.style.cursor='grab';
+  svg.appendChild(dot);
+  const t1=E('text',{x:x+12,y:y-12,fill:'#111','font-size':'12'}); t1.textContent=a.label; svg.appendChild(t1);
+  const t2=E('text',{x:x+12,y:y+6,fill:'#666','font-size':'11'}); t2.textContent=`${a.placement} · ${a.mode}`; svg.appendChild(t2);
+}
+function renderGradient(){
+  const f=state.field,ov=orientationVector();
+  if(state.field.orientationStrength==='low') return;
+  const len=state.field.orientationStrength==='high'?180:120,tipX=f.x+ov.x*len,tipY=f.y+ov.y*len;
+  svg.appendChild(E('line',{x1:f.x,y1:f.y,x2:tipX,y2:tipY,stroke:'#111','stroke-opacity':0.14,'stroke-width':2}));
+  svg.appendChild(E('polygon',{points:`${tipX},${tipY} ${tipX-12},${tipY-6} ${tipX-12},${tipY+6}`,fill:'#111','fill-opacity':0.14}));
+}
+function renderBarrier(){
+  const f=state.field;
+  if(f.access==='open') return;
+  if(f.access==='partial'){
+    svg.appendChild(E('line',{x1:700,y1:300,x2:700,y2:520,stroke:'#111','stroke-opacity':0.28,'stroke-width':4,'stroke-dasharray':'8 10'}));
+    return;
+  }
+  svg.appendChild(E('line',{x1:700,y1:280,x2:700,y2:540,stroke:'#111','stroke-opacity':0.42,'stroke-width':7}));
+}
+function renderBridge(){
+  const f=state.field;
+  if(f.externalCoupling<.05) return;
+  const sx=f.x+170,sy=f.y-6,mx=lerp(sx,state.externalNode.x,.52),my=lerp(sy,state.externalNode.y,.52)-40;
+  svg.appendChild(E('path',{d:`M ${sx} ${sy} Q ${mx} ${my} ${state.externalNode.x-26} ${state.externalNode.y}`,fill:'none',stroke:'#111','stroke-width':2+f.externalCoupling*4,'stroke-opacity':0.16+f.externalCoupling*.52,'stroke-dasharray':'10 9'}));
+}
+function renderRhythm(){
+  const f=state.field,a=selectedAttractor();
+  let cx=f.x,cy=f.y;
+  if(a&&a.strength>.45){cx=a.placement==='internal'?a.x:790; cy=a.placement==='internal'?a.y:500;}
+  const count=Math.round(lerp(1,5,f.rhythm)),spread=36;
+  for(let i=0;i<count;i++){
+    const r=40+i*spread;
+    svg.appendChild(E('path',{d:`M ${cx-r} ${cy} A ${r} ${r*.55} 0 0 1 ${cx+r} ${cy}`,fill:'none',stroke:'#111','stroke-opacity':0.08+f.rhythm*.22,'stroke-width':1.4}));
+  }
+}
+function renderContextNode(){
+  const n=state.externalNode;
+  svg.appendChild(E('circle',{cx:n.x,cy:n.y,r:26,fill:'#fff',stroke:'#111','stroke-width':2}));
+  svg.appendChild(E('circle',{cx:n.x,cy:n.y,r:10,fill:'#111'}));
+  const t=E('text',{x:n.x+34,y:n.y+4,fill:'#111','font-size':'12'}); t.textContent=n.label; svg.appendChild(t);
+}
+function renderReadout(){
+  computeCoherence();
+  document.getElementById('state-title').textContent=state.title;
+  document.getElementById('readout-cs').textContent=`Cs: ${state.field.coherence.Cs.toFixed(2)}`;
+  document.getElementById('readout-ct').textContent=`Ct: ${state.field.coherence.Ct.toFixed(2)}`;
+  document.getElementById('readout-ch').textContent=`Ch: ${state.field.coherence.Ch.toFixed(2)}`;
+  document.getElementById('readout-regime').textContent=`regime: ${regimeLabel()}`;
+  const a=selectedAttractor();
+  document.getElementById('readout-geometry').textContent=`geometry: membrane · basin(${a.mode}) · ${state.field.orientation}/${state.field.access}`;
+}
+function draw(){
+  clear(svg);
+  renderGrid();
+  renderField();
+  renderMembrane();
+  renderGradient();
+  renderRhythm();
+  renderBridge();
+  renderBarrier();
+  renderContextNode();
+  renderAttractor();
+  renderReadout();
+}
+
+function bindRange(id,key){
+  const node=document.getElementById(id),label=document.getElementById('v-'+id);
+  label.textContent=node.value;
+  node.addEventListener('input',e=>{
+    label.textContent=e.target.value;
+    state.field[key]=(+e.target.value)/100;
+    draw();
+  });
+}
+['damping','spread','noise','rhythm','rigidity','permeability','integrity','salience'].forEach(id=>bindRange(id,id));
+bindRange('internal-coupling','internalCoupling');
+bindRange('external-coupling','externalCoupling');
+
+document.getElementById('view-mode').addEventListener('change',e=>{state.field.viewMode=e.target.value; draw();});
+document.getElementById('orientation').addEventListener('change',e=>{state.field.orientation=e.target.value; draw();});
+document.getElementById('orientation-strength').addEventListener('change',e=>{state.field.orientationStrength=e.target.value; draw();});
+document.getElementById('access').addEventListener('change',e=>{state.field.access=e.target.value; draw();});
+document.getElementById('attractor-strength').addEventListener('input',e=>{
+  document.getElementById('v-attractor-strength').textContent=e.target.value;
+  selectedAttractor().strength=(+e.target.value)/100;
+  draw();
+});
+document.getElementById('attractor-label').addEventListener('input',e=>{selectedAttractor().label=e.target.value; draw();});
+document.getElementById('attractor-mode').addEventListener('change',e=>{selectedAttractor().mode=e.target.value; draw();});
+document.getElementById('attractor-placement').addEventListener('change',e=>{selectedAttractor().placement=e.target.value; draw();});
+document.getElementById('add-attractor').addEventListener('click',()=>{
+  const id='a'+(state.attractors.length+1);
+  state.attractors.push({id,x:525,y:400,strength:.45,label:'new attractor',mode:'weak',placement:'internal'});
+  state.ui.selectedAttractorId=id;
+  syncAttractorUI();
+  draw();
+});
+
+function syncAttractorUI(){
+  const a=selectedAttractor();
+  document.getElementById('attractor-strength').value=Math.round(a.strength*100);
+  document.getElementById('v-attractor-strength').textContent=Math.round(a.strength*100);
+  document.getElementById('attractor-label').value=a.label;
+  document.getElementById('attractor-mode').value=a.mode;
+  document.getElementById('attractor-placement').value=a.placement;
+}
+
+function applyPreset(name){
+  state.title=name;
+  const P={
+    neutral:{viewMode:'fill',damping:45,spread:45,noise:15,rhythm:25,rigidity:50,permeability:40,integrity:90,salience:60,ic:35,ec:20,orientation:'toward',os:'medium',access:'partial',a:{x:540,y:385,strength:55,label:'meaning center',mode:'stable',placement:'internal'}},
+    grounded:{viewMode:'hybrid',damping:42,spread:50,noise:8,rhythm:26,rigidity:62,permeability:35,integrity:94,salience:48,ic:48,ec:24,orientation:'toward',os:'low',access:'open',a:{x:520,y:400,strength:35,label:'calm center',mode:'stable',placement:'internal'}},
+    rumination:{viewMode:'fill',damping:58,spread:18,noise:14,rhythm:34,rigidity:58,permeability:28,integrity:90,salience:80,ic:32,ec:10,orientation:'toward',os:'low',access:'partial',a:{x:520,y:400,strength:82,label:'stuck theme',mode:'stable',placement:'internal'}},
+    obsession:{viewMode:'hybrid',damping:40,spread:34,noise:10,rhythm:46,rigidity:55,permeability:22,integrity:92,salience:88,ic:44,ec:20,orientation:'toward',os:'high',access:'partial',a:{x:605,y:390,strength:86,label:'captured target',mode:'stable',placement:'internal'}},
+    yearning:{viewMode:'hybrid',damping:38,spread:42,noise:10,rhythm:36,rigidity:50,permeability:52,integrity:88,salience:84,ic:42,ec:68,orientation:'toward',os:'high',access:'blocked',a:{x:600,y:390,strength:62,label:'desired object',mode:'stable',placement:'external'}},
+    grief:{viewMode:'hybrid',damping:68,spread:30,noise:22,rhythm:42,rigidity:60,permeability:36,integrity:66,salience:92,ic:28,ec:74,orientation:'toward',os:'medium',access:'blocked',a:{x:600,y:390,strength:82,label:'absence',mode:'broken',placement:'external'}},
+    instability:{viewMode:'line',damping:18,spread:62,noise:72,rhythm:18,rigidity:28,permeability:62,integrity:48,salience:58,ic:18,ec:14,orientation:'mixed',os:'medium',access:'partial',a:{x:520,y:395,strength:28,label:'weak center',mode:'weak',placement:'internal'}},
+    shutdown:{viewMode:'fill',damping:88,spread:14,noise:4,rhythm:12,rigidity:78,permeability:18,integrity:94,salience:28,ic:24,ec:8,orientation:'away',os:'low',access:'blocked',a:{x:500,y:410,strength:16,label:'flat center',mode:'weak',placement:'internal'}}
+  }[name];
+
+  Object.assign(state.field,{
+    viewMode:P.viewMode,damping:P.damping/100,spread:P.spread/100,noise:P.noise/100,rhythm:P.rhythm/100,
+    rigidity:P.rigidity/100,permeability:P.permeability/100,integrity:P.integrity/100,salience:P.salience/100,
+    internalCoupling:P.ic/100,externalCoupling:P.ec/100,orientation:P.orientation,orientationStrength:P.os,access:P.access
+  });
+  Object.assign(selectedAttractor(),{
+    x:P.a.x,y:P.a.y,strength:P.a.strength/100,label:P.a.label,mode:P.a.mode,placement:P.a.placement
+  });
+
+  const map={damping:P.damping,spread:P.spread,noise:P.noise,rhythm:P.rhythm,rigidity:P.rigidity,permeability:P.permeability,integrity:P.integrity,salience:P.salience,'internal-coupling':P.ic,'external-coupling':P.ec};
+  for(const [id,val] of Object.entries(map)){
+    document.getElementById(id).value=val;
+    document.getElementById('v-'+id).textContent=val;
+  }
+  document.getElementById('view-mode').value=P.viewMode;
+  document.getElementById('orientation').value=P.orientation;
+  document.getElementById('orientation-strength').value=P.os;
+  document.getElementById('access').value=P.access;
+  syncAttractorUI();
+  draw();
+}
+document.querySelectorAll('[data-preset]').forEach(btn=>btn.addEventListener('click',()=>applyPreset(btn.dataset.preset)));
+
+function svgPoint(evt){
+  const pt=svg.createSVGPoint();
+  pt.x=evt.clientX; pt.y=evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+svg.addEventListener('pointerdown',e=>{
+  if(e.target.dataset.attr){
+    state.ui.selectedAttractorId=e.target.dataset.attr;
+    state.ui.drag='attractor';
+    syncAttractorUI();
+  }
+});
+svg.addEventListener('pointermove',e=>{
+  if(state.ui.drag!=='attractor') return;
+  const p=svgPoint(e),a=selectedAttractor();
+  if(a.placement==='internal'){
+    a.x=clamp(p.x,280,720);
+    a.y=clamp(p.y,220,600);
+  }
+  draw();
+});
+svg.addEventListener('pointerup',()=>state.ui.drag=null);
+svg.addEventListener('pointerleave',()=>state.ui.drag=null);
+
+document.getElementById('expand-all').addEventListener('click',()=>document.querySelectorAll('details').forEach(d=>d.open=true));
+document.getElementById('collapse-all').addEventListener('click',()=>document.querySelectorAll('details').forEach((d,i)=>d.open=i<2));
+
+syncAttractorUI();
+applyPreset('neutral');
+</script>
+</body>
+</html>
