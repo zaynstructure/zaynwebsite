@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Triangle Regulation Module — Dual Module Version</title>
+<style>
+  :root { --bg:#fff; --panel:#fff; --ink:#16181d; --muted:#667085; --line:#d9dee7; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px} h1{margin:0 0 6px;font-size:1.35rem}.sub{color:var(--muted);margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:1.02fr .98fr;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 8px 22px rgba(15,23,42,.06)}
+  .panel h2{margin:0 0 12px;font-size:.92rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .toprow,.audio-row,.labelrow,.mini-grid,.quick{display:flex}.toprow{justify-content:space-between;align-items:center;gap:12px}.audio-row{gap:8px;align-items:center}.labelrow{justify-content:space-between;gap:8px;margin-bottom:8px;font-size:.92rem}
+  .labelrow .name{font-weight:600}.labelrow .value{color:var(--muted);font-variant-numeric:tabular-nums}.control-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.full{grid-column:1/-1}.control{border:1px solid var(--line);border-radius:14px;padding:11px 12px}
+  input[type="range"],select{width:100%;accent-color:#5b8def} select{padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  button{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 11px;cursor:pointer} button:hover{background:#f5f8fc}
+  .status{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:.84rem;color:var(--muted)} .status.on{color:#167d5a;border-color:#8fd8c0;background:#effbf6}
+  #triangleWrap{position:relative;aspect-ratio:1/1;min-height:420px;border-radius:14px;overflow:hidden;background:#f8fafc} canvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.stat{border:1px solid var(--line);border-radius:14px;padding:12px}.stat .k{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}.stat .v{font-size:1.15rem;font-variant-numeric:tabular-nums}
+  .meter{margin-top:8px;height:8px;background:#eef2f7;border-radius:999px;overflow:hidden}.fill{height:100%;width:0%}.contain{background:linear-gradient(90deg,#6ba0ff,#8eb6ff)}.diffuse{background:linear-gradient(90deg,#7fe0c8,#a7f7dd)}.direct{background:linear-gradient(90deg,#ffb36b,#ffd19b)}
+  .readout{border:1px solid var(--line);border-radius:14px;padding:14px;line-height:1.45;color:var(--muted)} .readout strong{color:var(--ink)} .footer{margin-top:10px;color:var(--muted);font-size:.84rem}
+  .module-title{font-size:.86rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:4px 0 10px}.mini-grid{gap:8px;flex-wrap:wrap}.chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:.82rem;color:var(--muted)}
+  @media (max-width: 980px){.grid{grid-template-columns:1fr}#triangleWrap{min-height:360px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toprow">
+    <div>
+      <h1>Triangle Regulation Module — Dual Module Version</h1>
+      <div class="sub">Two paired modules, four total sources, one shared Start Audio, one shared cycle engine, and one master triangle regulation layer over the whole patch.</div>
+    </div>
+    <div class="audio-row">
+      <button id="startAudio">Start Audio</button>
+      <button id="stopAudio">Stop Audio</button>
+      <div class="status" id="audioStatus">audio idle</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Triangle Pad</h2>
+        <div id="triangleWrap"><canvas id="triCanvas" width="720" height="720"></canvas></div>
+        <div class="stats">
+          <div class="stat"><div class="k">Containment</div><div class="v" id="cVal">0.33</div><div class="meter"><div class="fill contain" id="cFill"></div></div></div>
+          <div class="stat"><div class="k">Diffusion</div><div class="v" id="dVal">0.33</div><div class="meter"><div class="fill diffuse" id="dFill"></div></div></div>
+          <div class="stat"><div class="k">Direction</div><div class="v" id="rVal">0.34</div><div class="meter"><div class="fill direct" id="rFill"></div></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Quick Positions</h2>
+        <div class="mini-grid">
+          <button data-preset="center">Center</button>
+          <button data-preset="containment">Containment</button>
+          <button data-preset="diffusion">Diffusion</button>
+          <button data-preset="direction">Direction</button>
+          <button data-preset="cdEdge">Containment + Diffusion</button>
+          <button data-preset="drEdge">Diffusion + Direction</button>
+          <button data-preset="rcEdge">Direction + Containment</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Interpretive Readout</h2>
+        <div class="readout" id="readout"></div>
+        <div class="footer">One shared regulation layer shapes all four sources. If you hear nothing after a reload, tap Start Audio again.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Shared Engine</h2>
+        <div class="control-grid">
+          <div class="control"><div class="labelrow"><span class="name">Scale</span></div>
+            <select id="scaleMode">
+              <option value="minorSparse">A minor sparse</option>
+              <option value="minorFuller" selected>A minor fuller</option>
+              <option value="minorPent">A minor pentatonic</option>
+              <option value="harmonicMinor">A harmonic minor</option>
+              <option value="dorian">A dorian</option>
+              <option value="phrygian">A phrygian</option>
+            </select>
+          </div>
+          <div class="control"><div class="labelrow"><span class="name">Module B Mapping</span></div>
+            <select id="moduleBMap"><option value="mirror" selected>Mirror inversion</option><option value="same">Same note set</option><option value="fifth">Fifth above</option><option value="octaveDown">Octave down mirror</option></select>
+          </div>
+          <div class="control"><div class="labelrow"><span class="name">Pulse Rate</span><span class="value" id="rateValue">1.40 Hz</span></div><input id="pulseRate" type="range" min="0.2" max="6" step="0.01" value="1.4" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Irregularity</span><span class="value" id="irregValue">0.12</span></div><input id="irregularity" type="range" min="0" max="1" step="0.01" value="0.12" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Attack</span><span class="value" id="attackValue">0.06 s</span></div><input id="attack" type="range" min="0.005" max="1.5" step="0.005" value="0.06" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Decay</span><span class="value" id="decayValue">0.18 s</span></div><input id="decay" type="range" min="0.01" max="2" step="0.01" value="0.18" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Sustain</span><span class="value" id="sustainValue">0.32</span></div><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.32" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Release</span><span class="value" id="releaseValue">0.50 s</span></div><input id="release" type="range" min="0.02" max="3" step="0.01" value="0.50" /></div>
+          <div class="control full"><div class="labelrow"><span class="name">Overlap</span><span class="value" id="overlapValue">0.18</span></div><input id="overlap" type="range" min="0" max="1" step="0.01" value="0.18" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Activation</span><span class="value" id="actValue">0.62</span></div><input id="activation" type="range" min="0" max="1" step="0.01" value="0.62" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Timing / Resonance</span><span class="value" id="timeValue">0.48</span></div><input id="timing" type="range" min="0" max="1" step="0.01" value="0.48" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Dry / Wet</span><span class="value" id="wetValue">0.48</span></div><input id="drywet" type="range" min="0" max="1" step="0.01" value="0.48" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Master</span><span class="value" id="masterValue">0.26</span></div><input id="master" type="range" min="0" max="0.6" step="0.01" value="0.26" /></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Module A</h2>
+        <div class="control-grid">
+          <div class="control"><div class="labelrow"><span class="name">Source 1 Wave</span></div><select id="oscType1"><option>sine</option><option selected>triangle</option><option>sawtooth</option><option>square</option></select></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 1 Root</span><span class="value" id="freq1Value">220 Hz</span></div><input id="baseFreq1" type="range" min="110" max="440" step="1" value="220" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 1 Volume</span><span class="value" id="vol1Value">0.42</span></div><input id="vol1" type="range" min="0" max="1" step="0.01" value="0.42" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 2 Wave</span></div><select id="oscType2"><option selected>sine</option><option>triangle</option><option>sawtooth</option><option>square</option></select></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 2 Root</span><span class="value" id="freq2Value">220 Hz</span></div><input id="baseFreq2" type="range" min="110" max="440" step="1" value="220" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 2 Volume</span><span class="value" id="vol2Value">0.22</span></div><input id="vol2" type="range" min="0" max="1" step="0.01" value="0.22" /></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Module B</h2>
+        <div class="control-grid">
+          <div class="control"><div class="labelrow"><span class="name">Source 3 Wave</span></div><select id="oscType3"><option>sine</option><option>triangle</option><option selected>sawtooth</option><option>square</option></select></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 3 Root</span><span class="value" id="freq3Value">165 Hz</span></div><input id="baseFreq3" type="range" min="82" max="330" step="1" value="165" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 3 Volume</span><span class="value" id="vol3Value">0.28</span></div><input id="vol3" type="range" min="0" max="1" step="0.01" value="0.28" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 4 Wave</span></div><select id="oscType4"><option>sine</option><option selected>triangle</option><option>sawtooth</option><option>square</option></select></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 4 Root</span><span class="value" id="freq4Value">165 Hz</span></div><input id="baseFreq4" type="range" min="82" max="330" step="1" value="165" /></div>
+          <div class="control"><div class="labelrow"><span class="name">Source 4 Volume</span><span class="value" id="vol4Value">0.18</span></div><input id="vol4" type="range" min="0" max="1" step="0.01" value="0.18" /></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+const el=id=>document.getElementById(id), canvas=el('triCanvas'), ctx=canvas.getContext('2d');
+const ids=['scaleMode','moduleBMap','pulseRate','irregularity','attack','decay','sustain','release','overlap','activation','timing','drywet','master','oscType1','baseFreq1','vol1','oscType2','baseFreq2','vol2','oscType3','baseFreq3','vol3','oscType4','baseFreq4','vol4'];
+const controls=Object.fromEntries(ids.map(id=>[id,el(id)]));
+const values={cVal:el('cVal'),dVal:el('dVal'),rVal:el('rVal'),cFill:el('cFill'),dFill:el('dFill'),rFill:el('rFill'),readout:el('readout'),audioStatus:el('audioStatus')};
+['rate','irreg','attack','decay','sustain','release','overlap','act','time','wet','master','freq1','freq2','freq3','freq4','vol1','vol2','vol3','vol4'].forEach(k=>values[k+'Value']=el(k+'Value'));
+const pad=60, Vd={x:canvas.width/2,y:pad+10}, Vc={x:pad+24,y:canvas.height-pad}, Vdiff={x:canvas.width-pad-24,y:canvas.height-pad};
+let point=baryToPoint(.33,.33,.34), dragging=false, audioCtx=null, masterGain,dryGain,wetGain,delayNode,feedbackGain,hpWet,schedulerId=null,nextPulseTime=0,pulseIndex=0;
+const fmt=(v,d=2)=>Number(v).toFixed(d), clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v)), lerp=(a,b,t)=>a+(b-a)*t;
+function baryToPoint(C,D,R){return{x:C*Vc.x+D*Vdiff.x+R*Vd.x,y:C*Vc.y+D*Vdiff.y+R*Vd.y}};
+function pointToBary(p){const det=(Vdiff.y-Vd.y)*(Vc.x-Vd.x)+(Vd.x-Vdiff.x)*(Vc.y-Vd.y);let C=((Vdiff.y-Vd.y)*(p.x-Vd.x)+(Vd.x-Vdiff.x)*(p.y-Vd.y))/det;let D=((Vd.y-Vc.y)*(p.x-Vd.x)+(Vc.x-Vd.x)*(p.y-Vd.y))/det;let R=1-C-D;return{C,D,R}};
+function clampToTriangle(p){let {C,D,R}=pointToBary(p);C=Math.max(0,C);D=Math.max(0,D);R=Math.max(0,R);const s=C+D+R||1;return baryToPoint(C/s,D/s,R/s)};
+function phaseFeel(t){return t<.25?'drifting / loose relation':t<.5?'partially coupled / unstable relation':t<.75?'coordinated / moderate reinforcement':'phase-locked / strong reinforcement'}
+function regionName(C,D,R){const vals=[{k:'containment',v:C},{k:'diffusion',v:D},{k:'direction',v:R}].sort((a,b)=>b.v-a.v); if(Math.abs(C-D)<.08&&Math.abs(D-R)<.08)return'Balanced center'; if(vals[0].v>.68)return vals[0].k+' dominant'; return vals[0].k+' + '+vals[1].k}
+function getState(){const {C,D,R}=pointToBary(point); return {C,D,R, scaleMode:controls.scaleMode.value,moduleBMap:controls.moduleBMap.value, rate:+controls.pulseRate.value, irr:+controls.irregularity.value, attack:+controls.attack.value, decay:+controls.decay.value, sustain:+controls.sustain.value, release:+controls.release.value, overlap:+controls.overlap.value, A:+controls.activation.value, T:+controls.timing.value, W:+controls.drywet.value, master:+controls.master.value, s1:{type:controls.oscType1.value,F:+controls.baseFreq1.value,vol:+controls.vol1.value}, s2:{type:controls.oscType2.value,F:+controls.baseFreq2.value,vol:+controls.vol2.value}, s3:{type:controls.oscType3.value,F:+controls.baseFreq3.value,vol:+controls.vol3.value}, s4:{type:controls.oscType4.value,F:+controls.baseFreq4.value,vol:+controls.vol4.value}}}
+function scaleSemis(mode){return {minorSparse:[0,3,5,7,10,12],minorFuller:[0,2,3,5,7,8,10,12],minorPent:[0,3,5,7,10,12],harmonicMinor:[0,2,3,5,7,8,11,12],dorian:[0,2,3,5,7,9,10,12],phrygian:[0,1,3,5,7,8,10,12]}[mode]||[0,3,5,7,10,12]}
+function notePool(base,mode){return scaleSemis(mode).map(semi=>base*Math.pow(2,semi/12))}
+function moduleBFreq(pool,idx,map){if(map==='same')return pool[Math.min(pool.length-1,idx)]; if(map==='fifth')return pool[Math.min(pool.length-1,Math.min(idx+2,pool.length-1))]; if(map==='octaveDown')return pool[pool.length-1-idx]/2; return pool[pool.length-1-idx]}
+function pulseInterval(s){const base=1/s.rate, overlapFactor=1-s.overlap*.72, jitter=(Math.random()*2-1)*s.irr*base*.45; return Math.max(.045, base*overlapFactor+jitter)}
+function chooseIndexes(s,index){const phaseBias=Math.sin(index*(0.73+s.R*0.22)+s.T*Math.PI*.5)*.5+.5; const rand=Math.random()*(0.35+(1-s.T)*0.4); const composite=clamp(phaseBias*.72+rand*.28+s.R*.06,0,.999); return Math.floor(composite*scaleSemis(s.scaleMode).length)}
+function updateLabels(){const s=getState(); ['rate','irreg','attack','decay','sustain','release','overlap','act','time','wet','master'].forEach(k=>{const map={rate:s.rate+' Hz',irreg:fmt(s.irr),attack:fmt(s.attack)+' s',decay:fmt(s.decay)+' s',sustain:fmt(s.sustain),release:fmt(s.release)+' s',overlap:fmt(s.overlap),act:fmt(s.A),time:fmt(s.T),wet:fmt(s.W),master:fmt(s.master)}; values[k+'Value'].textContent=map[k]}); ['1','2','3','4'].forEach(n=>{values['freq'+n+'Value'].textContent=Math.round(s['s'+n].F)+' Hz'; values['vol'+n+'Value'].textContent=fmt(s['s'+n].vol)}); values.cVal.textContent=fmt(s.C); values.dVal.textContent=fmt(s.D); values.rVal.textContent=fmt(s.R); values.cFill.style.width=(s.C*100)+'%'; values.dFill.style.width=(s.D*100)+'%'; values.rFill.style.width=(s.R*100)+'%';}
+function updateReadout(){const s=getState(); updateLabels(); values.readout.innerHTML=`<strong>Region:</strong> ${regionName(s.C,s.D,s.R)}<br><strong>External cycle:</strong> ${fmt(s.rate)} Hz pulse rate, irregularity ${fmt(s.irr)}<br><strong>Internal cycle:</strong> A ${fmt(s.attack)} / D ${fmt(s.decay)} / S ${fmt(s.sustain)} / R ${fmt(s.release)} / overlap ${fmt(s.overlap)}<br><strong>Timing:</strong> ${fmt(s.T)} — ${phaseFeel(s.T)}<br><strong>Scale:</strong> ${controls.scaleMode.options[controls.scaleMode.selectedIndex].text}<br><strong>Module B mapping:</strong> ${controls.moduleBMap.options[controls.moduleBMap.selectedIndex].text}<br><strong>Source volumes:</strong> S1 ${fmt(s.s1.vol)}, S2 ${fmt(s.s2.vol)}, S3 ${fmt(s.s3.vol)}, S4 ${fmt(s.s4.vol)}<br><strong>Master triangle effect:</strong> containment darkens/shortens, diffusion widens/wets, direction increases motion and bias across all four sources.`; draw(); updateGlobals()}
+function draw(){const W=canvas.width,H=canvas.height; ctx.clearRect(0,0,W,H); const grad=ctx.createLinearGradient(0,0,W,H); grad.addColorStop(0,'#0f1319'); grad.addColorStop(1,'#141922'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H); ctx.beginPath(); ctx.moveTo(Vd.x,Vd.y); ctx.lineTo(Vc.x,Vc.y); ctx.lineTo(Vdiff.x,Vdiff.y); ctx.closePath(); const tg=ctx.createLinearGradient(Vc.x,Vc.y,Vdiff.x,Vd.y); tg.addColorStop(0,'rgba(110,165,255,.22)'); tg.addColorStop(.5,'rgba(159,240,208,.18)'); tg.addColorStop(1,'rgba(255,201,142,.18)'); ctx.fillStyle=tg; ctx.fill(); ctx.strokeStyle='#516077'; ctx.lineWidth=2.5; ctx.stroke(); ctx.font='600 22px system-ui'; ctx.fillStyle='#e8ecf3'; ctx.textAlign='center'; ctx.fillText('Direction',Vd.x,Vd.y-18); ctx.fillText('Containment',Vc.x+18,Vc.y+34); ctx.fillText('Diffusion',Vdiff.x-4,Vdiff.y+34); const glow=ctx.createRadialGradient(point.x,point.y,2,point.x,point.y,22); glow.addColorStop(0,'rgba(255,255,255,.9)'); glow.addColorStop(1,'rgba(142,182,255,0)'); ctx.beginPath(); ctx.arc(point.x,point.y,22,0,Math.PI*2); ctx.fillStyle=glow; ctx.fill(); ctx.beginPath(); ctx.arc(point.x,point.y,8.5,0,Math.PI*2); ctx.fillStyle='#f6fbff'; ctx.fill(); ctx.strokeStyle='#111722'; ctx.lineWidth=2; ctx.stroke()}
+async function ensureAudio(){if(!audioCtx){const AudioContext=window.AudioContext||window.webkitAudioContext; audioCtx=new AudioContext(); masterGain=audioCtx.createGain(); dryGain=audioCtx.createGain(); wetGain=audioCtx.createGain(); delayNode=audioCtx.createDelay(2.5); feedbackGain=audioCtx.createGain(); hpWet=audioCtx.createBiquadFilter(); hpWet.type='highpass'; hpWet.frequency.value=180; dryGain.connect(masterGain); wetGain.connect(delayNode); delayNode.connect(feedbackGain); feedbackGain.connect(delayNode); delayNode.connect(hpWet); hpWet.connect(masterGain); masterGain.connect(audioCtx.destination); updateGlobals()} if(audioCtx.state==='suspended') await audioCtx.resume()}
+function updateGlobals(){if(!audioCtx)return; const s=getState(), now=audioCtx.currentTime; masterGain.gain.setTargetAtTime(s.master,now,.02); dryGain.gain.setTargetAtTime(1-s.W*.65,now,.05); wetGain.gain.setTargetAtTime(.12+s.W*s.D*.65,now,.05); delayNode.delayTime.setTargetAtTime(lerp(.08,.6,clamp(s.D*.85+s.overlap*.25,0,1)),now,.05); feedbackGain.gain.setTargetAtTime(clamp(.08+s.D*.52-s.C*.22,.03,.72),now,.05)}
+function buildVoice(time,opt){const osc=audioCtx.createOscillator(), amp=audioCtx.createGain(), filter=audioCtx.createBiquadFilter(), panner=audioCtx.createStereoPanner(), send=audioCtx.createGain(); osc.type=opt.type; osc.frequency.setValueAtTime(opt.freq,time); filter.type=opt.filterMode; filter.frequency.setValueAtTime(opt.cutoff,time); filter.Q.setValueAtTime(opt.q,time); panner.pan.setValueAtTime(opt.pan,time); send.gain.setValueAtTime(opt.sendAmt,time); amp.gain.setValueAtTime(.0001,time); amp.gain.linearRampToValueAtTime(opt.peak,time+opt.attack); amp.gain.linearRampToValueAtTime(opt.sustainAmp,time+opt.attack+opt.decay); amp.gain.setValueAtTime(opt.sustainAmp,time+opt.attack+opt.decay+.02); amp.gain.exponentialRampToValueAtTime(.0001,time+opt.attack+opt.decay+.02+opt.release); osc.connect(filter); filter.connect(amp); amp.connect(panner); panner.connect(dryGain); panner.connect(send); send.connect(wetGain); osc.start(time); osc.stop(time+opt.attack+opt.decay+opt.release+.08); osc.onended=()=>{try{osc.disconnect();filter.disconnect();amp.disconnect();panner.disconnect();send.disconnect()}catch(_){} }}
+function voiceParams(src,s,phase,offset,style){const cutoff=clamp(lerp(style.low?360:480, style.low?2600:4200,1-s.C*.82+s.R*.18)*(.85+s.A*.5),160,8000); const panBase=Math.sin(phase+offset)*(.12+s.R*.65+s.D*.12); const attack=lerp(s.attack*(style.tight?.52:.72),s.attack*(style.tight?1.0:1.35),1-s.C*.65+s.R*.15); const decay=lerp(s.decay*(style.tight?.55:.72),s.decay*(style.tight?0.95:1.25),.35+s.D*.4); const release=lerp(s.release*(style.tight?.45:.58),s.release*(style.tight?1.0:1.45),.2+s.D*.4+s.overlap*.2-s.C*.15); const basePeak=clamp((.01+s.A*.06)*src.vol*(style.soft?0.9:1.0),.003,.12); const sustainAmp=basePeak*clamp(s.sustain*(style.tight?.55:.75)+s.overlap*(style.tight?.08:.12),0,1); return {peak:basePeak,attack,decay,release,sustainAmp,cutoff,pan:clamp(panBase+(style.panBias||0),-1,1),sendAmt:clamp((.03+s.D*s.W*.4)*(style.send||1),0,.8),q:(style.q||1.2)+s.R*(style.qScale||3.0)}}
+function triggerVoice(time,index){const s=getState(); const idx=chooseIndexes(s,index); const pool1=notePool(s.s1.F,s.scaleMode), pool2=notePool(s.s2.F,s.scaleMode), pool3=notePool(s.s3.F,s.scaleMode), pool4=notePool(s.s4.F,s.scaleMode); const phase=index*(0.65+0.35*s.rate)+(1-s.T)*(Math.random()*Math.PI*1.4-Math.PI*.7); const jitter=(amt)=>1+Math.sin(phase)*s.R*amt+(Math.random()*2-1)*(1-s.T)*amt*0.5;
+  const f1=pool1[Math.min(pool1.length-1,idx)]*jitter(.01), f2=moduleBFreq(pool2,idx,'mirror')*jitter(.006);
+  const f3=moduleBFreq(pool3,idx,s.moduleBMap)*jitter(.009), f4=moduleBFreq(pool4,idx,s.moduleBMap==='same'?'mirror':s.moduleBMap)*jitter(.005);
+  let p=voiceParams(s.s1,s,phase,0,{filterMode:'lowpass',low:false,tight:false,soft:false,send:1,q:1.2,qScale:4}); buildVoice(time,{...p,freq:f1,type:s.s1.type,filterMode:'lowpass'});
+  p=voiceParams(s.s2,s,phase,.2,{filterMode:'bandpass',low:false,tight:true,soft:true,send:.8,q:2.2,qScale:3.5,panBias:.04}); buildVoice(time+.012,{...p,freq:f2,type:s.s2.type,filterMode:'bandpass'});
+  p=voiceParams(s.s3,s,phase+1.1,.08,{filterMode:'lowpass',low:true,tight:false,soft:true,send:1,q:1.1,qScale:2.8,panBias:-.08}); buildVoice(time+.018,{...p,freq:f3,type:s.s3.type,filterMode:'lowpass'});
+  p=voiceParams(s.s4,s,phase+1.4,-.06,{filterMode:'bandpass',low:true,tight:true,soft:true,send:.72,q:2.6,qScale:2.5,panBias:.06}); buildVoice(time+.03,{...p,freq:f4,type:s.s4.type,filterMode:'bandpass'});
+}
+function scheduler(){if(!audioCtx)return; while(nextPulseTime<audioCtx.currentTime+.12){triggerVoice(nextPulseTime,pulseIndex++); nextPulseTime+=pulseInterval(getState())}}
+async function startAudio(){await ensureAudio(); if(schedulerId)return; nextPulseTime=audioCtx.currentTime+.02; schedulerId=setInterval(scheduler,25); values.audioStatus.textContent='audio running'; values.audioStatus.classList.add('on')}
+function stopAudio(){if(schedulerId){clearInterval(schedulerId); schedulerId=null} values.audioStatus.textContent='audio idle'; values.audioStatus.classList.remove('on')}
+function setPreset(name){const presets={center:{C:.33,D:.33,R:.34},containment:{C:.75,D:.15,R:.10},diffusion:{C:.12,D:.76,R:.12},direction:{C:.12,D:.13,R:.75},cdEdge:{C:.46,D:.46,R:.08},drEdge:{C:.08,D:.46,R:.46},rcEdge:{C:.46,D:.08,R:.46}}; const p=presets[name]; if(!p)return; point=baryToPoint(p.C,p.D,p.R); updateReadout()}
+function eventPoint(e){const rect=canvas.getBoundingClientRect(),sx=canvas.width/rect.width,sy=canvas.height/rect.height; if(e.touches&&e.touches[0]) return {x:(e.touches[0].clientX-rect.left)*sx,y:(e.touches[0].clientY-rect.top)*sy}; return {x:(e.clientX-rect.left)*sx,y:(e.clientY-rect.top)*sy}}
+function startDrag(e){dragging=true; point=clampToTriangle(eventPoint(e)); updateReadout()} function moveDrag(e){if(!dragging)return; point=clampToTriangle(eventPoint(e)); updateReadout()} function endDrag(){dragging=false}
+canvas.addEventListener('mousedown',startDrag); window.addEventListener('mousemove',moveDrag); window.addEventListener('mouseup',endDrag); canvas.addEventListener('touchstart',e=>{e.preventDefault(); startDrag(e)},{passive:false}); window.addEventListener('touchmove',e=>{if(dragging){e.preventDefault(); moveDrag(e)}},{passive:false}); window.addEventListener('touchend',endDrag);
+Object.values(controls).forEach(node=>node.addEventListener('input',updateReadout)); document.querySelectorAll('[data-preset]').forEach(btn=>btn.addEventListener('click',()=>setPreset(btn.dataset.preset))); el('startAudio').addEventListener('click',startAudio); el('stopAudio').addEventListener('click',stopAudio); updateReadout();
+})();
+</script>
+</body>
+</html>
