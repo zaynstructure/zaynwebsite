@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EVF Triangle Audio Prototype</title>
+<style>
+  :root {
+    --bg:#ffffff; --panel:#ffffff; --panel-2:#ffffff; --ink:#16181d; --muted:#667085;
+    --line:#d9dee7; --accent:#5b8def; --accent-2:#5fc8a8; --accent-3:#f2a65a;
+  }
+  * { box-sizing:border-box; }
+  html, body { overscroll-behavior: none; }
+  body { margin:0; font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); -webkit-user-select:none; user-select:none; }
+  .wrap { max-width:1380px; margin:0 auto; padding:24px; }
+  button.muted { background:#111827; color:#fff; border-color:#111827; }
+  .title { display:flex; justify-content:space-between; align-items:end; gap:16px; margin-bottom:18px; }
+  h1 { margin:0; font-size:1.35rem; font-weight:650; letter-spacing:.02em; }
+  .sub { color:var(--muted); font-size:.95rem; max-width:980px; }
+  .grid { display:grid; grid-template-columns:1.02fr .98fr; gap:18px; }
+  .panel, details.panel { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:0 8px 22px rgba(15,23,42,.06); }
+  .panel h2, summary.panelhead h2 { margin:0 0 12px; font-size:.95rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
+  details.panel { padding:0; overflow:hidden; }
+  summary.panelhead { list-style:none; cursor:pointer; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  summary.panelhead::-webkit-details-marker { display:none; }
+  .panelbody { padding:0 18px 18px; }
+  #triangleWrap { position:relative; aspect-ratio:1/1; min-height:380px; background:#f8fafc; border-radius:14px; overflow:hidden; }
+  canvas { width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
+  .controls { display:grid; gap:14px; }
+  .control-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .engine-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:14px; }
+  .source-stack { display:grid; gap:12px; }
+  .source-card { border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; }
+  .source-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .control { background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:12px 12px 10px; }
+  .control.full { grid-column:1 / -1; }
+  .labelrow { display:flex; justify-content:space-between; gap:12px; margin-bottom:8px; font-size:.92rem; }
+  .name { font-weight:600; }
+  .value { color:var(--muted); font-variant-numeric:tabular-nums; }
+  input[type="range"], select { width:100%; accent-color:var(--accent); }
+  select { padding:8px 9px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+  .transport, .quick { display:flex; flex-wrap:wrap; gap:8px; }
+  button { background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:8px 11px; cursor:pointer; font-size:.88rem; }
+  button:hover { background:#f3f6fb; }
+  button.primary { background:#111827; color:#fff; border-color:#111827; }
+  .status-pill { border-radius:999px; padding:6px 10px; font-size:.82rem; border:1px solid var(--line); color:var(--muted); }
+  .status-pill.on { color:#155e3a; border-color:#b8e7d0; background:#edf9f3; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+  .stat { background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:12px; }
+  .k { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+  .v { font-size:1.2rem; font-variant-numeric:tabular-nums; }
+  .meter { margin-top:8px; height:8px; background:#eef2f7; border-radius:999px; overflow:hidden; border:1px solid #d7dde7; }
+  .fill { height:100%; width:0%; border-radius:inherit; }
+  .contain { background:linear-gradient(90deg,#6ba0ff,#8eb6ff); }
+  .diffuse { background:linear-gradient(90deg,#7fe0c8,#a7f7dd); }
+  .direct { background:linear-gradient(90deg,#ffb36b,#ffd19b); }
+  .readout { background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:14px; line-height:1.5; color:var(--muted); }
+  .readout strong { color:var(--ink); }
+  .footer { margin-top:10px; color:var(--muted); font-size:.84rem; }
+  .small { font-size:.84rem; color:var(--muted); }
+  .headmeta { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .badge { border:1px solid var(--line); border-radius:999px; padding:5px 8px; font-size:.78rem; color:var(--muted); }
+  @media (max-width:1120px){ .grid{grid-template-columns:1fr;} #triangleWrap{min-height:340px;} }
+  @media (max-width:920px){ .engine-grid{grid-template-columns:1fr;} }
+  @media (max-width:760px){ .wrap{padding:10px;} .title{margin-bottom:10px;} .sub{font-size:.9rem;} .control-grid,.source-grid{grid-template-columns:1fr;} .engine-grid{grid-template-columns:1fr; gap:10px;} .source-stack{gap:10px;} .source-card{padding:10px;} .panel, details.panel{padding:0;} .panelbody{padding:0 10px 10px;} summary.panelhead{padding:10px 10px;} #triangleWrap{min-height:280px;} .labelrow{margin-bottom:6px; font-size:.88rem;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">
+    <div>
+      <h1>EVF Triangle Audio Prototype</h1>
+      <div class="sub">One shared triangle = common regulatory field. Engine A is the anchor tonal body. Engine B is relational to Engine A. Each engine has its own cycle, activation, timing, overlap, and two sources.</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Shared Triangle</h2>
+      <div id="triangleWrap"><canvas id="triCanvas" width="720" height="720"></canvas></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Containment</div><div class="v" id="cVal">0.33</div><div class="meter"><div class="fill contain" id="cFill"></div></div></div>
+        <div class="stat"><div class="k">Diffusion</div><div class="v" id="dVal">0.33</div><div class="meter"><div class="fill diffuse" id="dFill"></div></div></div>
+        <div class="stat"><div class="k">Direction</div><div class="v" id="rVal">0.34</div><div class="meter"><div class="fill direct" id="rFill"></div></div></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <details class="panel" open>
+        <summary class="panelhead"><h2>Transport + Global</h2><div class="headmeta"><div class="status-pill" id="audioStatus">audio idle</div></div></summary>
+        <div class="panelbody">
+          <div class="transport" style="margin-bottom:12px;">
+            <button class="primary" id="startAudio">Start Audio</button>
+            <button id="stopAudio">Stop Audio</button>
+          </div>
+          <div class="control-grid">
+            <div class="control"><div class="labelrow"><span class="name">Master</span><span class="value" id="masterValue">0.24</span></div><input id="master" type="range" min="0" max="0.6" step="0.01" value="0.24" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Dry / Wet</span><span class="value" id="wetValue">0.50</span></div><input id="drywet" type="range" min="0" max="1" step="0.01" value="0.50" /></div>
+            <div class="control"><div class="labelrow"><span class="name">BPM</span><span class="value" id="bpmValue">92</span></div><input id="bpm" type="range" min="40" max="180" step="1" value="92" /></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary class="panelhead"><h2>Engine A</h2><div class="headmeta"><button id="muteA" type="button">Mute A</button><div class="badge" id="engineATonal">A Aeolian</div><div class="small" id="engineAState">anchor</div></div></summary>
+        <div class="panelbody engine-grid">
+          <div class="control-grid">
+            <div class="control"><div class="labelrow"><span class="name">Key A</span></div><select id="keyA"></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Mode A</span></div><select id="modeA"></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Activation A</span><span class="value" id="actAValue">0.62</span></div><input id="actA" type="range" min="0" max="1" step="0.01" value="0.62" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Timing A</span><span class="value" id="timeAValue">0.56</span></div><input id="timeA" type="range" min="0" max="1" step="0.01" value="0.56" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Pulse Rate A</span><span class="value" id="rateAValue">1.40 Hz</span></div><input id="rateA" type="range" min="0.2" max="6" step="0.01" value="1.40" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Irregularity A</span><span class="value" id="irrAValue">0.10</span></div><input id="irrA" type="range" min="0" max="1" step="0.01" value="0.10" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Timing Mode A</span></div><select id="timingModeA"><option value="free" selected>Free</option><option value="sync">Sync</option></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Divider A</span></div><select id="dividerA"><option value="1n">1/1</option><option value="2n">1/2</option><option value="4n" selected>1/4</option><option value="8n">1/8</option><option value="8d">1/8 dotted</option><option value="8t">1/8 triplet</option><option value="16n">1/16</option></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Offset A</span><span class="value" id="offsetAValue">0.00 beat</span></div><input id="offsetA" type="range" min="0" max="1" step="0.25" value="0" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Attack A</span><span class="value" id="attackAValue">0.06 s</span></div><input id="attackA" type="range" min="0.005" max="1.5" step="0.005" value="0.06" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Decay A</span><span class="value" id="decayAValue">0.18 s</span></div><input id="decayA" type="range" min="0.01" max="2" step="0.01" value="0.18" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Sustain A</span><span class="value" id="sustainAValue">0.30</span></div><input id="sustainA" type="range" min="0" max="1" step="0.01" value="0.30" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Release A</span><span class="value" id="releaseAValue">0.52 s</span></div><input id="releaseA" type="range" min="0.02" max="3" step="0.01" value="0.52" /></div>
+            <div class="control full"><div class="labelrow"><span class="name">Overlap A</span><span class="value" id="overlapAValue">0.18</span></div><input id="overlapA" type="range" min="0" max="1" step="0.01" value="0.18" /></div>
+          </div>
+          <div class="source-stack">
+            <div class="source-card">
+              <div class="labelrow"><span class="name">Anchor</span><span class="value" id="note1Label">A3</span></div>
+              <div class="source-grid">
+                <div><div class="labelrow"><span class="name">Wave</span></div><select id="wave1"><option>sine</option><option selected>triangle</option><option>sawtooth</option><option>square</option></select></div>
+                <div><div class="labelrow"><span class="name">Degree</span><span class="value" id="deg1Value">1</span></div><input id="deg1" type="range" min="0" max="6" step="1" value="0" /></div>
+                <div><div class="labelrow"><span class="name">Octave</span><span class="value" id="oct1Value">0</span></div><input id="oct1" type="range" min="-1" max="1" step="1" value="0" /></div>
+                <div style="grid-column:1 / -1"><div class="labelrow"><span class="name">Volume</span><span class="value" id="vol1Value">0.42</span></div><input id="vol1" type="range" min="0" max="1" step="0.01" value="0.42" /></div>
+              </div>
+            </div>
+            <div class="source-card">
+              <div class="labelrow"><span class="name">Colour</span><span class="value" id="note2Label">C4</span></div>
+              <div class="source-grid">
+                <div><div class="labelrow"><span class="name">Wave</span></div><select id="wave2"><option selected>sine</option><option>triangle</option><option>sawtooth</option><option>square</option></select></div>
+                <div><div class="labelrow"><span class="name">Degree Spread</span><span class="value" id="deg2Value">3</span></div><input id="deg2" type="range" min="0" max="7" step="1" value="2" /></div>
+                <div><div class="labelrow"><span class="name">Octave</span><span class="value" id="oct2Value">0</span></div><input id="oct2" type="range" min="-1" max="2" step="1" value="0" /></div>
+                <div style="grid-column:1 / -1"><div class="labelrow"><span class="name">Volume</span><span class="value" id="vol2Value">0.32</span></div><input id="vol2" type="range" min="0" max="1" step="0.01" value="0.32" /></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary class="panelhead"><h2>Engine B</h2><div class="headmeta"><button id="muteB" type="button">Mute B</button><div class="badge" id="engineBTonal">same tonic / Dorian</div><div class="small" id="engineBState">relational</div></div></summary>
+        <div class="panelbody engine-grid">
+          <div class="control-grid">
+            <div class="control"><div class="labelrow"><span class="name">Relation B</span></div><select id="relationB"></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Mode B</span></div><select id="modeB"></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Activation B</span><span class="value" id="actBValue">0.48</span></div><input id="actB" type="range" min="0" max="1" step="0.01" value="0.48" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Timing B</span><span class="value" id="timeBValue">0.42</span></div><input id="timeB" type="range" min="0" max="1" step="0.01" value="0.42" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Pulse Rate B</span><span class="value" id="rateBValue">0.92 Hz</span></div><input id="rateB" type="range" min="0.2" max="6" step="0.01" value="0.92" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Irregularity B</span><span class="value" id="irrBValue">0.18</span></div><input id="irrB" type="range" min="0" max="1" step="0.01" value="0.18" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Timing Mode B</span></div><select id="timingModeB"><option value="free">Free</option><option value="sync" selected>Sync</option></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Divider B</span></div><select id="dividerB"><option value="1n">1/1</option><option value="2n">1/2</option><option value="4n">1/4</option><option value="8n" selected>1/8</option><option value="8d">1/8 dotted</option><option value="8t">1/8 triplet</option><option value="16n">1/16</option></select></div>
+            <div class="control"><div class="labelrow"><span class="name">Offset B</span><span class="value" id="offsetBValue">0.50 beat</span></div><input id="offsetB" type="range" min="0" max="1" step="0.25" value="0.5" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Attack B</span><span class="value" id="attackBValue">0.10 s</span></div><input id="attackB" type="range" min="0.005" max="1.5" step="0.005" value="0.10" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Decay B</span><span class="value" id="decayBValue">0.26 s</span></div><input id="decayB" type="range" min="0.01" max="2" step="0.01" value="0.26" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Sustain B</span><span class="value" id="sustainBValue">0.36</span></div><input id="sustainB" type="range" min="0" max="1" step="0.01" value="0.36" /></div>
+            <div class="control"><div class="labelrow"><span class="name">Release B</span><span class="value" id="releaseBValue">0.84 s</span></div><input id="releaseB" type="range" min="0.02" max="3" step="0.01" value="0.84" /></div>
+            <div class="control full"><div class="labelrow"><span class="name">Overlap B</span><span class="value" id="overlapBValue">0.26</span></div><input id="overlapB" type="range" min="0" max="1" step="0.01" value="0.26" /></div>
+          </div>
+          <div class="source-stack">
+            <div class="source-card">
+              <div class="labelrow"><span class="name">Anchor</span><span class="value" id="note3Label">A2</span></div>
+              <div class="source-grid">
+                <div><div class="labelrow"><span class="name">Wave</span></div><select id="wave3"><option>sine</option><option selected>triangle</option><option>sawtooth</option><option>square</option></select></div>
+                <div><div class="labelrow"><span class="name">Degree</span><span class="value" id="deg3Value">1</span></div><input id="deg3" type="range" min="0" max="6" step="1" value="0" /></div>
+                <div><div class="labelrow"><span class="name">Octave</span><span class="value" id="oct3Value">-1</span></div><input id="oct3" type="range" min="-1" max="1" step="1" value="-1" /></div>
+                <div style="grid-column:1 / -1"><div class="labelrow"><span class="name">Volume</span><span class="value" id="vol3Value">0.30</span></div><input id="vol3" type="range" min="0" max="1" step="0.01" value="0.30" /></div>
+              </div>
+            </div>
+            <div class="source-card">
+              <div class="labelrow"><span class="name">Colour</span><span class="value" id="note4Label">E3</span></div>
+              <div class="source-grid">
+                <div><div class="labelrow"><span class="name">Wave</span></div><select id="wave4"><option selected>sine</option><option>triangle</option><option>sawtooth</option><option>square</option></select></div>
+                <div><div class="labelrow"><span class="name">Degree Spread</span><span class="value" id="deg4Value">5</span></div><input id="deg4" type="range" min="0" max="7" step="1" value="4" /></div>
+                <div><div class="labelrow"><span class="name">Octave</span><span class="value" id="oct4Value">-1</span></div><input id="oct4" type="range" min="-1" max="2" step="1" value="-1" /></div>
+                <div style="grid-column:1 / -1"><div class="labelrow"><span class="name">Volume</span><span class="value" id="vol4Value">0.28</span></div><input id="vol4" type="range" min="0" max="1" step="0.01" value="0.28" /></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary class="panelhead"><h2>Quick Positions</h2><div class="small">triangle presets</div></summary>
+        <div class="panelbody"><div class="quick"><button data-preset="center">Center</button><button data-preset="containment">Containment</button><button data-preset="diffusion">Diffusion</button><button data-preset="direction">Direction</button><button data-preset="cdEdge">Containment + Diffusion</button><button data-preset="drEdge">Diffusion + Direction</button><button data-preset="rcEdge">Direction + Containment</button></div></div>
+      </details>
+
+      <details class="panel" open>
+        <summary class="panelhead"><h2>Interpretive Readout</h2><div class="small">live summary</div></summary>
+        <div class="panelbody"><div class="readout" id="readout"></div><div class="footer">Shared triangle shapes both engines. Tonality is organized by Engine A as anchor and Engine B as relational field. Anchor stays tighter in pitch range. Colour opens into a wider degree and octave field without leaving the engine’s tonal world.</div></div>
+      </details>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const NOTE_NAMES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+  const KEYS = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+  const MODES = {
+    aeolian:{label:'Aeolian', intervals:[0,2,3,5,7,8,10,12]},
+    dorian:{label:'Dorian', intervals:[0,2,3,5,7,9,10,12]},
+    phrygian:{label:'Phrygian', intervals:[0,1,3,5,7,8,10,12]},
+    harmonicMinor:{label:'Harmonic minor', intervals:[0,2,3,5,7,8,11,12]},
+    ionian:{label:'Ionian', intervals:[0,2,4,5,7,9,11,12]}
+  };
+  const RELATIONS = {
+    sameTonic:{label:'Same tonic', semis:0},
+    relative:{label:'Relative', semis:3},
+    dominant:{label:'Dominant', semis:7},
+    subdominant:{label:'Subdominant', semis:5},
+    alteredParallel:{label:'Altered parallel', semis:0}
+  };
+  const ROLES = {
+    anchor:{prob:1, delay:0, env:{atk:1, dec:1, sus:1, rel:1}, bright:0, pan:0, detune:0},
+    color:{prob:0.9, delay:0.01, env:{atk:0.98, dec:0.94, sus:0.9, rel:1.0}, bright:90, pan:0.08, detune:2}
+  };
+
+  const el = id => document.getElementById(id);
+  const canvas = el('triCanvas');
+  const ctx = canvas.getContext('2d');
+  const pad = 60;
+  const Vd = { x: canvas.width / 2, y: pad + 10 };
+  const Vc = { x: pad + 24, y: canvas.height - pad };
+  const Vdiff = { x: canvas.width - pad - 24, y: canvas.height - pad };
+  let point = baryToPoint(.33,.33,.34), dragging = false;
+
+  let audioCtx=null, masterGain=null, dryGain=null, wetGain=null, delayNode=null, feedbackGain=null, hpWet=null;
+  let schedulerId=null, nextA=0, nextB=0, idxA=0, idxB=0;
+  let engineMute = {A:false, B:false};
+
+  function fillSelect(selectId, entries, useKeys=false) {
+    const node = el(selectId);
+    node.innerHTML = '';
+    (useKeys ? entries : Object.entries(entries)).forEach(entry => {
+      const [value,label] = useKeys ? [entry,entry] : [entry[0], entry[1].label];
+      const opt = document.createElement('option');
+      opt.value = value; opt.textContent = label; node.appendChild(opt);
+    });
+  }
+
+  fillSelect('keyA', KEYS, true);
+  fillSelect('modeA', MODES);
+  fillSelect('relationB', RELATIONS);
+  fillSelect('modeB', MODES);
+  ['keyA'].forEach(id => el(id).value = 'A');
+  el('modeA').value = 'aeolian';
+  el('relationB').value = 'sameTonic';
+  el('modeB').value = 'dorian';
+
+  function baryToPoint(C,D,R){ return { x:C*Vc.x + D*Vdiff.x + R*Vd.x, y:C*Vc.y + D*Vdiff.y + R*Vd.y }; }
+  function pointToBary(p){ const det=(Vdiff.y-Vd.y)*(Vc.x-Vd.x)+(Vd.x-Vdiff.x)*(Vc.y-Vd.y); let C=((Vdiff.y-Vd.y)*(p.x-Vd.x)+(Vd.x-Vdiff.x)*(p.y-Vd.y))/det; let D=((Vd.y-Vc.y)*(p.x-Vd.x)+(Vc.x-Vd.x)*(p.y-Vd.y))/det; let R=1-C-D; return {C,D,R}; }
+  function clampToTriangle(p){ let {C,D,R}=pointToBary(p); C=Math.max(0,C); D=Math.max(0,D); R=Math.max(0,R); const s=C+D+R||1; return baryToPoint(C/s,D/s,R/s); }
+  const fmt=(v,d=2)=>Number(v).toFixed(d); const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v)); const lerp=(a,b,t)=>a+(b-a)*t;
+  function regionName(C,D,R){ const vals=[{k:'containment',v:C},{k:'diffusion',v:D},{k:'direction',v:R}].sort((a,b)=>b.v-a.v); if(Math.abs(C-D)<.08&&Math.abs(D-R)<.08) return 'Balanced center'; if(vals[0].v>.68) return vals[0].k+' dominant'; return vals[0].k+' + '+vals[1].k; }
+  function phaseFeel(t){ if(t<.25) return 'drifting'; if(t<.5) return 'partially coupled'; if(t<.75) return 'coordinated'; return 'phase-locked'; }
+  function keyToPc(key){ return NOTE_NAMES.indexOf(key); }
+  function midiToFreq(m){ return 440 * Math.pow(2,(m-69)/12); }
+  function midiToName(m){ const pc=((m%12)+12)%12; const oct=Math.floor(m/12)-1; return `${NOTE_NAMES[pc]}${oct}`; }
+
+  function getShared(){ const {C,D,R}=pointToBary(point); return { C,D,R, master:parseFloat(el('master').value), W:parseFloat(el('drywet').value) }; }
+  function engineConfig(name){
+    const p = name==='A' ? {
+      act:'actA',time:'timeA',rate:'rateA',irr:'irrA',attack:'attackA',decay:'decayA',sustain:'sustainA',release:'releaseA',overlap:'overlapA', timingMode:'timingModeA', divider:'dividerA', offset:'offsetA',
+      key:'keyA',mode:'modeA', relation:null,
+      sources:[['wave1','deg1','oct1','vol1','anchor'],['wave2','deg2','oct2','vol2','color']]
+    } : {
+      act:'actB',time:'timeB',rate:'rateB',irr:'irrB',attack:'attackB',decay:'decayB',sustain:'sustainB',release:'releaseB',overlap:'overlapB', timingMode:'timingModeB', divider:'dividerB', offset:'offsetB',
+      mode:'modeB', relation:'relationB',
+      sources:[['wave3','deg3','oct3','vol3','anchor'],['wave4','deg4','oct4','vol4','color']]
+    };
+
+    const tonicPcA = keyToPc(el('keyA').value);
+    const tonicPc = name==='A' ? tonicPcA : ((tonicPcA + RELATIONS[el('relationB').value].semis) % 12 + 12) % 12;
+    const tonicMidi = tonicPc + (name==='A' ? 57 : 55); // A3-ish / A2-ish anchors
+    const mode = MODES[el(p.mode).value];
+    return {
+      A:parseFloat(el(p.act).value), T:parseFloat(el(p.time).value), rate:parseFloat(el(p.rate).value), irr:parseFloat(el(p.irr).value), timingMode:el(p.timingMode).value, divider:el(p.divider).value, offset:parseFloat(el(p.offset).value),
+      attack:parseFloat(el(p.attack).value), decay:parseFloat(el(p.decay).value), sustain:parseFloat(el(p.sustain).value), release:parseFloat(el(p.release).value), overlap:parseFloat(el(p.overlap).value),
+      tonicMidi, tonicPc, modeKey:el(p.mode).value, mode, relation: p.relation ? el(p.relation).value : 'anchor',
+      sources:p.sources.map(([w,d,o,v,role]) => ({ wave:el(w).value, role, degree:parseInt(el(d).value,10), octave:parseInt(el(o).value,10), vol:parseFloat(el(v).value) }))
+    };
+  }
+
+  function updateLabels(){
+    [['masterValue','master'],['wetValue','drywet'],['actAValue','actA'],['timeAValue','timeA'],['irrAValue','irrA'],['overlapAValue','overlapA'],['actBValue','actB'],['timeBValue','timeB'],['irrBValue','irrB'],['overlapBValue','overlapB'],['vol1Value','vol1'],['vol2Value','vol2'],['vol3Value','vol3'],['vol4Value','vol4']].forEach(([v,id])=>el(v).textContent=fmt(el(id).value));
+    el('bpmValue').textContent = String(parseInt(el('bpm').value,10));
+    el('offsetAValue').textContent = `${fmt(el('offsetA').value)} beat`;
+    el('offsetBValue').textContent = `${fmt(el('offsetB').value)} beat`;
+    [['rateAValue','rateA'],['rateBValue','rateB']].forEach(([v,id])=>el(v).textContent=`${fmt(el(id).value)} Hz`);
+    [['attackAValue','attackA'],['decayAValue','decayA'],['releaseAValue','releaseA'],['attackBValue','attackB'],['decayBValue','decayB'],['releaseBValue','releaseB']].forEach(([v,id])=>el(v).textContent=`${fmt(el(id).value)} s`);
+    [['sustainAValue','sustainA'],['sustainBValue','sustainB']].forEach(([v,id])=>el(v).textContent=fmt(el(id).value));
+    const labels = [
+      ['deg1Value','deg1'],['deg2Value','deg2'],['deg3Value','deg3'],['deg4Value','deg4']
+    ];
+    labels.forEach(([vid,id]) => el(vid).textContent = String(parseInt(el(id).value,10)+1));
+    [['oct1Value','oct1'],['oct2Value','oct2'],['oct3Value','oct3'],['oct4Value','oct4']].forEach(([vid,id])=>el(vid).textContent=String(parseInt(el(id).value,10)));
+
+    const sh = getShared();
+    el('cVal').textContent=fmt(sh.C); el('dVal').textContent=fmt(sh.D); el('rVal').textContent=fmt(sh.R);
+    el('cFill').style.width=`${sh.C*100}%`; el('dFill').style.width=`${sh.D*100}%`; el('rFill').style.width=`${sh.R*100}%`;
+
+    const A = engineConfig('A'), B = engineConfig('B');
+    el('engineATonal').textContent = `${el('keyA').value} ${MODES[el('modeA').value].label}`;
+    el('engineBTonal').textContent = `${RELATIONS[el('relationB').value].label} / ${MODES[el('modeB').value].label}`;
+    setNoteLabels('A', A); setNoteLabels('B', B);
+  }
+
+  function setNoteLabels(name, cfg) {
+    cfg.sources.forEach((src, idx) => {
+      const midi = tonicDegreeToMidi(cfg, src.degree, src.octave);
+      const nodeId = name==='A' ? (idx===0 ? 'note1Label' : 'note2Label') : (idx===0 ? 'note3Label' : 'note4Label');
+      el(nodeId).textContent = midiToName(midi);
+    });
+  }
+
+  function midpoint(a,b){ return {x:(a.x+b.x)/2,y:(a.y+b.y)/2}; }
+  function draw(){
+    const W=canvas.width,H=canvas.height; ctx.clearRect(0,0,W,H);
+    const grad=ctx.createLinearGradient(0,0,W,H); grad.addColorStop(0,'#0f1319'); grad.addColorStop(1,'#141922'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    ctx.beginPath(); ctx.moveTo(Vd.x,Vd.y); ctx.lineTo(Vc.x,Vc.y); ctx.lineTo(Vdiff.x,Vdiff.y); ctx.closePath();
+    const triGrad=ctx.createLinearGradient(Vc.x,Vc.y,Vdiff.x,Vd.y); triGrad.addColorStop(0,'rgba(110,165,255,.22)'); triGrad.addColorStop(.5,'rgba(159,240,208,.18)'); triGrad.addColorStop(1,'rgba(255,201,142,.18)'); ctx.fillStyle=triGrad; ctx.fill(); ctx.strokeStyle='#516077'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.font='600 22px system-ui'; ctx.fillStyle='#e8ecf3'; ctx.textAlign='center'; ctx.fillText('Direction',Vd.x,Vd.y-18); ctx.fillText('Containment',Vc.x+18,Vc.y+34); ctx.fillText('Diffusion',Vdiff.x-4,Vdiff.y+34);
+    ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1; [[Vd,midpoint(Vc,Vdiff)],[Vc,midpoint(Vd,Vdiff)],[Vdiff,midpoint(Vd,Vc)]].forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();});
+    ctx.beginPath(); ctx.arc(point.x,point.y,22,0,Math.PI*2); const glow=ctx.createRadialGradient(point.x,point.y,2,point.x,point.y,22); glow.addColorStop(0,'rgba(255,255,255,.9)'); glow.addColorStop(1,'rgba(142,182,255,0)'); ctx.fillStyle=glow; ctx.fill();
+    ctx.beginPath(); ctx.arc(point.x,point.y,8.5,0,Math.PI*2); ctx.fillStyle='#f6fbff'; ctx.fill(); ctx.strokeStyle='#111722'; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  function updateReadout(){
+    updateLabels(); updateMuteUI(); draw(); updateGlobals();
+    const sh=getShared(), A=engineConfig('A'), B=engineConfig('B');
+    el('readout').innerHTML = `<strong>Region:</strong> ${regionName(sh.C,sh.D,sh.R)}<br><strong>Shared triangle:</strong> containment ${fmt(sh.C)}, diffusion ${fmt(sh.D)}, direction ${fmt(sh.R)}<br><strong>Engine A:</strong> ${midiToName(A.tonicMidi)} ${A.mode.label}, act ${fmt(A.A)}, timing ${fmt(A.T)} (${phaseFeel(A.T)}), ${A.timingMode==='sync' ? `sync ${A.divider} @ ${el('bpm').value} BPM, offset ${fmt(A.offset)} beat` : `free ${fmt(A.rate)} Hz`}${engineMute.A ? ' — muted' : ''}<br><strong>Engine B:</strong> ${midiToName(B.tonicMidi)} ${B.mode.label}, relation ${RELATIONS[B.relation].label}, act ${fmt(B.A)}, timing ${fmt(B.T)} (${phaseFeel(B.T)}), ${B.timingMode==='sync' ? `sync ${B.divider} @ ${el('bpm').value} BPM, offset ${fmt(B.offset)} beat` : `free ${fmt(B.rate)} Hz`}${engineMute.B ? ' — muted' : ''}<br><strong>Tonal logic:</strong> Engine A is the anchor. Engine B stays relational rather than fully independent. Sources move by degree and octave inside each engine instead of raw Hz.<br><strong>Source logic:</strong> roles are normalized in loudness/wetness and now differ mainly through trigger probability, envelope shape, timing offset, note tendency, and light filter/pan behavior.`;
+  }
+
+  function beatsPerStep(dividerKey){
+    return DIVIDERS[dividerKey] ?? 1;
+  }
+
+  function secondsPerStep(eng){
+    if(eng.timingMode === 'sync'){
+      const bpm = parseFloat(el('bpm').value);
+      return beatsPerStep(eng.divider) * (60 / bpm);
+    }
+    const base=1/eng.rate;
+    const overlapFactor=1-eng.overlap*.72;
+    const jitter=(Math.random()*2-1)*eng.irr*base*.45;
+    return Math.max(.045, base*overlapFactor + jitter);
+  }
+
+  function updateMuteUI(){
+    const btnA = el('muteA'), btnB = el('muteB');
+    if(btnA){
+      btnA.textContent = engineMute.A ? 'Unmute A' : 'Mute A';
+      btnA.classList.toggle('muted', engineMute.A);
+    }
+    if(btnB){
+      btnB.textContent = engineMute.B ? 'Unmute B' : 'Mute B';
+      btnB.classList.toggle('muted', engineMute.B);
+    }
+    const sA = el('engineAState'), sB = el('engineBState');
+    if(sA) sA.textContent = engineMute.A ? 'muted' : 'anchor';
+    if(sB) sB.textContent = engineMute.B ? 'muted' : 'relational';
+  }
+
+  async function ensureAudio(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext; audioCtx = new AC();
+      masterGain=audioCtx.createGain(); dryGain=audioCtx.createGain(); wetGain=audioCtx.createGain(); delayNode=audioCtx.createDelay(2.5); feedbackGain=audioCtx.createGain(); hpWet=audioCtx.createBiquadFilter(); hpWet.type='highpass'; hpWet.frequency.value=180;
+      dryGain.connect(masterGain); wetGain.connect(delayNode); delayNode.connect(feedbackGain); feedbackGain.connect(delayNode); delayNode.connect(hpWet); hpWet.connect(masterGain); masterGain.connect(audioCtx.destination);
+      updateGlobals();
+    }
+    if(audioCtx.state==='suspended') await audioCtx.resume();
+  }
+
+  function updateGlobals(){
+    if(!audioCtx) return; const sh=getShared(); const now=audioCtx.currentTime;
+    masterGain.gain.setTargetAtTime(sh.master, now, .02);
+    dryGain.gain.setTargetAtTime(1 - sh.W*.55, now, .05);
+    wetGain.gain.setTargetAtTime(.12 + sh.W*sh.D*.70, now, .05);
+    delayNode.delayTime.setTargetAtTime(lerp(.08,.62, clamp(sh.D*.9,0,1)), now, .05);
+    feedbackGain.gain.setTargetAtTime(clamp(.08 + sh.D*.48 - sh.C*.18, .03, .72), now, .05);
+  }
+
+  function pulseInterval(engine){ return secondsPerStep(engine); }
+  function sourceMidi(engine, src, pulseIndex){
+    const ints = engine.mode.intervals;
+    if(src.role === 'anchor'){
+      const center = clamp(src.degree, 0, ints.length - 2);
+      const lo = clamp(center - 1, 0, ints.length - 2);
+      const hi = clamp(center + 1, 0, ints.length - 2);
+      const degree = lo + Math.floor(Math.random() * (hi - lo + 1));
+      const octaveShift = Math.random() < 0.14 ? (Math.random() < 0.5 ? -1 : 1) : 0;
+      const oct = clamp(src.octave + octaveShift, -1, 1);
+      return tonicDegreeToMidi(engine, degree, oct);
+    }
+
+    const pool = [];
+    for(let oct = src.octave - 1; oct <= src.octave + 1; oct++){
+      ints.forEach((_, i) => pool.push({ degree:i, octave:clamp(oct, -1, 2) }));
+    }
+    const centerIndex = clamp(src.degree, 0, pool.length - 1);
+    const spread = 4;
+    const lo = clamp(centerIndex - spread, 0, pool.length - 1);
+    const hi = clamp(centerIndex + spread, 0, pool.length - 1);
+    const pick = pool[lo + Math.floor(Math.random() * (hi - lo + 1))];
+    return tonicDegreeToMidi(engine, pick.degree, pick.octave);
+  }
+
+  function triggerEngine(name, time, pulseIndex){
+    if(engineMute[name]) return;
+    const sh=getShared(), eng=engineConfig(name);
+    const phase = pulseIndex * (0.5 + eng.T*0.85);
+    const dirWarp = Math.sin(phase) * sh.R * 0.014;
+    eng.sources.forEach((src, i) => {
+      const role = ROLES[src.role];
+      if(Math.random() > role.prob) return;
+      const midi = sourceMidi(eng, src, pulseIndex);
+      const freq = midiToFreq(midi) * (1 + dirWarp + role.detune/1200);
+      const atk = eng.attack * role.env.atk;
+      const dec = eng.decay * role.env.dec;
+      const sus = eng.sustain * role.env.sus;
+      const rel = eng.release * role.env.rel;
+      const peak = clamp((0.065 + eng.A*0.24 + sh.D*0.03) * src.vol, 0.025, 0.42);
+      const cutoff = clamp(lerp(520, 3000, 1-sh.C) + sh.R*650 + role.bright, 180, 4600);
+      const mode = src.role === 'anchor' ? 'lowpass' : 'bandpass';
+      const q = src.role === 'anchor' ? 1.05 + sh.R*1.0 : 1.7 + sh.R*1.2;
+      const pan = clamp((Math.sin(phase + i*0.65) * sh.R * 0.22) + (i===1 ? 0.05 : -0.05) + role.pan, -1, 1);
+      const sendAmt = clamp(0.10 + sh.D*0.42 + eng.overlap*0.08 - sh.C*0.06, 0.03, 0.58);
+      buildVoice(time + role.delay + (1-eng.T)*0.006*i, freq, src.wave, peak, atk, dec, sus, rel, mode, cutoff, q, pan, sendAmt);
+    });
+  }
+
+  function buildVoice(time, freq, type, peak, attack, decay, sustainAmp, release, filterMode, cutoff, q, pan, sendAmt){
+    const osc=audioCtx.createOscillator(), amp=audioCtx.createGain(), filter=audioCtx.createBiquadFilter(), panner=audioCtx.createStereoPanner(), send=audioCtx.createGain();
+    osc.type=type; osc.frequency.setValueAtTime(freq,time);
+    filter.type=filterMode; filter.frequency.setValueAtTime(cutoff,time); filter.Q.setValueAtTime(q,time);
+    panner.pan.setValueAtTime(pan,time); amp.gain.setValueAtTime(0.0001,time);
+    osc.connect(filter); filter.connect(amp); amp.connect(panner); panner.connect(dryGain); panner.connect(send); send.gain.setValueAtTime(sendAmt,time); send.connect(wetGain);
+    const peakTime=time+attack, decayEnd=peakTime+decay;
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), peakTime);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak*Math.max(0.05,sustainAmp)), decayEnd);
+    amp.gain.setValueAtTime(Math.max(0.0001, peak*Math.max(0.05,sustainAmp)), decayEnd);
+    const gateHold=Math.max(0.02, 1 / 3.2);
+    const releaseStart=decayEnd + gateHold;
+    amp.gain.exponentialRampToValueAtTime(0.0001, releaseStart + release);
+    osc.start(time); osc.stop(releaseStart + release + 0.05);
+  }
+
+  function scheduler(){
+    if(!audioCtx) return; const lookAhead=.12;
+    while(nextA < audioCtx.currentTime + lookAhead){ triggerEngine('A', nextA, idxA++); nextA += pulseInterval(engineConfig('A')); }
+    while(nextB < audioCtx.currentTime + lookAhead){ triggerEngine('B', nextB, idxB++); nextB += pulseInterval(engineConfig('B')); }
+  }
+
+  async function startAudio(){
+    await ensureAudio(); if(schedulerId) return;
+    const now=audioCtx.currentTime + .02;
+    const A = engineConfig('A');
+    const B = engineConfig('B');
+    const secPerBeat = 60 / parseFloat(el('bpm').value);
+    nextA = now + (A.timingMode === 'sync' ? A.offset * secPerBeat : 0);
+    nextB = now + (B.timingMode === 'sync' ? B.offset * secPerBeat : 0.12);
+    idxA=0; idxB=0;
+    schedulerId=setInterval(scheduler, 25);
+    const pill=el('audioStatus'); pill.textContent='audio on'; pill.classList.add('on');
+  }
+  function stopAudio(){ if(schedulerId){ clearInterval(schedulerId); schedulerId=null; } if(audioCtx){ audioCtx.suspend(); } const pill=el('audioStatus'); pill.textContent='audio idle'; pill.classList.remove('on'); }
+
+  function eventPoint(e){ const rect=canvas.getBoundingClientRect(); const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height; const src=e.touches&&e.touches[0]?e.touches[0]:e; return { x:(src.clientX-rect.left)*scaleX, y:(src.clientY-rect.top)*scaleY }; }
+  function startDrag(e){ dragging=true; point=clampToTriangle(eventPoint(e)); updateReadout(); }
+  function moveDrag(e){ if(!dragging) return; point=clampToTriangle(eventPoint(e)); updateReadout(); }
+  function endDrag(){ dragging=false; }
+  function setPreset(name){ const presets={ center:{C:.33,D:.33,R:.34}, containment:{C:.75,D:.15,R:.10}, diffusion:{C:.12,D:.76,R:.12}, direction:{C:.12,D:.13,R:.75}, cdEdge:{C:.46,D:.46,R:.08}, drEdge:{C:.08,D:.46,R:.46}, rcEdge:{C:.46,D:.08,R:.46} }; const p=presets[name]; if(!p) return; point=baryToPoint(p.C,p.D,p.R); updateReadout(); }
+
+  canvas.addEventListener('mousedown',startDrag); window.addEventListener('mousemove',moveDrag); window.addEventListener('mouseup',endDrag);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();startDrag(e);},{passive:false}); window.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();moveDrag(e);}},{passive:false}); window.addEventListener('touchend',endDrag);
+  el('startAudio').addEventListener('click', startAudio); el('stopAudio').addEventListener('click', stopAudio);
+  el('muteA').addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); engineMute.A = !engineMute.A; updateReadout(); });
+  el('muteB').addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); engineMute.B = !engineMute.B; updateReadout(); });
+  document.querySelectorAll('input, select').forEach(node=>node.addEventListener('input', updateReadout));
+  document.querySelectorAll('[data-preset]').forEach(btn=>btn.addEventListener('click',()=>setPreset(btn.dataset.preset)));
+  updateReadout();
+})();
+</script>
+</body>
+</html>
