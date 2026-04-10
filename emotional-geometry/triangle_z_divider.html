@@ -283,7 +283,7 @@
 
     const tonicPcA = keyToPc(el('keyA').value);
     const tonicPc = name==='A' ? tonicPcA : ((tonicPcA + RELATIONS[el('relationB').value].semis) % 12 + 12) % 12;
-    const const tonicMidi = (name === 'A' ? 48 : 36) + tonicPc; // A3-ish / A2-ish anchors
+    const tonicMidi = (name === 'A' ? 48 : 36) + tonicPc; // A3-ish / A2-ish anchors
     const mode = MODES[el(p.mode).value];
     return {
       A:parseFloat(el(p.act).value), T:parseFloat(el(p.time).value), rate:parseFloat(el(p.rate).value), irr:parseFloat(el(p.irr).value), timingMode:el(p.timingMode).value, divider:el(p.divider).value,
