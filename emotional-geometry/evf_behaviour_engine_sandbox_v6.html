@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EVF Behaviour Engine Sandbox</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --ink:#16181d; --muted:#667085; --line:#d9dee7;
+    --blue:#6ba0ff; --green:#7fe0c8; --orange:#ffb36b; --soft:#f8fafc;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:18px}
+  h1{margin:0 0 6px;font-size:1.28rem;font-weight:650}
+  .sub{color:var(--muted);font-size:.95rem;max-width:980px;line-height:1.45;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1.02fr .98fr;gap:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 8px 22px rgba(15,23,42,.06)}
+  .panel h2{margin:0 0 12px;font-size:.92rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .control-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .control{border:1px solid var(--line);border-radius:14px;padding:11px;background:#fff}
+  .labelrow{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:.9rem}
+  .name{font-weight:600}
+  .value{color:var(--muted);font-variant-numeric:tabular-nums}
+  input[type="range"], select{width:100%}
+  select{padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  .triWrap{position:relative;aspect-ratio:1/1;min-height:360px;background:#f8fafc;border-radius:14px;overflow:hidden}
+  canvas{width:100%;height:100%;display:block;touch-action:none}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .stat{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .k{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .v{font-size:1.16rem;font-variant-numeric:tabular-nums}
+  .meter{margin-top:8px;height:8px;background:#eef2f7;border-radius:999px;overflow:hidden;border:1px solid #d7dde7}
+  .fill{height:100%;width:0%}
+  .contain{background:linear-gradient(90deg,#6ba0ff,#8eb6ff)}
+  .diffuse{background:linear-gradient(90deg,#7fe0c8,#a7f7dd)}
+  .direct{background:linear-gradient(90deg,#ffb36b,#ffd19b)}
+  .eventRow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .pill{border-radius:999px;padding:7px 10px;font-size:.82rem;border:1px solid var(--line);color:var(--muted);background:#fff}
+  .pill.on{background:#edf9f3;border-color:#b8e7d0;color:#155e3a}
+  .pill.flash{background:#fff4e5;border-color:#ffd197;color:#8a4d00}
+  .readout{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:14px;line-height:1.5;color:var(--muted);font-size:.94rem}
+  .readout strong{color:var(--ink)}
+.interpStage{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:12px}
+.visualStage{position:relative;height:220px;border:1px solid var(--line);border-radius:14px;background:#0f1319;overflow:hidden}
+.visualCore{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:999px;background:#f6fbff;box-shadow:0 0 18px rgba(255,255,255,.35)}
+.visualRing{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:999px;border:2px solid rgba(167,247,221,.85);opacity:0;transform:scale(.4)}
+.visualDrift{position:absolute;inset:0;pointer-events:none}
+.visualLabel{margin-top:8px;color:var(--muted);font-size:.84rem}
+.audioStage{position:relative;height:220px;border:1px solid var(--line);border-radius:14px;background:#0f1319;overflow:hidden}
+.audioBars{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;gap:12px;padding:18px}
+.audioBar{width:34px;min-height:10px;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#8eb6ff,#5fc8a8);opacity:.72;transform-origin:bottom center}
+.audioPulse{position:absolute;left:50%;top:22px;width:18px;height:18px;margin-left:-9px;border-radius:999px;background:#ffd19b;opacity:.18;box-shadow:0 0 0 rgba(255,209,155,0)}
+.audioGrid{position:absolute;inset:0;background:linear-gradient(to right, rgba(255,255,255,.04) 1px, transparent 1px) 0 0/12.5% 100%;opacity:.35}
+  pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:.85rem;line-height:1.45}
+  .miniGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  button{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 11px;cursor:pointer;font-size:.88rem}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  @media (max-width:980px){ .grid{grid-template-columns:1fr} .triWrap{min-height:320px}}
+  @media (max-width:760px){ .wrap{padding:10px} .control-grid,.miniGrid,.stats{grid-template-columns:1fr} .panel{padding:12px} .triWrap{min-height:280px} .labelrow{font-size:.86rem;margin-bottom:6px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>EVF Behaviour Engine Sandbox</h1>
+  <div class="sub">A medium-agnostic EVF state engine. No audio. No synth logic. This page computes field state, tonic orientation, material substrate, activation state, derived tonal windows, and events so you can test the behaviour layer before routing it into the performance synth, ripple system, or visualizers.</div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Field + State</h2>
+      <div class="toolbar">
+        <button id="pauseBtn">Pause</button>
+        <button id="resetBtn">Reset State</button>
+      </div>
+      <div class="triWrap"><canvas id="triCanvas" width="720" height="720"></canvas></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Containment</div><div class="v" id="cVal">0.33</div><div class="meter"><div class="fill contain" id="cFill"></div></div></div>
+        <div class="stat"><div class="k">Diffusion</div><div class="v" id="dVal">0.33</div><div class="meter"><div class="fill diffuse" id="dFill"></div></div></div>
+        <div class="stat"><div class="k">Direction</div><div class="v" id="rVal">0.34</div><div class="meter"><div class="fill direct" id="rFill"></div></div></div>
+      </div>
+
+      <div class="eventRow" style="margin-top:12px;">
+        <div class="pill" id="pulsePill">pulse</div>
+        <div class="pill" id="startPill">cycle start</div>
+        <div class="pill" id="completePill">cycle complete</div>
+        <div class="pill" id="transitionPill">transition</div>
+      </div>
+
+      <div class="readout" id="summaryBox"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Inputs</h2>
+      <div class="control-grid">
+        <div class="control">
+          <div class="labelrow"><span class="name">Activation Drive</span><span class="value" id="activationDriveValue">0.40</span></div>
+          <input id="activationDrive" type="range" min="0" max="1" step="0.01" value="0.40" />
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Timing Bias</span><span class="value" id="timingBiasValue">0.60</span></div>
+          <input id="timingBias" type="range" min="0" max="1" step="0.01" value="0.60" />
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Overlap Bias</span><span class="value" id="overlapBiasValue">0.20</span></div>
+          <input id="overlapBias" type="range" min="0" max="1" step="0.01" value="0.20" />
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Material Substrate</span><span class="value" id="materialSubstrateValue">0.45</span></div>
+          <input id="materialSubstrate" type="range" min="0" max="1" step="0.01" value="0.45" />
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Clock Mode</span></div>
+          <select id="clockMode">
+            <option value="free" selected>Free</option>
+            <option value="sync">Sync</option>
+          </select>
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Rate Hz</span><span class="value" id="rateHzValue">1.20</span></div>
+          <input id="rateHz" type="range" min="0.2" max="6" step="0.01" value="1.20" />
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">BPM</span><span class="value" id="bpmValue">92</span></div>
+          <input id="bpm" type="range" min="40" max="180" step="1" value="92" />
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Divider</span></div>
+          <select id="divider">
+            <option value="1n">1/1</option>
+            <option value="2n">1/2</option>
+            <option value="4n" selected>1/4</option>
+            <option value="8n">1/8</option>
+            <option value="8d">1/8 dotted</option>
+            <option value="8t">1/8 triplet</option>
+            <option value="16n">1/16</option>
+          </select>
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Key</span></div>
+          <select id="key"></select>
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Mode</span></div>
+          <select id="mode"></select>
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Tonic Center</span><span class="value" id="tonicCenterValue">2</span></div>
+          <input id="tonicCenter" type="range" min="0" max="6" step="1" value="2" />
+        </div>
+        <div class="control">
+          <div class="labelrow"><span class="name">Colour Spread</span><span class="value" id="colourSpreadValue">0.50</span></div>
+          <input id="colourSpread" type="range" min="0" max="1" step="0.01" value="0.50" />
+        </div>
+      </div>
+
+      <h2 style="margin-top:14px;">State + Exports</h2>
+      
+      <div class="miniGrid">
+        <div class="readout">
+          <strong>Core</strong>
+          <pre id="coreBox"></pre>
+        </div>
+        <div class="readout">
+          <strong>Audio</strong>
+          <pre id="audioBox"></pre>
+        </div>
+        <div class="readout">
+          <strong>Visual</strong>
+          <pre id="visualBox"></pre>
+        </div>
+        <div class="readout">
+          <strong>Meta</strong>
+          <pre id="metaBox"></pre>
+        </div>
+      </div>
+      <div class="readout" style="margin-top:10px;">
+        <strong>Raw events</strong>
+        <pre id="eventBox"></pre>
+      </div>
+      <h2 style="margin-top:14px;">Interpreter Mock</h2>
+      <div class="miniGrid">
+        <div class="readout">
+          <strong>Audio interpreter</strong>
+          <pre id="audioInterpreterBox"></pre>
+        </div>
+        <div class="readout">
+          <strong>Visual interpreter</strong>
+          <pre id="visualInterpreterBox"></pre>
+        </div>
+      </div>
+      <div class="interpStage">
+        <strong>Visual response preview</strong>
+        <div class="visualStage" id="visualStage">
+          <div class="visualDrift" id="visualDrift"></div>
+          <div class="visualRing" id="visualRing"></div>
+          <div class="visualCore" id="visualCore"></div>
+        </div>
+      <div class="interpStage">
+        <strong>Audio response preview</strong>
+        <div class="audioStage" id="audioStage">
+          <div class="audioGrid"></div>
+          <div class="audioPulse" id="audioPulse"></div>
+          <div class="audioBars">
+            <div class="audioBar" id="audioBar1"></div>
+            <div class="audioBar" id="audioBar2"></div>
+            <div class="audioBar" id="audioBar3"></div>
+          </div>
+        </div>
+        <div class="visualLabel" id="audioStageLabel">Waiting for state…</div>
+      </div>
+        <div class="visualLabel" id="visualStageLabel">Waiting for state…</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const KEYS = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+  const MODES = {
+    aeolian:{label:'Aeolian', intervals:[0,2,3,5,7,8,10]},
+    dorian:{label:'Dorian', intervals:[0,2,3,5,7,9,10]},
+    phrygian:{label:'Phrygian', intervals:[0,1,3,5,7,8,10]},
+    harmonicMinor:{label:'Harmonic minor', intervals:[0,2,3,5,7,8,11]},
+    ionian:{label:'Ionian', intervals:[0,2,4,5,7,9,11]}
+  };
+  const DIVIDERS = { '1n':4, '2n':2, '4n':1, '8n':0.5, '8d':0.75, '8t':1/3, '16n':0.25 };
+
+  const el = id => document.getElementById(id);
+  const fmt = (v,d=2)=>Number(v).toFixed(d);
+  const clamp = (v,lo,hi)=>Math.min(hi,Math.max(lo,v));
+
+  KEYS.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k; opt.textContent = k;
+    if(k === 'A') opt.selected = true;
+    el('key').appendChild(opt);
+  });
+  Object.entries(MODES).forEach(([value, meta]) => {
+    const opt = document.createElement('option');
+    opt.value = value; opt.textContent = meta.label;
+    if(value === 'aeolian') opt.selected = true;
+    el('mode').appendChild(opt);
+  });
+
+  const canvas = el('triCanvas');
+  const ctx = canvas.getContext('2d');
+  const pad = 60;
+  const Vd = { x: canvas.width / 2, y: pad + 10 };
+  const Vc = { x: pad + 24, y: canvas.height - pad };
+  const Vdiff = { x: canvas.width - pad - 24, y: canvas.height - pad };
+  let point = baryToPoint(.33,.33,.34), dragging = false;
+
+  let paused = false;
+  let lastTimestamp = performance.now();
+
+  const state = {
+    phase: 0,
+    activation: 0.4,
+    timing: 0.6,
+    overlap: 0.2,
+    materialSubstrate: 0.45,
+    tonicCenter: 2,
+    spreadRadius: 2,
+    directionalBias: 0,
+    anchorWindow: [1,2,3],
+    colourWindow: [1,2,3,4,5],
+    region: 'balanced',
+    previousRegion: 'balanced',
+    pulseCount: 0
+  };
+
+  let latestEvents = {
+    pulse: false,
+    cycleStart: false,
+    cycleComplete: false,
+    transition: false
+  };
+
+  let eventTimers = {
+    pulse: 0,
+    cycleStart: 0,
+    cycleComplete: 0,
+    transition: 0
+  };
+
+  let ringAnim = 0;
+  let pulseGlow = 0;
+
+  function baryToPoint(C,D,R){ return { x:C*Vc.x + D*Vdiff.x + R*Vd.x, y:C*Vc.y + D*Vdiff.y + R*Vd.y }; }
+  function pointToBary(p){
+    const det=(Vdiff.y-Vd.y)*(Vc.x-Vd.x)+(Vd.x-Vdiff.x)*(Vc.y-Vd.y);
+    let C=((Vdiff.y-Vd.y)*(p.x-Vd.x)+(Vd.x-Vdiff.x)*(p.y-Vd.y))/det;
+    let D=((Vd.y-Vc.y)*(p.x-Vd.x)+(Vc.x-Vd.x)*(p.y-Vd.y))/det;
+    let R=1-C-D;
+    return {C,D,R};
+  }
+  function clampToTriangle(p){
+    let {C,D,R}=pointToBary(p);
+    C=Math.max(0,C); D=Math.max(0,D); R=Math.max(0,R);
+    const s=C+D+R||1;
+    return baryToPoint(C/s,D/s,R/s);
+  }
+  function midpoint(a,b){ return {x:(a.x+b.x)/2,y:(a.y+b.y)/2}; }
+
+  function regionName(C,D,R){
+    const vals=[{k:'containment',v:C},{k:'diffusion',v:D},{k:'direction',v:R}].sort((a,b)=>b.v-a.v);
+    if(Math.abs(C-D)<.08 && Math.abs(D-R)<.08) return 'balanced';
+    if(vals[0].v>.68) return vals[0].k;
+    return vals[0].k + '+' + vals[1].k;
+  }
+
+  function inputs(){
+    const {C,D,R} = pointToBary(point);
+    return {
+      containment: C,
+      diffusion: D,
+      direction: R,
+      activationDrive: parseFloat(el('activationDrive').value),
+      timingBias: parseFloat(el('timingBias').value),
+      overlapBias: parseFloat(el('overlapBias').value),
+      materialSubstrate: parseFloat(el('materialSubstrate').value),
+      key: el('key').value,
+      mode: el('mode').value,
+      tonicCenter: parseInt(el('tonicCenter').value, 10),
+      colourSpread: parseFloat(el('colourSpread').value),
+      clockMode: el('clockMode').value,
+      rateHz: parseFloat(el('rateHz').value),
+      bpm: parseFloat(el('bpm').value),
+      divider: el('divider').value
+    };
+  }
+
+  function stepDurationSeconds(inp){
+    if(inp.clockMode === 'sync'){
+      return (60 / inp.bpm) * (DIVIDERS[inp.divider] ?? 1);
+    }
+    return 1 / inp.rateHz;
+  }
+
+  function updateEngine(dt){
+    const inp = inputs();
+    const duration = Math.max(0.001, stepDurationSeconds(inp));
+
+    latestEvents = {
+      pulse: false,
+      cycleStart: false,
+      cycleComplete: false,
+      transition: false
+    };
+
+    state.phase += dt / duration;
+    if(state.phase >= 1){
+      state.phase -= 1;
+      latestEvents.pulse = true;
+      latestEvents.cycleStart = true;
+      latestEvents.cycleComplete = true;
+      state.pulseCount += 1;
+    }
+
+    state.materialSubstrate += (inp.materialSubstrate - state.materialSubstrate) * 0.06;
+    state.materialSubstrate += inp.diffusion * 0.01;
+    state.materialSubstrate -= inp.containment * 0.008;
+    state.materialSubstrate = clamp(state.materialSubstrate, 0, 1);
+
+    state.activation += (inp.activationDrive - state.activation) * 0.08;
+    state.activation += state.overlap * 0.03;
+    state.activation += state.materialSubstrate * 0.015;
+    state.activation -= inp.containment * 0.02;
+    state.activation = clamp(state.activation, 0, 1);
+
+    state.timing += (inp.timingBias - state.timing) * 0.08;
+    state.timing += inp.containment * 0.02;
+    state.timing -= inp.diffusion * 0.01;
+    state.timing -= state.materialSubstrate * 0.006;
+    state.timing = clamp(state.timing, 0, 1);
+
+    state.overlap += (inp.overlapBias - state.overlap) * 0.08;
+    state.overlap += state.activation * 0.02;
+    state.overlap += state.materialSubstrate * 0.01;
+    state.overlap -= inp.containment * 0.015;
+    state.overlap = clamp(state.overlap, 0, 1);
+
+    state.tonicCenter += (inp.tonicCenter - state.tonicCenter) * 0.12;
+    state.tonicCenter = clamp(state.tonicCenter, 0, 6);
+
+    state.directionalBias = (inp.direction - 0.5) * 2;
+    state.spreadRadius = clamp(Math.round(inp.colourSpread * 3 + inp.diffusion * 1.5), 0, 3);
+
+    const tonicCenter = Math.round(state.tonicCenter);
+    state.anchorWindow = [tonicCenter - 1, tonicCenter, tonicCenter + 1]
+      .map(v => clamp(v, 0, 6));
+
+    const cw = [];
+    for(let i = tonicCenter - state.spreadRadius; i <= tonicCenter + state.spreadRadius; i++){
+      cw.push(clamp(i, 0, 6));
+    }
+    state.colourWindow = [...new Set(cw)];
+
+    state.previousRegion = state.region;
+    state.region = regionName(inp.containment, inp.diffusion, inp.direction);
+    if(state.previousRegion !== state.region){
+      latestEvents.transition = true;
+    }
+
+    Object.keys(eventTimers).forEach(k => {
+      if(latestEvents[k]) eventTimers[k] = 0.18;
+      else eventTimers[k] = Math.max(0, eventTimers[k] - dt);
+    });
+
+    return inp;
+  }
+
+  function drawTriangle(){
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const grad=ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0,'#0f1319');
+    grad.addColorStop(1,'#141922');
+    ctx.fillStyle=grad;
+    ctx.fillRect(0,0,W,H);
+
+    ctx.beginPath();
+    ctx.moveTo(Vd.x,Vd.y); ctx.lineTo(Vc.x,Vc.y); ctx.lineTo(Vdiff.x,Vdiff.y); ctx.closePath();
+    const triGrad=ctx.createLinearGradient(Vc.x,Vc.y,Vdiff.x,Vd.y);
+    triGrad.addColorStop(0,'rgba(110,165,255,.22)');
+    triGrad.addColorStop(.5,'rgba(159,240,208,.18)');
+    triGrad.addColorStop(1,'rgba(255,201,142,.18)');
+    ctx.fillStyle=triGrad;
+    ctx.fill();
+    ctx.strokeStyle='#516077';
+    ctx.lineWidth=2.5;
+    ctx.stroke();
+
+    ctx.font='600 22px system-ui';
+    ctx.fillStyle='#e8ecf3';
+    ctx.textAlign='center';
+    ctx.fillText('Direction',Vd.x,Vd.y-18);
+    ctx.fillText('Containment',Vc.x+18,Vc.y+34);
+    ctx.fillText('Diffusion',Vdiff.x-4,Vdiff.y+34);
+
+    ctx.strokeStyle='rgba(255,255,255,.08)';
+    ctx.lineWidth=1;
+    [[Vd,midpoint(Vc,Vdiff)],[Vc,midpoint(Vd,Vdiff)],[Vdiff,midpoint(Vd,Vc)]].forEach(([a,b])=>{
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    });
+
+    ctx.beginPath();
+    ctx.arc(point.x,point.y,22,0,Math.PI*2);
+    const glow=ctx.createRadialGradient(point.x,point.y,2,point.x,point.y,22);
+    glow.addColorStop(0,'rgba(255,255,255,.9)');
+    glow.addColorStop(1,'rgba(142,182,255,0)');
+    ctx.fillStyle=glow;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(point.x,point.y,8.5,0,Math.PI*2);
+    ctx.fillStyle='#f6fbff';
+    ctx.fill();
+    ctx.strokeStyle='#111722';
+    ctx.lineWidth=2;
+    ctx.stroke();
+  }
+
+
+  function buildExports(inp){
+    const core = {
+      containment: +fmt(inp.containment),
+      diffusion: +fmt(inp.diffusion),
+      direction: +fmt(inp.direction),
+      materialSubstrate: +fmt(state.materialSubstrate),
+      tonicCenter: +fmt(state.tonicCenter),
+      activation: +fmt(state.activation),
+      timing: +fmt(state.timing),
+      overlap: +fmt(state.overlap),
+      phase: +fmt(state.phase),
+      region: state.region,
+      pulse: latestEvents.pulse,
+      cycleStart: latestEvents.cycleStart,
+      cycleComplete: latestEvents.cycleComplete,
+      transition: latestEvents.transition,
+      key: inp.key,
+      mode: inp.mode,
+      anchorWindow: state.anchorWindow,
+      colourWindow: state.colourWindow,
+      spreadRadius: state.spreadRadius,
+      directionalBias: +fmt(state.directionalBias)
+    };
+
+    const audio = {
+      pulse: latestEvents.pulse,
+      cycleStart: latestEvents.cycleStart,
+      cycleComplete: latestEvents.cycleComplete,
+      transition: latestEvents.transition,
+      activation: +fmt(state.activation),
+      timing: +fmt(state.timing),
+      overlap: +fmt(state.overlap),
+      key: inp.key,
+      mode: inp.mode,
+      tonicCenter: +fmt(state.tonicCenter),
+      anchorWindow: state.anchorWindow,
+      colourWindow: state.colourWindow,
+      directionalBias: +fmt(state.directionalBias),
+      materialSubstrate: +fmt(state.materialSubstrate)
+    };
+
+    const visual = {
+      pulse: latestEvents.pulse,
+      transition: latestEvents.transition,
+      containment: +fmt(inp.containment),
+      diffusion: +fmt(inp.diffusion),
+      direction: +fmt(inp.direction),
+      materialSubstrate: +fmt(state.materialSubstrate),
+      activation: +fmt(state.activation),
+      timing: +fmt(state.timing),
+      overlap: +fmt(state.overlap),
+      phase: +fmt(state.phase),
+      spreadRadius: state.spreadRadius,
+      directionalBias: +fmt(state.directionalBias),
+      region: state.region
+    };
+
+    const meta = {
+      clockMode: inp.clockMode,
+      rateHz: +fmt(inp.rateHz),
+      bpm: inp.bpm,
+      divider: inp.divider,
+      pulseCount: state.pulseCount
+    };
+
+    return { core, audio, visual, meta };
+  }
+
+
+  function buildInterpreters(exports){
+    const audioInterpreter = {
+      triggerNote: exports.audio.pulse,
+      density: +fmt(exports.audio.activation),
+      envelopeTightness: +fmt(1 - exports.audio.overlap * 0.5),
+      syncBias: +fmt(exports.audio.timing),
+      tonalCenter: exports.audio.tonicCenter,
+      anchorPool: exports.audio.anchorWindow,
+      colourPool: exports.audio.colourWindow,
+      panLean: +fmt(exports.audio.directionalBias),
+      substrateWeight: +fmt(exports.audio.materialSubstrate),
+      suggestion: exports.audio.pulse
+        ? (exports.audio.activation > 0.65 ? "accented pulse" : "soft pulse")
+        : "hold"
+    };
+
+    const visualInterpreter = {
+      rippleEmit: exports.visual.pulse,
+      rippleRadius: +fmt(0.25 + exports.visual.diffusion * 0.75 + exports.visual.spreadRadius * 0.08),
+      compression: +fmt(exports.visual.containment),
+      drift: +fmt(exports.visual.directionalBias),
+      blur: +fmt(exports.visual.diffusion),
+      brightness: +fmt(0.2 + exports.visual.activation * 0.8),
+      substrateTexture: +fmt(exports.visual.materialSubstrate),
+      sceneTendency: exports.visual.region,
+      suggestion: exports.visual.transition
+        ? "shift scene emphasis"
+        : (exports.visual.pulse ? "emit ripple" : "sustain field")
+    };
+
+    return { audioInterpreter, visualInterpreter };
+  }
+
+
+  function renderVisualInterpreter(interpreters, exports){
+    const stage = el('visualStage');
+    const core = el('visualCore');
+    const ring = el('visualRing');
+    const drift = el('visualDrift');
+    const label = el('visualStageLabel');
+    if(!stage || !core || !ring || !drift || !label) return;
+
+    if (interpreters.visualInterpreter.rippleEmit) {
+      ringAnim = 1;
+    } else {
+      ringAnim = Math.max(0, ringAnim - 0.06);
+    }
+
+    const driftX = interpreters.visualInterpreter.drift * 36;
+    const driftY = (exports.visual.direction - 0.5) * 26;
+    const blur = 4 + interpreters.visualInterpreter.blur * 18;
+    const brightness = 0.35 + interpreters.visualInterpreter.brightness * 0.65;
+    const compression = interpreters.visualInterpreter.compression;
+    const scaleX = 1 + interpreters.visualInterpreter.drift * 0.18;
+    const scaleY = 1 - compression * 0.22;
+
+    core.style.transform = `translate(${driftX}px, ${driftY}px) scale(${scaleX}, ${scaleY})`;
+    core.style.opacity = String(brightness);
+    core.style.boxShadow = `0 0 ${14 + blur}px rgba(255,255,255,${0.18 + brightness*0.35})`;
+
+    const rippleScale = 0.4 + (1 - ringAnim) * (1.8 + interpreters.visualInterpreter.rippleRadius * 1.4);
+    const rippleOpacity = ringAnim * 0.9;
+    ring.style.transform = `translate(${driftX*0.4}px, ${driftY*0.4}px) scale(${rippleScale})`;
+    ring.style.opacity = String(rippleOpacity);
+    ring.style.borderColor = `rgba(167,247,221,${0.35 + rippleOpacity*0.55})`;
+
+    const glow = 20 + interpreters.visualInterpreter.substrateTexture * 55;
+    drift.style.background = `radial-gradient(circle at ${50 + driftX*0.5}% ${50 + driftY*0.5}%, rgba(107,160,255,${0.08 + brightness*0.12}) 0%, rgba(127,224,200,${0.06 + interpreters.visualInterpreter.blur*0.12}) 28%, rgba(255,179,107,${0.03 + Math.abs(interpreters.visualInterpreter.drift)*0.08}) 58%, rgba(15,19,25,0) 78%)`;
+    stage.style.boxShadow = `inset 0 0 ${glow}px rgba(255,255,255,0.04)`;
+
+    label.textContent = `scene: ${interpreters.visualInterpreter.sceneTendency} · ${interpreters.visualInterpreter.suggestion}`;
+  }
+
+
+  function renderAudioInterpreter(interpreters, exports){
+    const pulse = el('audioPulse');
+    const b1 = el('audioBar1');
+    const b2 = el('audioBar2');
+    const b3 = el('audioBar3');
+    const label = el('audioStageLabel');
+    if(!pulse || !b1 || !b2 || !b3 || !label) return;
+
+    if (interpreters.audioInterpreter.triggerNote) {
+      pulseGlow = 1;
+    } else {
+      pulseGlow = Math.max(0, pulseGlow - 0.08);
+    }
+
+    const density = interpreters.audioInterpreter.density;
+    const tight = interpreters.audioInterpreter.envelopeTightness;
+    const substrate = interpreters.audioInterpreter.substrateWeight;
+    const panLean = interpreters.audioInterpreter.panLean;
+
+    const h1 = 28 + density * 120;
+    const h2 = 24 + tight * 110;
+    const h3 = 20 + substrate * 100;
+
+    b1.style.height = `${h1}px`;
+    b2.style.height = `${h2}px`;
+    b3.style.height = `${h3}px`;
+
+    b1.style.opacity = String(0.45 + density * 0.45);
+    b2.style.opacity = String(0.45 + tight * 0.45);
+    b3.style.opacity = String(0.38 + substrate * 0.52);
+
+    b1.style.transform = `translateX(${panLean * -10}px) scaleY(${0.88 + density * 0.22})`;
+    b2.style.transform = `scaleY(${0.88 + tight * 0.22})`;
+    b3.style.transform = `translateX(${panLean * 10}px) scaleY(${0.88 + substrate * 0.22})`;
+
+    const glowSize = 8 + pulseGlow * 26;
+    pulse.style.opacity = String(0.15 + pulseGlow * 0.85);
+    pulse.style.boxShadow = `0 0 ${glowSize}px rgba(255,209,155,${0.22 + pulseGlow * 0.55})`;
+
+    label.textContent = `audio: ${interpreters.audioInterpreter.suggestion} · anchor ${JSON.stringify(interpreters.audioInterpreter.anchorPool)} · colour ${JSON.stringify(interpreters.audioInterpreter.colourPool)}`;
+  }
+
+  function updateUI(inp){
+    [['activationDriveValue','activationDrive'],['timingBiasValue','timingBias'],['overlapBiasValue','overlapBias'],['materialSubstrateValue','materialSubstrate'],['rateHzValue','rateHz'],['colourSpreadValue','colourSpread']].forEach(([v,id])=>{
+      el(v).textContent = fmt(el(id).value);
+    });
+    el('bpmValue').textContent = String(parseInt(el('bpm').value,10));
+    el('tonicCenterValue').textContent = String(parseInt(el('tonicCenter').value,10));
+
+    el('cVal').textContent = fmt(inp.containment);
+    el('dVal').textContent = fmt(inp.diffusion);
+    el('rVal').textContent = fmt(inp.direction);
+    el('cFill').style.width = `${inp.containment*100}%`;
+    el('dFill').style.width = `${inp.diffusion*100}%`;
+    el('rFill').style.width = `${inp.direction*100}%`;
+
+    const pillMap = {
+      pulse: 'pulsePill',
+      cycleStart: 'startPill',
+      cycleComplete: 'completePill',
+      transition: 'transitionPill'
+    };
+    Object.entries(pillMap).forEach(([k, id]) => {
+      const node = el(id);
+      node.classList.toggle('on', eventTimers[k] > 0);
+      node.classList.toggle('flash', eventTimers[k] > 0 && k !== 'pulse');
+    });
+
+    el('summaryBox').innerHTML =
+      `<strong>Region:</strong> ${state.region}<br>
+       <strong>Clock:</strong> ${inp.clockMode === 'sync' ? `sync ${inp.divider} @ ${inp.bpm} BPM` : `free ${fmt(inp.rateHz)} Hz`}<br>
+       <strong>Phase:</strong> ${fmt(state.phase)}<br>
+       <strong>Activation:</strong> ${fmt(state.activation)}<br>
+       <strong>Timing:</strong> ${fmt(state.timing)}<br>
+       <strong>Overlap:</strong> ${fmt(state.overlap)}<br>
+       <strong>Material substrate:</strong> ${fmt(state.materialSubstrate)}<br>
+       <strong>Tonic center:</strong> ${fmt(state.tonicCenter)}<br>
+       <strong>Directional bias:</strong> ${fmt(state.directionalBias)}<br>
+       <strong>Key / Mode:</strong> ${inp.key} ${MODES[inp.mode].label}`;
+
+    const exports = buildExports(inp);
+    const interpreters = buildInterpreters(exports);
+    el('coreBox').textContent = JSON.stringify(exports.core, null, 2);
+    el('audioBox').textContent = JSON.stringify(exports.audio, null, 2);
+    el('visualBox').textContent = JSON.stringify(exports.visual, null, 2);
+    el('metaBox').textContent = JSON.stringify(exports.meta, null, 2);
+    el('eventBox').textContent = JSON.stringify(latestEvents, null, 2);
+    el('audioInterpreterBox').textContent = JSON.stringify(interpreters.audioInterpreter, null, 2);
+    el('visualInterpreterBox').textContent = JSON.stringify(interpreters.visualInterpreter, null, 2);
+    renderVisualInterpreter(interpreters, exports);
+    renderAudioInterpreter(interpreters, exports);
+  }
+
+  function eventPoint(e){
+    const rect=canvas.getBoundingClientRect();
+    const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
+    const src=e.touches&&e.touches[0]?e.touches[0]:e;
+    return { x:(src.clientX-rect.left)*scaleX, y:(src.clientY-rect.top)*scaleY };
+  }
+  function startDrag(e){ dragging=true; point=clampToTriangle(eventPoint(e)); }
+  function moveDrag(e){ if(!dragging) return; point=clampToTriangle(eventPoint(e)); }
+  function endDrag(){ dragging=false; }
+
+  canvas.addEventListener('mousedown', startDrag);
+  window.addEventListener('mousemove', moveDrag);
+  window.addEventListener('mouseup', endDrag);
+  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); startDrag(e); }, {passive:false});
+  window.addEventListener('touchmove', e=>{ if(dragging){ e.preventDefault(); moveDrag(e); } }, {passive:false});
+  window.addEventListener('touchend', endDrag);
+
+  el('pauseBtn').addEventListener('click', () => {
+    paused = !paused;
+    el('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+  });
+
+  el('resetBtn').addEventListener('click', () => {
+    state.phase = 0;
+    state.activation = parseFloat(el('activationDrive').value);
+    state.timing = parseFloat(el('timingBias').value);
+    state.overlap = parseFloat(el('overlapBias').value);
+    state.materialSubstrate = parseFloat(el('materialSubstrate').value);
+    state.tonicCenter = parseFloat(el('tonicCenter').value);
+    state.spreadRadius = 2;
+    state.directionalBias = 0;
+    state.anchorWindow = [1,2,3];
+    state.colourWindow = [1,2,3,4,5];
+    state.pulseCount = 0;
+    state.region = 'balanced';
+    state.previousRegion = 'balanced';
+    latestEvents = { pulse:false, cycleStart:false, cycleComplete:false, transition:false };
+    eventTimers = { pulse:0, cycleStart:0, cycleComplete:0, transition:0 };
+  });
+
+  function loop(ts){
+    const dt = Math.min(0.05, (ts - lastTimestamp) / 1000);
+    lastTimestamp = ts;
+
+    const inp = paused ? inputs() : updateEngine(dt);
+    drawTriangle();
+    updateUI(inp);
+
+    requestAnimationFrame(loop);
+  }
+
+  drawTriangle();
+  updateUI(inputs());
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
