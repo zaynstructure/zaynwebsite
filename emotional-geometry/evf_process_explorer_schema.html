@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EVF Process Explorer</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --panel: #141925;
+      --panel-2: #101521;
+      --line: #2a3245;
+      --text: #e8edf7;
+      --muted: #9aa6bf;
+      --accent: #7aa2ff;
+      --good: #6ee7a8;
+      --warn: #f6c667;
+      --bad: #ff7a7a;
+      --cool: #7ad7ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr 320px;
+      min-height: 100vh;
+      gap: 12px;
+      padding: 12px;
+    }
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      overflow: auto;
+      min-height: 0;
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 18px; margin-bottom: 10px; }
+    h2 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin: 16px 0 10px; }
+    .controls label, .small-label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .radio-group, .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      background: #111725;
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 12px;
+      user-select: none;
+    }
+    .pill.active { border-color: var(--accent); color: white; box-shadow: 0 0 0 1px rgba(122,162,255,.2) inset; }
+    .slider-row { margin-bottom: 10px; }
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input[type="range"] { width: 100%; }
+    button {
+      border: 1px solid var(--line);
+      background: #111725;
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    .center {
+      display: grid;
+      grid-template-rows: auto 1fr 170px;
+      gap: 12px;
+    }
+    .stage-strip {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+    .stage {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 12px;
+      background: #101521;
+      color: var(--muted);
+    }
+    .stage.active { color: white; border-color: var(--accent); }
+    .stage.good { box-shadow: inset 0 0 0 1px rgba(110,231,168,.3); }
+    .stage.warn { box-shadow: inset 0 0 0 1px rgba(246,198,103,.3); }
+    .stage.bad { box-shadow: inset 0 0 0 1px rgba(255,122,122,.3); }
+    .viz-wrap {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(122,162,255,.08), transparent 35%),
+        linear-gradient(180deg, #0d1220, #090d14);
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .traces {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      background: #0f1420;
+    }
+    .trace-row { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .trace-row:last-child { margin-bottom: 0; }
+    .trace-label { font-size: 12px; color: var(--muted); }
+    .trace-bar {
+      position: relative;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #0b0f18;
+      overflow: hidden;
+    }
+    .trace-fill {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 0%;
+      background: linear-gradient(90deg, var(--cool), var(--accent));
+      transition: width .25s ease;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #101521;
+      margin-bottom: 10px;
+    }
+    .keyval { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin-bottom: 6px; }
+    .keyval:last-child { margin-bottom: 0; }
+    .muted { color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .note { font-size: 13px; line-height: 1.45; color: #d8e0f0; }
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 1fr; }
+      .center { grid-template-rows: auto 420px 170px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel controls">
+      <h1>EVF Process Explorer</h1>
+      <div class="note muted">Prototype 1: process grammar first.</div>
+
+      <h2>Source</h2>
+      <div id="sourceFamily" class="radio-group"></div>
+      <div id="sourceProfile" class="radio-group"></div>
+
+      <h2>Recruitment</h2>
+      <div id="recruitmentSliders"></div>
+
+      <h2>Pattern shaping</h2>
+      <div id="shapeSliders"></div>
+
+      <h2>Passage</h2>
+      <div id="passageSliders"></div>
+
+      <h2>Stabilization</h2>
+      <div id="stabilizeSliders"></div>
+
+      <h2>Run</h2>
+      <div class="button-row">
+        <button id="playBtn">Play</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="stepBtn">Step</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+      <div class="slider-row" style="margin-top:8px;">
+        <div class="slider-head"><span>Timeline</span><span id="timelineVal">0%</span></div>
+        <input type="range" min="0" max="1000" value="0" id="timelineSlider">
+      </div>
+      <div class="button-row">
+        <button data-preset="blocked">Blocked heaviness</button>
+        <button data-preset="delayed">Calm now, flooded later</button>
+        <button data-preset="grief">Mobile grief</button>
+        <button data-preset="rumination">Rumination</button>
+      </div>
+    </aside>
+
+    <main class="center">
+      <section class="panel stage-strip" id="stageStrip"></section>
+      <section class="viz-wrap panel" style="padding:0;">
+        <canvas id="viz"></canvas>
+      </section>
+      <section class="traces">
+        <div class="trace-row"><div class="trace-label">Physiology</div><div class="trace-bar"><div id="trace-physiology" class="trace-fill"></div></div></div>
+        <div class="trace-row"><div class="trace-label">Cognition</div><div class="trace-bar"><div id="trace-cognition" class="trace-fill"></div></div></div>
+        <div class="trace-row"><div class="trace-label">Behavior</div><div class="trace-bar"><div id="trace-behavior" class="trace-fill"></div></div></div>
+        <div class="trace-row"><div class="trace-label">Feeling</div><div class="trace-bar"><div id="trace-feeling" class="trace-fill"></div></div></div>
+      </section>
+    </main>
+
+    <aside class="panel">
+      <div class="card">
+        <h2 style="margin-top:0">Current state</h2>
+        <div class="keyval"><span class="muted">Source</span><span id="out-source"></span></div>
+        <div class="keyval"><span class="muted">Recruitment</span><span id="out-recruitment"></span></div>
+        <div class="keyval"><span class="muted">Shape</span><span id="out-shape"></span></div>
+        <div class="keyval"><span class="muted">Passage</span><span id="out-passage"></span></div>
+        <div class="keyval"><span class="muted">Stabilization</span><span id="out-stabilization"></span></div>
+        <div class="keyval"><span class="muted">Outcome</span><span id="out-outcome"></span></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">Failure locator</h2>
+        <div class="keyval"><span class="muted">Stage</span><span id="out-failure-stage" class="mono"></span></div>
+        <div class="keyval"><span class="muted">Mode</span><span id="out-failure-mode" class="mono"></span></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">Regime status</h2>
+        <div id="out-regime" class="note"></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">Notes</h2>
+        <div id="out-note" class="note"></div>
+      </div>
+    </aside>
+  </div>
+
+  
+  <script>
+    const STAGES = ["Source", "Recruitment", "Pattern Shaping", "Passage", "Stabilization", "Outcome"];
+    const DESIGN_SCHEMA = {
+      source: {
+        families: ["Physiological", "Contextual", "Cognitive", "Behavioral", "Mixed"],
+        profiles: ["Blunted", "Flooding", "Chronic", "Misattributed", "Ambiguous"]
+      },
+      sliders: {
+        recruitment: [
+          ["physiology", "Physiology"], ["cognition", "Cognition"], ["behavior", "Behavior"], ["feeling", "Feeling"],
+          ["speed", "Speed"], ["symmetry", "Symmetry"]
+        ],
+        shape: [["coupling", "Coupling"], ["coherence", "Coherence"], ["direction", "Direction"], ["rhythm", "Rhythm"], ["load", "Load"]],
+        passage: [["transform", "Transform"], ["redistribute", "Redistribute"], ["complete", "Complete"], ["recycle", "Recycle"], ["collapse", "Collapse"]],
+        stabilize: [["persist", "Persist"], ["recognize", "Recognize"], ["bias", "Bias return"]]
+      },
+      defaults: {
+        sourceFamily: "Contextual",
+        sourceProfile: "Chronic",
+        recruitment: { physiology: 45, cognition: 60, behavior: 35, feeling: 40, speed: 45, symmetry: 45 },
+        shape: { coupling: 45, coherence: 55, direction: 50, rhythm: 40, load: 60 },
+        passage: { transform: 40, redistribute: 35, complete: 30, recycle: 60, collapse: 25 },
+        stabilize: { persist: 55, recognize: 45, bias: 40 }
+      },
+      presets: {
+        blocked: {
+          sourceFamily: 'Contextual', sourceProfile: 'Chronic',
+          recruitment: { physiology: 45, cognition: 70, behavior: 28, feeling: 55, speed: 40, symmetry: 35 },
+          shape: { coupling: 52, coherence: 62, direction: 65, rhythm: 30, load: 78 },
+          passage: { transform: 25, redistribute: 20, complete: 25, recycle: 70, collapse: 20 },
+          stabilize: { persist: 65, recognize: 60, bias: 55 }
+        },
+        delayed: {
+          sourceFamily: 'Contextual', sourceProfile: 'Misattributed',
+          recruitment: { physiology: 45, cognition: 70, behavior: 68, feeling: 18, speed: 55, symmetry: 20 },
+          shape: { coupling: 28, coherence: 52, direction: 45, rhythm: 38, load: 58 },
+          passage: { transform: 30, redistribute: 28, complete: 22, recycle: 48, collapse: 18 },
+          stabilize: { persist: 42, recognize: 35, bias: 46 }
+        },
+        grief: {
+          sourceFamily: 'Contextual', sourceProfile: 'Chronic',
+          recruitment: { physiology: 60, cognition: 55, behavior: 42, feeling: 72, speed: 35, symmetry: 65 },
+          shape: { coupling: 62, coherence: 68, direction: 42, rhythm: 56, load: 66 },
+          passage: { transform: 68, redistribute: 58, complete: 52, recycle: 38, collapse: 15 },
+          stabilize: { persist: 58, recognize: 50, bias: 45 }
+        },
+        rumination: {
+          sourceFamily: 'Cognitive', sourceProfile: 'Chronic',
+          recruitment: { physiology: 35, cognition: 82, behavior: 30, feeling: 48, speed: 48, symmetry: 30 },
+          shape: { coupling: 55, coherence: 60, direction: 70, rhythm: 34, load: 72 },
+          passage: { transform: 22, redistribute: 18, complete: 20, recycle: 82, collapse: 12 },
+          stabilize: { persist: 78, recognize: 68, bias: 70 }
+        }
+      },
+      labels: {
+        source: {
+          blunted: ["Source", "blunted entry"],
+          flooding: ["Source", "flooding entry"],
+          chronic: ["Source", "chronic loading"],
+          misattributed: ["Source", "misattributed entry"],
+          ambiguous: ["Source", "mixed-source ambiguity"]
+        },
+        recruitment: {
+          broad: 'Broad', partial: 'Partial', narrow: 'Narrow', asymmetric: 'Asymmetric', stalled: 'Stalled', flooded: 'Flooded'
+        },
+        shape: {
+          coherent: 'Coherent', fragmented: 'Fragmented', narrowed: 'Narrowed', diffuse: 'Diffuse', contradictory: 'Contradictory', brittle: 'Brittle'
+        },
+        passage: {
+          mobile: 'Mobile', partial: 'Partial', poor: 'Poor', trapped: 'Trapped', looping: 'Looping', collapse: 'Collapse-prone', partitioned: 'Partitioned / deferred'
+        },
+        stabilization: {
+          transient: 'Transient', weak: 'Weakly stabilizing', holding: 'Holding', blocked: 'Blocked-holding'
+        },
+        outcome: {
+          completion: 'Completion', partial: 'Partial completion + residue', nonresolution: 'Non-resolution', looping: 'Looping', collapse: 'Collapse', recursive: 'Recursive consolidation', delayed: 'Delayed flooding'
+        }
+      }
+    };
+
+    const state = JSON.parse(JSON.stringify(DESIGN_SCHEMA.defaults));
+    let playing = true;
+    let progress = 0;
+    let t = 0;
+
+    function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
+    function lerp(a,b,u){ return a + (b-a)*u; }
+    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+    function smoothstep(a,b,x){ const t = clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); }
+
+    function makePills(containerId, items, currentKey) {
+      const el = document.getElementById(containerId);
+      el.innerHTML = "";
+      items.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'pill' + (state[currentKey] === item ? ' active' : '');
+        btn.textContent = item;
+        btn.onclick = () => { state[currentKey] = item; renderAll(); };
+        el.appendChild(btn);
+      });
+    }
+
+    function makeSliders(containerId, groupKey) {
+      const el = document.getElementById(containerId);
+      el.innerHTML = "";
+      DESIGN_SCHEMA.sliders[groupKey].forEach(([key, label]) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'slider-row';
+        wrap.innerHTML = `
+          <div class="slider-head"><span>${label}</span><span id="${groupKey}-${key}-val">${state[groupKey][key]}</span></div>
+          <input type="range" min="0" max="100" value="${state[groupKey][key]}" id="${groupKey}-${key}">
+        `;
+        el.appendChild(wrap);
+        wrap.querySelector('input').addEventListener('input', e => {
+          state[groupKey][key] = Number(e.target.value);
+          renderAll();
+        });
+      });
+    }
+
+    function makeStages() {
+      const strip = document.getElementById('stageStrip');
+      strip.innerHTML = "";
+      STAGES.forEach((name, idx) => {
+        const div = document.createElement('div');
+        div.className = 'stage';
+        div.id = 'stage-' + idx;
+        div.textContent = name;
+        strip.appendChild(div);
+      });
+    }
+
+    function activeStageIndex() {
+      return Math.min(5, Math.floor(progress * 6));
+    }
+
+    function setProgressFromSlider(v) {
+      progress = Math.max(0, Math.min(0.999, Number(v) / 1000));
+      syncTimelineUI();
+    }
+
+    function syncTimelineUI() {
+      document.getElementById('timelineSlider').value = Math.round(progress * 1000);
+      document.getElementById('timelineVal').textContent = Math.round(progress * 100) + '%';
+    }
+
+    function getDynamicState() {
+      const dyn = deepClone(state);
+      const delayedPreset = state.sourceFamily === 'Contextual' && state.sourceProfile === 'Misattributed' && state.recruitment.feeling < 25 && state.recruitment.cognition > 60 && state.recruitment.behavior > 60;
+      if (delayedPreset) {
+        const feelingDelay = smoothstep(0.58, 0.82, progress);
+        const physDelay = smoothstep(0.68, 0.9, progress);
+        dyn.recruitment.feeling = Math.round(lerp(state.recruitment.feeling, 86, feelingDelay));
+        dyn.recruitment.physiology = Math.round(lerp(state.recruitment.physiology, 74, physDelay));
+        dyn.shape.coherence = Math.round(lerp(state.shape.coherence, 44, feelingDelay));
+        dyn.shape.load = Math.round(lerp(state.shape.load, 80, feelingDelay));
+        dyn.passage.collapse = Math.round(lerp(state.passage.collapse, 42, feelingDelay));
+      }
+      return dyn;
+    }
+
+    function assessRecruitment(dyn) {
+      const r = dyn.recruitment;
+      const vals = [r.physiology, r.cognition, r.behavior, r.feeling];
+      const breadth = vals.filter(v => v > 45).length;
+      const spread = Math.max(...vals) - Math.min(...vals);
+      if (Math.max(...vals) > 75 && breadth >= 3 && r.speed > 65) return DESIGN_SCHEMA.labels.recruitment.flooded;
+      if (breadth <= 1 && r.speed < 35) return DESIGN_SCHEMA.labels.recruitment.stalled;
+      if (spread > 40 || r.symmetry < 30) return DESIGN_SCHEMA.labels.recruitment.asymmetric;
+      if (breadth >= 3) return DESIGN_SCHEMA.labels.recruitment.broad;
+      if (breadth <= 1) return DESIGN_SCHEMA.labels.recruitment.narrow;
+      return DESIGN_SCHEMA.labels.recruitment.partial;
+    }
+
+    function assessShape(dyn) {
+      const s = dyn.shape;
+      if (s.coherence < 35 && s.coupling < 35) return DESIGN_SCHEMA.labels.shape.fragmented;
+      if (s.load > 65 && s.coherence > 55 && s.direction > 60) return DESIGN_SCHEMA.labels.shape.narrowed;
+      if (s.coherence > 68 && s.load > 72) return DESIGN_SCHEMA.labels.shape.brittle;
+      if (s.coherence > 60 && s.load < 65) return DESIGN_SCHEMA.labels.shape.coherent;
+      if (s.coupling < 35 && s.direction < 35) return DESIGN_SCHEMA.labels.shape.diffuse;
+      return DESIGN_SCHEMA.labels.shape.contradictory;
+    }
+
+    function assessPassage(dyn) {
+      const p = dyn.passage;
+      const recruit = assessRecruitment(dyn);
+      if (p.collapse > 70) return DESIGN_SCHEMA.labels.passage.collapse;
+      if (recruit === DESIGN_SCHEMA.labels.recruitment.asymmetric && dyn.recruitment.feeling < 35 && progress < 0.7) return DESIGN_SCHEMA.labels.passage.partitioned;
+      if (p.recycle > 65 && p.transform < 45) return DESIGN_SCHEMA.labels.passage.looping;
+      if (p.redistribute < 35 && p.transform < 40) return DESIGN_SCHEMA.labels.passage.trapped;
+      if (p.transform < 40 && p.complete < 35) return DESIGN_SCHEMA.labels.passage.poor;
+      if (p.transform > 60 && p.redistribute > 55 && p.complete > 50) return DESIGN_SCHEMA.labels.passage.mobile;
+      return DESIGN_SCHEMA.labels.passage.partial;
+    }
+
+    function assessStabilization(dyn) {
+      const z = dyn.stabilize;
+      const passage = assessPassage(dyn);
+      if (z.persist < 35 && z.recognize < 35) return DESIGN_SCHEMA.labels.stabilization.transient;
+      if (z.persist > 55 && [DESIGN_SCHEMA.labels.passage.looping, DESIGN_SCHEMA.labels.passage.trapped, DESIGN_SCHEMA.labels.passage.poor, DESIGN_SCHEMA.labels.passage.collapse, DESIGN_SCHEMA.labels.passage.partitioned].includes(passage)) return DESIGN_SCHEMA.labels.stabilization.blocked;
+      if (z.persist > 60 && z.recognize > 50) return DESIGN_SCHEMA.labels.stabilization.holding;
+      return DESIGN_SCHEMA.labels.stabilization.weak;
+    }
+
+    function assessOutcome(dyn) {
+      const p = dyn.passage, z = dyn.stabilize;
+      const delayedPreset = state.sourceFamily === 'Contextual' && state.sourceProfile === 'Misattributed' && state.recruitment.feeling < 25 && state.recruitment.cognition > 60 && state.recruitment.behavior > 60;
+      if (delayedPreset && progress > 0.72) return DESIGN_SCHEMA.labels.outcome.delayed;
+      if (p.collapse > 70) return DESIGN_SCHEMA.labels.outcome.collapse;
+      if (p.recycle > 70 && z.bias > 55) return DESIGN_SCHEMA.labels.outcome.recursive;
+      if (p.recycle > 60) return DESIGN_SCHEMA.labels.outcome.looping;
+      if (p.complete > 65 && p.transform > 55) return DESIGN_SCHEMA.labels.outcome.completion;
+      if (p.complete > 40) return DESIGN_SCHEMA.labels.outcome.partial;
+      return DESIGN_SCHEMA.labels.outcome.nonresolution;
+    }
+
+    function detectFailure(dyn) {
+      const recruit = assessRecruitment(dyn);
+      const shape = assessShape(dyn);
+      const passage = assessPassage(dyn);
+      const stabilization = assessStabilization(dyn);
+      const outcome = assessOutcome(dyn);
+      const profileKey = dyn.sourceProfile.toLowerCase();
+      if (['Flooding','Blunted'].includes(dyn.sourceProfile)) return DESIGN_SCHEMA.labels.source[profileKey];
+      if ([DESIGN_SCHEMA.labels.recruitment.asymmetric, DESIGN_SCHEMA.labels.recruitment.stalled, DESIGN_SCHEMA.labels.recruitment.flooded].includes(recruit)) return ['Recruitment', recruit === DESIGN_SCHEMA.labels.recruitment.asymmetric ? 'partitioning / asymmetry' : recruit.toLowerCase()];
+      if ([DESIGN_SCHEMA.labels.shape.fragmented, DESIGN_SCHEMA.labels.shape.diffuse, DESIGN_SCHEMA.labels.shape.contradictory, DESIGN_SCHEMA.labels.shape.brittle].includes(shape)) return ['Pattern Shaping', shape.toLowerCase()];
+      if ([DESIGN_SCHEMA.labels.passage.looping, DESIGN_SCHEMA.labels.passage.trapped, DESIGN_SCHEMA.labels.passage.poor, DESIGN_SCHEMA.labels.passage.collapse, DESIGN_SCHEMA.labels.passage.partitioned].includes(passage)) return ['Passage', passage.toLowerCase()];
+      if (stabilization === DESIGN_SCHEMA.labels.stabilization.blocked) return ['Stabilization', 'rigid blocked holding'];
+      if ([DESIGN_SCHEMA.labels.outcome.looping, DESIGN_SCHEMA.labels.outcome.collapse, DESIGN_SCHEMA.labels.outcome.recursive, DESIGN_SCHEMA.labels.outcome.nonresolution, DESIGN_SCHEMA.labels.outcome.delayed].includes(outcome)) return ['Outcome', outcome.toLowerCase()];
+      return ['—', 'no dominant failure'];
+    }
+
+    function makeNote(dyn) {
+      const recruit = assessRecruitment(dyn);
+      const shape = assessShape(dyn);
+      const passage = assessPassage(dyn);
+      const outcome = assessOutcome(dyn);
+      if (recruit === DESIGN_SCHEMA.labels.recruitment.asymmetric && outcome === DESIGN_SCHEMA.labels.outcome.delayed) return 'Apparent calm is being held by low integration: feeling is deferred, then arrives later as flooding.';
+      if (recruit === DESIGN_SCHEMA.labels.recruitment.asymmetric && passage === DESIGN_SCHEMA.labels.passage.partitioned) return 'Domains are online on different timelines. This looks more like deferred integration than low affect.';
+      if (shape === DESIGN_SCHEMA.labels.shape.narrowed && passage === DESIGN_SCHEMA.labels.passage.looping) return 'The state has strong form but poor mobility: it is holding and re-entering rather than metabolizing.';
+      if (passage === DESIGN_SCHEMA.labels.passage.mobile && outcome === DESIGN_SCHEMA.labels.outcome.partial) return 'Painful but mobile: movement is happening, though completion remains partial and leaves residue.';
+      if (outcome === DESIGN_SCHEMA.labels.outcome.collapse) return 'Settling may be deceptive here. The process is dropping rather than reorganizing.';
+      return 'Track where the process is failing: entry, engagement, form, mobility, persistence, or result.';
+    }
+
+    function renderStageStrip(dyn) {
+      const idx = activeStageIndex();
+      const [failureStage] = detectFailure(dyn);
+      STAGES.forEach((name, i) => {
+        const el = document.getElementById('stage-' + i);
+        el.className = 'stage' + (i === idx ? ' active' : '');
+        if (name === failureStage) el.className += ' bad';
+        else if (i < idx) el.className += ' good';
+        else if (i === idx) el.className += ' warn';
+      });
+    }
+
+    function renderOutputs(dyn) {
+      document.getElementById('out-source').textContent = `${dyn.sourceFamily} / ${dyn.sourceProfile}`;
+      document.getElementById('out-recruitment').textContent = assessRecruitment(dyn);
+      document.getElementById('out-shape').textContent = assessShape(dyn);
+      document.getElementById('out-passage').textContent = assessPassage(dyn);
+      document.getElementById('out-stabilization').textContent = assessStabilization(dyn);
+      document.getElementById('out-outcome').textContent = assessOutcome(dyn);
+      const [stage, mode] = detectFailure(dyn);
+      document.getElementById('out-failure-stage').textContent = stage;
+      document.getElementById('out-failure-mode').textContent = mode;
+      document.getElementById('out-regime').textContent = assessStabilization(dyn) === DESIGN_SCHEMA.labels.stabilization.transient
+        ? 'Pre-categorical or weakly held pattern.'
+        : assessStabilization(dyn) === DESIGN_SCHEMA.labels.stabilization.blocked
+          ? 'A stabilized blocked regime may be forming.'
+          : 'Pattern is holding as a recognizable regime.';
+      document.getElementById('out-note').textContent = makeNote(dyn);
+
+      ['physiology','cognition','behavior','feeling'].forEach(key => {
+        document.getElementById(`trace-${key}`).style.width = dyn.recruitment[key] + '%';
+      });
+
+      Object.entries(DESIGN_SCHEMA.sliders).forEach(([group, items]) => {
+        items.forEach(([key]) => {
+          const valEl = document.getElementById(`${group}-${key}-val`);
+          if (valEl) valEl.textContent = state[group][key];
+          const input = document.getElementById(`${group}-${key}`);
+          if (input) input.value = state[group][key];
+        });
+      });
+    }
+
+    const canvas = document.getElementById('viz');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function drawViz(dyn) {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      ctx.clearRect(0,0,w,h);
+      const cx = w * 0.5, cy = h * 0.5;
+      const shape = dyn.shape, p = dyn.passage, r = dyn.recruitment;
+      const coherence = shape.coherence / 100;
+      const load = shape.load / 100;
+      const coupling = shape.coupling / 100;
+      const direction = (shape.direction - 50) / 50;
+      const rhythm = shape.rhythm / 100;
+      const jag = 1 - coherence;
+      const baseR = 90 + load * 40;
+      const nodes = [
+        {name:'Physiology', x: cx, y: h*0.18, v:r.physiology},
+        {name:'Cognition', x: w*0.78, y: cy, v:r.cognition},
+        {name:'Behavior', x: cx, y: h*0.82, v:r.behavior},
+        {name:'Feeling', x: w*0.22, y: cy, v:r.feeling},
+      ];
+
+      // source pulse
+      ctx.save();
+      let sx = cx, sy = cy;
+      if (dyn.sourceFamily === 'Physiological') { sx = cx; sy = h*0.92; }
+      if (dyn.sourceFamily === 'Contextual') { sx = w*0.06; sy = cy; }
+      if (dyn.sourceFamily === 'Cognitive') { sx = cx; sy = h*0.08; }
+      if (dyn.sourceFamily === 'Behavioral') { sx = w*0.94; sy = cy; }
+      if (dyn.sourceFamily === 'Mixed') { sx = w*0.08 + Math.sin(t*0.03)*10; sy = h*0.1 + Math.cos(t*0.04)*10; }
+      const pulseSize = dyn.sourceProfile === 'Flooding' ? 26 : dyn.sourceProfile === 'Blunted' ? 10 : dyn.sourceProfile === 'Chronic' ? 14 : 18;
+      const pulseAlpha = dyn.sourceProfile === 'Blunted' ? 0.35 : dyn.sourceProfile === 'Chronic' ? 0.5 : 0.7;
+      const pulseJitter = dyn.sourceProfile === 'Ambiguous' ? Math.sin(t*0.06)*8 : 0;
+      ctx.fillStyle = `rgba(122,215,255,${pulseAlpha})`;
+      ctx.beginPath(); ctx.arc(sx + pulseJitter, sy, pulseSize + Math.sin(t*0.08)*2, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // links
+      ctx.lineWidth = 1.5;
+      for (let i=0;i<nodes.length;i++) {
+        for (let j=i+1;j<nodes.length;j++) {
+          const a = nodes[i], b = nodes[j];
+          const avg = (a.v + b.v) / 200;
+          const symmetryPenalty = (100 - r.symmetry) / 100;
+          const alpha = avg * coupling * (1 - symmetryPenalty*0.45) * 0.95;
+          const broken = (r.symmetry < 30 && ((a.name==='Feeling' || b.name==='Feeling') || (a.name==='Physiology' || b.name==='Physiology')));
+          ctx.strokeStyle = broken ? `rgba(122, 215, 255, ${alpha*0.25})` : `rgba(122, 215, 255, ${alpha})`;
+          ctx.setLineDash(broken ? [5,6] : []);
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      // domain nodes
+      nodes.forEach(n => {
+        ctx.fillStyle = `rgba(122, 162, 255, ${0.15 + n.v/125})`;
+        ctx.beginPath(); ctx.arc(n.x, n.y, 10 + n.v/20, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(232,237,247,.85)';
+        ctx.font = '12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(n.name, n.x, n.y - 18);
+      });
+
+      // main blob / contour
+      ctx.save();
+      const collapseFactor = p.collapse > 70 ? lerp(1,0.45,smoothstep(0.55,0.95,progress)) : 1;
+      const partitioned = assessPassage(dyn) === DESIGN_SCHEMA.labels.passage.partitioned;
+      ctx.translate(cx + direction*35, cy + (p.collapse>65 ? 30*smoothstep(0.6,0.95,progress) : 0));
+      ctx.scale(1.0, collapseFactor);
+      if (p.recycle > 65) ctx.translate(Math.sin(t*0.03)*18, 0);
+
+      const splitOffset = partitioned ? 20 : 0;
+      const drawBlob = (xOff, alphaMul) => {
+        ctx.beginPath();
+        const points = 120;
+        for (let i=0; i<=points; i++) {
+          const a = (i / points) * Math.PI * 2;
+          const osc = Math.sin(a*3 + t*0.02) * jag * 12 + Math.sin(a*7 - t*0.03) * jag * 8;
+          const pulse = Math.sin(t*0.04) * rhythm * 8;
+          const trap = p.redistribute < 35 ? -10 : 0;
+          const rr = Math.max(40, baseR + osc + pulse + trap);
+          const x = xOff + Math.cos(a) * (rr * (1 + coupling*0.12));
+          const y = Math.sin(a) * (rr * (1 - Math.abs(direction)*0.1));
+          if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.closePath();
+        const grad = ctx.createRadialGradient(xOff,0,20,xOff,0,baseR+30);
+        grad.addColorStop(0, `rgba(122, 162, 255, ${(0.24 + coherence*0.2)*alphaMul})`);
+        grad.addColorStop(1, `rgba(122, 215, 255, ${(0.06 + (1-load)*0.16)*alphaMul})`);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = assessPassage(dyn) === DESIGN_SCHEMA.labels.passage.mobile ? `rgba(110,231,168,${0.85*alphaMul})`
+          : assessPassage(dyn) === DESIGN_SCHEMA.labels.passage.looping ? `rgba(246,198,103,${0.92*alphaMul})`
+          : `rgba(255,122,122,${0.88*alphaMul})`;
+        ctx.stroke();
+      };
+      if (partitioned) {
+        drawBlob(-splitOffset, 0.8);
+        drawBlob(splitOffset, 0.45);
+      } else {
+        drawBlob(0, 1);
+      }
+
+      // motion topology overlays
+      if (assessPassage(dyn) === DESIGN_SCHEMA.labels.passage.looping) {
+        ctx.strokeStyle = 'rgba(246,198,103,.8)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, baseR + 35, .3, Math.PI * 1.55);
+        ctx.stroke();
+      }
+      if (assessPassage(dyn) === DESIGN_SCHEMA.labels.passage.trapped) {
+        ctx.strokeStyle = 'rgba(255,122,122,.8)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(baseR + 25, -80);
+        ctx.lineTo(baseR + 25, 80);
+        ctx.stroke();
+      }
+      if (assessPassage(dyn) === DESIGN_SCHEMA.labels.passage.partitioned) {
+        ctx.strokeStyle = 'rgba(122,215,255,.35)';
+        ctx.setLineDash([5,6]);
+        ctx.beginPath(); ctx.moveTo(0,-95); ctx.lineTo(0,95); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      // outcome traces / halo
+      const outcome = assessOutcome(dyn);
+      if (outcome === DESIGN_SCHEMA.labels.outcome.delayed) {
+        const u = smoothstep(0.72, 0.95, progress);
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseR + 55 + u*18, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,122,122,${0.18 + u*0.42})`;
+        ctx.lineWidth = 10 + u*8;
+        ctx.stroke();
+      }
+      if (outcome === DESIGN_SCHEMA.labels.outcome.partial) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseR + 40, 0.3, 2.5);
+        ctx.strokeStyle = 'rgba(122,215,255,.3)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+      if (outcome === DESIGN_SCHEMA.labels.outcome.collapse) {
+        ctx.beginPath();
+        ctx.moveTo(cx-90, cy+95); ctx.lineTo(cx+90, cy+95);
+        ctx.strokeStyle = 'rgba(255,122,122,.45)';
+        ctx.lineWidth = 6; ctx.stroke();
+      }
+    }
+
+    function renderAll() {
+      makePills('sourceFamily', DESIGN_SCHEMA.source.families, 'sourceFamily');
+      makePills('sourceProfile', DESIGN_SCHEMA.source.profiles, 'sourceProfile');
+      const dyn = getDynamicState();
+      syncTimelineUI();
+      renderStageStrip(dyn);
+      renderOutputs(dyn);
+      drawViz(dyn);
+    }
+
+    function applyPreset(name) {
+      Object.assign(state, deepClone(DESIGN_SCHEMA.defaults));
+      const preset = DESIGN_SCHEMA.presets[name];
+      if (preset) {
+        state.sourceFamily = preset.sourceFamily;
+        state.sourceProfile = preset.sourceProfile;
+        Object.assign(state.recruitment, preset.recruitment);
+        Object.assign(state.shape, preset.shape);
+        Object.assign(state.passage, preset.passage);
+        Object.assign(state.stabilize, preset.stabilize);
+      }
+      renderAll();
+    }
+
+    document.querySelectorAll('[data-preset]').forEach(btn => btn.onclick = () => applyPreset(btn.dataset.preset));
+    const timelineSlider = document.getElementById('timelineSlider');
+    timelineSlider.addEventListener('input', e => {
+      playing = false;
+      setProgressFromSlider(e.target.value);
+      renderAll();
+    });
+    document.getElementById('playBtn').onclick = () => playing = true;
+    document.getElementById('pauseBtn').onclick = () => playing = false;
+    document.getElementById('stepBtn').onclick = () => { progress = Math.min(0.999, progress + 1/6); renderAll(); };
+    document.getElementById('resetBtn').onclick = () => { Object.assign(state, deepClone(DESIGN_SCHEMA.defaults)); progress = 0; renderAll(); };
+
+    function tick() {
+      t += 1;
+      if (playing) progress += 0.0015;
+      if (progress >= 1) progress = 0;
+      const dyn = getDynamicState();
+      syncTimelineUI();
+      renderStageStrip(dyn);
+      drawViz(dyn);
+      requestAnimationFrame(tick);
+    }
+
+    makeStages();
+    makePills('sourceFamily', DESIGN_SCHEMA.source.families, 'sourceFamily');
+    makePills('sourceProfile', DESIGN_SCHEMA.source.profiles, 'sourceProfile');
+    makeSliders('recruitmentSliders', 'recruitment');
+    makeSliders('shapeSliders', 'shape');
+    makeSliders('passageSliders', 'passage');
+    makeSliders('stabilizeSliders', 'stabilize');
+    resizeCanvas();
+    renderAll();
+    tick();
+  </script>
+
+</body>
+</html>
