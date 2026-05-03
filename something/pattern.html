@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Islamic Tessellation Sandbox</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=IBM+Plex+Mono:wght@300;400&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --panel: #13161e;
+    --border: #2a2f3d;
+    --gold: #c9a84c;
+    --gold-dim: #7a6030;
+    --teal: #4ecdc4;
+    --rose: #e07070;
+    --text: #d4cfc4;
+    --text-dim: #6b6760;
+    --canvas-bg: #0a0c10;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 10;
+  }
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-track { background: transparent; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
+
+  .sidebar-header {
+    padding: 20px 18px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+  .sidebar-header p {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 0.06em;
+  }
+
+  .section {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-label {
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .toggle-label { font-size: 11px; color: var(--text); }
+  .toggle {
+    position: relative;
+    width: 36px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--gold-dim); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on::after { transform: translateX(18px); background: var(--gold); }
+
+  .shape-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .shape-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 4px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    transition: border-color 0.15s, background 0.15s;
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.05em;
+  }
+  .shape-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .shape-btn.active { border-color: var(--gold); background: rgba(201,168,76,0.08); color: var(--gold); }
+  .shape-btn svg { width: 28px; height: 28px; }
+
+  .slider-row { margin-bottom: 10px; }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    margin-bottom: 5px;
+    color: var(--text);
+  }
+  .slider-val { color: var(--gold); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    background: var(--gold);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .color-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .color-swatch {
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .color-swatch:hover { transform: scale(1.15); }
+  .color-swatch.active { border-color: white; }
+
+  .tool-row { display: flex; gap: 6px; }
+  .tool-btn {
+    flex: 1;
+    padding: 7px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+  .tool-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .tool-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08); }
+  .tool-btn.danger:hover { border-color: var(--rose); color: var(--rose); }
+
+  .math-formula {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 10px;
+    color: var(--teal);
+    line-height: 1.6;
+  }
+  .math-formula span { color: var(--gold); }
+
+  .sym-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+  .sym-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 2px;
+    cursor: pointer;
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+  .sym-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .sym-btn.active { border-color: var(--teal); color: var(--teal); background: rgba(78,205,196,0.08); }
+
+  /* IMAGE */
+  #drop-zone {
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    margin-bottom: 10px;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--teal);
+    background: rgba(78,205,196,0.04);
+  }
+  #drop-zone .dz-icon { font-size: 20px; margin-bottom: 4px; }
+  #drop-zone .dz-text { font-size: 9px; color: var(--text-dim); letter-spacing: 0.06em; line-height: 1.5; }
+  #drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  #img-thumb-wrap {
+    display: none;
+    position: relative;
+    margin-bottom: 10px;
+  }
+  #img-thumb-wrap.visible { display: block; }
+  #img-thumb {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+  #img-clear {
+    position: absolute;
+    top: 4px; right: 4px;
+    background: rgba(13,15,20,0.85);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--rose);
+    font-size: 10px;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  #img-clear:hover { border-color: var(--rose); }
+
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .mode-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 7px 3px;
+    cursor: pointer;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+  }
+  .mode-btn:hover { border-color: var(--teal); color: var(--text); }
+  .mode-btn.active { border-color: var(--teal); color: var(--teal); background: rgba(78,205,196,0.08); }
+  .mode-btn .mi { font-size: 14px; display: block; margin-bottom: 3px; }
+
+  select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    cursor: pointer;
+    outline: none;
+    margin-bottom: 8px;
+  }
+  select:focus { border-color: var(--teal); }
+
+  #canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--canvas-bg);
+  }
+  #main-canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
+
+  #canvas-drop-overlay {
+    position: absolute; inset: 0;
+    border: 3px dashed var(--teal);
+    background: rgba(78,205,196,0.06);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    pointer-events: none;
+  }
+  #canvas-drop-overlay.visible { display: flex; }
+  #canvas-drop-overlay span {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: var(--teal);
+    letter-spacing: 0.1em;
+  }
+
+  #statusbar {
+    position: absolute;
+    bottom: 14px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(13,15,20,0.85);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 16px;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #statusbar span { color: var(--gold); }
+
+  #canvas-controls {
+    position: absolute;
+    top: 14px; right: 14px;
+    display: flex; gap: 6px;
+  }
+  .cc-btn {
+    background: rgba(13,15,20,0.85);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 14px;
+    transition: all 0.15s;
+    backdrop-filter: blur(8px);
+  }
+  .cc-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+  #zoom-indicator {
+    position: absolute;
+    top: 14px; left: 14px;
+    background: rgba(13,15,20,0.85);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    backdrop-filter: blur(8px);
+  }
+  #zoom-indicator span { color: var(--gold); }
+
+  #img-badge {
+    position: absolute;
+    top: 58px; left: 14px;
+    background: rgba(78,205,196,0.12);
+    border: 1px solid var(--teal);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 9px;
+    color: var(--teal);
+    letter-spacing: 0.08em;
+    backdrop-filter: blur(8px);
+    display: none;
+  }
+  #img-badge.visible { display: block; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <h1>Islamic Geometry<br>Sandbox</h1>
+    <p>Tessellation · Image Cut · Pattern</p>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Display</div>
+    <div class="toggle-row"><span class="toggle-label">Grid</span><div class="toggle on" id="toggle-grid"></div></div>
+    <div class="toggle-row"><span class="toggle-label">Construction lines</span><div class="toggle" id="toggle-construction"></div></div>
+    <div class="toggle-row"><span class="toggle-label">Symmetry overlay</span><div class="toggle" id="toggle-symmetry"></div></div>
+    <div class="toggle-row"><span class="toggle-label">Fill shapes</span><div class="toggle on" id="toggle-fill"></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Tool</div>
+    <div class="tool-row">
+      <button class="tool-btn active" data-tool="place">✦ Place</button>
+      <button class="tool-btn" data-tool="erase">✕ Erase</button>
+      <button class="tool-btn" data-tool="pan">⊹ Pan</button>
+    </div>
+  </div>
+
+  <!-- IMAGE LAYER -->
+  <div class="section">
+    <div class="section-label">Image Layer</div>
+    <div id="drop-zone">
+      <input type="file" accept="image/*" id="file-input">
+      <div class="dz-icon">⬆</div>
+      <div class="dz-text">Drop image here<br>or click to browse</div>
+    </div>
+    <div id="img-thumb-wrap">
+      <img id="img-thumb" src="" alt="">
+      <div id="img-clear">✕ remove</div>
+    </div>
+
+    <div class="section-label">Cut Mode</div>
+    <div class="mode-grid" id="mode-grid">
+      <div class="mode-btn active" data-mode="color"><span class="mi">◈</span>Color</div>
+      <div class="mode-btn" data-mode="reveal"><span class="mi">◉</span>Reveal</div>
+      <div class="mode-btn" data-mode="mosaic"><span class="mi">⊞</span>Mosaic</div>
+      <div class="mode-btn" data-mode="blend"><span class="mi">◑</span>Blend</div>
+      <div class="mode-btn" data-mode="xray"><span class="mi">◎</span>X-Ray</div>
+      <div class="mode-btn" data-mode="cutout"><span class="mi">⊡</span>Cutout</div>
+    </div>
+
+    <div id="blend-row" style="display:none">
+      <div class="section-label">Blend Operation</div>
+      <select id="blend-select">
+        <option value="multiply">Multiply</option>
+        <option value="screen">Screen</option>
+        <option value="overlay">Overlay</option>
+        <option value="hard-light">Hard Light</option>
+        <option value="soft-light">Soft Light</option>
+        <option value="difference">Difference</option>
+        <option value="exclusion">Exclusion</option>
+        <option value="color-dodge">Color Dodge</option>
+        <option value="color-burn">Color Burn</option>
+        <option value="luminosity">Luminosity</option>
+        <option value="hue">Hue</option>
+        <option value="saturation">Saturation</option>
+      </select>
+    </div>
+
+    <div id="img-xform" style="display:none">
+      <div class="section-label" style="margin-top:4px">Image Transform</div>
+      <div class="slider-row">
+        <div class="slider-header"><span>Scale</span><span class="slider-val" id="v-imgscale">100%</span></div>
+        <input type="range" id="sl-imgscale" min="5" max="400" value="100">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span>Offset X</span><span class="slider-val" id="v-imgox">0</span></div>
+        <input type="range" id="sl-imgox" min="-600" max="600" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span>Offset Y</span><span class="slider-val" id="v-imgoy">0</span></div>
+        <input type="range" id="sl-imgoy" min="-600" max="600" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span>Img Opacity</span><span class="slider-val" id="v-imgopa">100%</span></div>
+        <input type="range" id="sl-imgopa" min="10" max="100" value="100">
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Shape</div>
+    <div class="shape-grid" id="shape-grid"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Rotational Symmetry</div>
+    <div class="sym-grid">
+      <div class="sym-btn active" data-n="1">1</div>
+      <div class="sym-btn" data-n="2">2</div>
+      <div class="sym-btn" data-n="3">3</div>
+      <div class="sym-btn" data-n="4">4</div>
+      <div class="sym-btn" data-n="6">6</div>
+      <div class="sym-btn" data-n="8">8</div>
+      <div class="sym-btn" data-n="10">10</div>
+      <div class="sym-btn" data-n="12">12</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Shape Transform</div>
+    <div class="slider-row">
+      <div class="slider-header"><span>Size</span><span class="slider-val" id="v-size">60</span></div>
+      <input type="range" id="sl-size" min="20" max="180" value="60">
+    </div>
+    <div class="slider-row">
+      <div class="slider-header"><span>Rotation</span><span class="slider-val" id="v-rot">0°</span></div>
+      <input type="range" id="sl-rot" min="0" max="360" value="0">
+    </div>
+    <div class="slider-row">
+      <div class="slider-header"><span>Stroke Width</span><span class="slider-val" id="v-stroke">1.5</span></div>
+      <input type="range" id="sl-stroke" min="0" max="6" step="0.5" value="1.5">
+    </div>
+    <div class="slider-row">
+      <div class="slider-header"><span>Opacity</span><span class="slider-val" id="v-opacity">90%</span></div>
+      <input type="range" id="sl-opacity" min="10" max="100" value="90">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Color</div>
+    <div class="color-row" id="color-row"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Pattern Mathematics</div>
+    <div class="math-formula" id="math-info">Select a shape to see its geometric properties.</div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Actions</div>
+    <div class="tool-row" style="margin-bottom:6px">
+      <button class="tool-btn" id="btn-undo">↩ Undo</button>
+      <button class="tool-btn" id="btn-export">↓ Export</button>
+    </div>
+    <div class="tool-row">
+      <button class="tool-btn danger" id="btn-clear">⊘ Clear</button>
+      <button class="tool-btn" id="btn-fill-all">Fill All</button>
+    </div>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="main-canvas"></canvas>
+  <div id="canvas-drop-overlay"><span>Drop Image to Load</span></div>
+  <div id="zoom-indicator">Zoom <span id="zoom-val">100%</span></div>
+  <div id="img-badge">◉ <span id="img-badge-label">Reveal</span></div>
+  <div id="canvas-controls">
+    <div class="cc-btn" id="btn-zoom-in">+</div>
+    <div class="cc-btn" id="btn-zoom-out">−</div>
+    <div class="cc-btn" id="btn-zoom-reset">⌖</div>
+  </div>
+  <div id="statusbar">
+    Tool: <span id="sb-tool">Place</span> &nbsp;·&nbsp;
+    Shape: <span id="sb-shape">6-Star</span> &nbsp;·&nbsp;
+    Placed: <span id="sb-count">0</span> &nbsp;·&nbsp;
+    Sym: <span id="sb-sym">1×</span> &nbsp;·&nbsp;
+    Mode: <span id="sb-mode">Color</span>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────
+// STATE
+// ─────────────────────────────
+const S = {
+  tool:'place', shapeKey:'star6', symmetry:1,
+  size:60, rotation:0, strokeWidth:1.5, opacity:0.9, color:'#c9a84c',
+  showGrid:true, showConstruction:false, showSymmetry:false, fillShapes:true,
+  zoom:1, panX:0, panY:0,
+  shapes:[], history:[],
+  isPanning:false, panStart:null,
+  mousePos:{x:-9999,y:-9999},
+  // image
+  image:null, imageURL:null,
+  imgScale:1, imgOffsetX:0, imgOffsetY:0, imgOpacity:1,
+  cutMode:'color', blendMode:'multiply',
+};
+
+// ─────────────────────────────
+// SHAPES
+// ─────────────────────────────
+function starPts(cx,cy,r,ir,n,rot){
+  const p=[];
+  for(let i=0;i<n*2;i++){const a=i*Math.PI/n+rot,rd=i%2?ir:r;p.push([cx+Math.cos(a)*rd,cy+Math.sin(a)*rd]);}
+  return p;
+}
+function polyPts(cx,cy,r,n,rot){
+  const p=[];
+  for(let i=0;i<n;i++){const a=i*2*Math.PI/n+rot;p.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r]);}
+  return p;
+}
+function tracePoly(ctx,pts){
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath();
+}
+function drawStar(ctx,x,y,r,n,ir,rot){tracePoly(ctx,starPts(x,y,r,ir,n,rot-Math.PI/2));}
+function drawPoly(ctx,x,y,r,n,rot){tracePoly(ctx,polyPts(x,y,r,n,rot-Math.PI/2));}
+function drawRosette(ctx,x,y,r,rot){drawPoly(ctx,x,y,r,4,rot);drawPoly(ctx,x,y,r,4,rot+Math.PI/4);}
+function drawKite(ctx,x,y,r,rot){
+  const phi=(1+Math.sqrt(5))/2,a=rot-Math.PI/2;
+  ctx.beginPath();
+  ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r);
+  ctx.lineTo(x+Math.cos(a-2*Math.PI*0.4)*r/phi,y+Math.sin(a-2*Math.PI*0.4)*r/phi);
+  ctx.lineTo(x+Math.cos(a+Math.PI)*r*0.38,y+Math.sin(a+Math.PI)*r*0.38);
+  ctx.lineTo(x+Math.cos(a+2*Math.PI*0.4)*r/phi,y+Math.sin(a+2*Math.PI*0.4)*r/phi);
+  ctx.closePath();
+}
+
+function svgStar(n,r,ir,rot){
+  const p=starPts(14,14,r,ir,n,rot-Math.PI/2);
+  return p.map((v,i)=>`${i?'L':'M'}${v[0].toFixed(1)},${v[1].toFixed(1)}`).join(' ')+'Z';
+}
+function svgPoly(n,r,rot){
+  const p=polyPts(14,14,r,n,rot-Math.PI/2);
+  return p.map((v,i)=>`${i?'L':'M'}${v[0].toFixed(1)},${v[1].toFixed(1)}`).join(' ')+'Z';
+}
+
+const SHAPES = {
+  star4:   {label:'4-Star',   math:`<span>4-pointed star</span>\nAngle: 90° symmetry\nTiling: square grid\nPoints: 8 · Inner: r×0.38`,  fn:(c,x,y,r,t)=>drawStar(c,x,y,r,4,r*.38,t),  svg:svgStar(4,14,5.5,0)},
+  star6:   {label:'6-Star',   math:`<span>Hexagram / Star of Solomon</span>\nAngle: 60° sym.\nTiling: triangular grid\nInner: r×0.5`, fn:(c,x,y,r,t)=>drawStar(c,x,y,r,6,r*.5,t),   svg:svgStar(6,14,7,0)},
+  star8:   {label:'8-Star',   math:`<span>Octagram / Rub el Hizb</span>\nAngle: 45° sym.\nTiling: square+oct.\nInner: r×0.38`,        fn:(c,x,y,r,t)=>drawStar(c,x,y,r,8,r*.38,t),  svg:svgStar(8,14,5,Math.PI/8)},
+  star10:  {label:'10-Star',  math:`<span>Decagram</span>\nAngle: 36° sym.\nTiling: Penrose-like\nInner: r×0.38`,                    fn:(c,x,y,r,t)=>drawStar(c,x,y,r,10,r*.38,t), svg:svgStar(10,14,5,0)},
+  star12:  {label:'12-Star',  math:`<span>Dodecagram</span>\nAngle: 30° sym.\nTiling: square+hex\nInner: r×0.45`,                    fn:(c,x,y,r,t)=>drawStar(c,x,y,r,12,r*.45,t), svg:svgStar(12,14,6.5,0)},
+  hexagon: {label:'Hexagon',  math:`<span>Regular Hexagon</span>\nSides: 6 · Angle: 120°\nTiles plane perfectly\nSum: 720°`,          fn:(c,x,y,r,t)=>drawPoly(c,x,y,r,6,t),         svg:svgPoly(6,14,0)},
+  square:  {label:'Square',   math:`<span>Regular Square</span>\nSides: 4 · Angle: 90°\nTiles plane perfectly\nVertex: [4,4,4,4]`,    fn:(c,x,y,r,t)=>drawPoly(c,x,y,r,4,t+Math.PI/4), svg:svgPoly(4,14,Math.PI/4)},
+  triangle:{label:'Triangle', math:`<span>Equilateral Triangle</span>\nSides: 3 · Angle: 60°\nTiles perfectly\nVertex: [3,3,3,3,3,3]`,fn:(c,x,y,r,t)=>drawPoly(c,x,y,r,3,t-Math.PI/6), svg:svgPoly(3,14,-Math.PI/6)},
+  octagon: {label:'Octagon',  math:`<span>Regular Octagon</span>\nSides: 8 · Angle: 135°\nPairs with squares\nVertex: [8,8,4]`,       fn:(c,x,y,r,t)=>drawPoly(c,x,y,r,8,t+Math.PI/8), svg:svgPoly(8,14,Math.PI/8)},
+  girih:   {label:'Girih',    math:`<span>Girih Decagon</span>\nIslamic tiling tile\n10-fold symmetry\nAngles: 36°,72°,108°`,         fn:(c,x,y,r,t)=>drawPoly(c,x,y,r,10,t),        svg:svgPoly(10,14,0)},
+  rosette: {label:'Rosette',  math:`<span>8-fold Rosette</span>\nTwo overlapping squares\nAngle sym: 45°\nLattice: square grid`,      fn:(c,x,y,r,t)=>drawRosette(c,x,y,r,t),        svg:svgStar(8,14,7,0)},
+  kite:    {label:'Kite',     math:`<span>Penrose Kite</span>\nGolden ratio: φ≈1.618\nAngles: 72°,72°,144°\nNon-periodic tiling`,     fn:(c,x,y,r,t)=>drawKite(c,x,y,r,t),           svg:'M14,2 L22,12 L14,17 L6,12 Z'},
+};
+
+// ─────────────────────────────
+// CANVAS
+// ─────────────────────────────
+const canvas=document.getElementById('main-canvas');
+const ctx=canvas.getContext('2d');
+
+function resize(){
+  const w=document.getElementById('canvas-wrap');
+  canvas.width=w.clientWidth; canvas.height=w.clientHeight;
+  render();
+}
+window.addEventListener('resize',resize);
+
+// ─────────────────────────────
+// IMAGE HELPERS
+// ─────────────────────────────
+function imgRect(){
+  if(!S.image) return null;
+  const w=S.image.width*S.imgScale, h=S.image.height*S.imgScale;
+  return {x:S.imgOffsetX-w/2, y:S.imgOffsetY-h/2, w, h};
+}
+
+// Clip to shape path, draw image inside, restore
+function clipDrawImage(shapeFn,cx,cy,sz,rot,alpha){
+  const r=imgRect(); if(!r) return;
+  ctx.save();
+  shapeFn(ctx,cx,cy,sz,rot);
+  ctx.clip();
+  ctx.globalAlpha=alpha;
+  ctx.drawImage(S.image,r.x,r.y,r.w,r.h);
+  ctx.restore();
+}
+
+// ─────────────────────────────
+// RENDER
+// ─────────────────────────────
+const PALETTE=['#c9a84c','#e8c97a','#b07d2a','#4ecdc4','#2a8f88','#7ae8e2',
+               '#e07070','#a03030','#f0a0a0','#8b7dd8','#5548a0','#c4bee8',
+               '#80b060','#3d6b20','#b0d890','#e8e0c8','#ffffff','#2a2a2a'];
+const GS=60;
+
+function render(){
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0a0c10';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.save();
+  ctx.translate(W/2+S.panX,H/2+S.panY);
+  ctx.scale(S.zoom,S.zoom);
+
+  // Full image as dim background for reveal/cutout/xray
+  if(S.image){
+    const r=imgRect();
+    if(S.cutMode==='reveal'||S.cutMode==='cutout'){
+      ctx.save();ctx.globalAlpha=S.imgOpacity*0.12;
+      ctx.drawImage(S.image,r.x,r.y,r.w,r.h);ctx.restore();
+    }
+    if(S.cutMode==='xray'){
+      ctx.save();ctx.globalAlpha=S.imgOpacity*0.2;
+      ctx.drawImage(S.image,r.x,r.y,r.w,r.h);ctx.restore();
+    }
+  }
+
+  if(S.showGrid) renderGrid(W,H);
+  if(S.showSymmetry) renderSymLines(W,H);
+  for(const s of S.shapes) renderShape(s);
+
+  // Ghost preview
+  if(S.tool==='place'){
+    const mx=(S.mousePos.x-W/2-S.panX)/S.zoom;
+    const my=(S.mousePos.y-H/2-S.panY)/S.zoom;
+    ctx.save(); ctx.globalAlpha=0.3;
+    renderShape({x:mx,y:my,shapeKey:S.shapeKey,size:S.size,rotation:S.rotation*Math.PI/180,
+      color:S.color,fillShapes:S.fillShapes,strokeWidth:S.strokeWidth,opacity:1,symmetry:S.symmetry,cutMode:'color'});
+    ctx.restore();
+  }
+
+  if(S.showConstruction) renderConstruction(W,H);
+  ctx.restore();
+}
+
+function renderGrid(W,H){
+  const ext=Math.max(W,H)/S.zoom+GS*4;
+  ctx.strokeStyle='rgba(201,168,76,0.10)';
+  ctx.lineWidth=0.5/S.zoom;
+  for(let x=-ext;x<ext;x+=GS){ctx.beginPath();ctx.moveTo(x,-ext);ctx.lineTo(x,ext);ctx.stroke();}
+  for(let y=-ext;y<ext;y+=GS){ctx.beginPath();ctx.moveTo(-ext,y);ctx.lineTo(ext,y);ctx.stroke();}
+  ctx.fillStyle='rgba(201,168,76,0.5)';
+  ctx.beginPath();ctx.arc(0,0,3/S.zoom,0,Math.PI*2);ctx.fill();
+}
+
+function renderSymLines(W,H){
+  const n=S.symmetry; if(n<=1) return;
+  const len=Math.max(W,H)/S.zoom;
+  ctx.strokeStyle='rgba(78,205,196,0.2)';
+  ctx.lineWidth=0.5/S.zoom;
+  ctx.setLineDash([4/S.zoom,4/S.zoom]);
+  for(let i=0;i<n;i++){
+    const a=i*2*Math.PI/n;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*len,Math.sin(a)*len);ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+function renderConstruction(W,H){
+  const ext=Math.max(W,H)/S.zoom,range=Math.ceil(ext/2/GS)+1;
+  ctx.strokeStyle='rgba(78,205,196,0.1)';
+  ctx.lineWidth=0.5/S.zoom;
+  for(let gx=-range;gx<=range;gx++)
+    for(let gy=-range;gy<=range;gy++){
+      ctx.beginPath();ctx.arc(gx*GS,gy*GS,GS*0.5,0,Math.PI*2);ctx.stroke();
+    }
+}
+
+function renderShape(s){
+  const def=SHAPES[s.shapeKey]; if(!def) return;
+  const n=s.symmetry||1;
+  const mode=s.cutMode||'color';
+  const img=S.image;
+  const fn=def.fn;
+
+  for(let i=0;i<n;i++){
+    const angle=i*2*Math.PI/n;
+    ctx.save();
+    ctx.rotate(angle);
+
+    if(!img||mode==='color'){
+      // Plain colour
+      ctx.globalAlpha=s.opacity;
+      ctx.lineWidth=s.strokeWidth/S.zoom;
+      ctx.strokeStyle=s.color;
+      if(s.fillShapes){ctx.fillStyle=s.color+'2a'; fn(ctx,s.x,s.y,s.size,s.rotation); ctx.fill();}
+      else fn(ctx,s.x,s.y,s.size,s.rotation);
+      if(s.strokeWidth>0) ctx.stroke();
+
+    } else if(mode==='reveal'){
+      // Image shows through, dark outside
+      ctx.globalAlpha=s.opacity;
+      clipDrawImage(fn,s.x,s.y,s.size,s.rotation,S.imgOpacity);
+      ctx.globalAlpha=s.opacity;
+      fn(ctx,s.x,s.y,s.size,s.rotation);
+      ctx.lineWidth=s.strokeWidth/S.zoom; ctx.strokeStyle=s.color;
+      if(s.strokeWidth>0) ctx.stroke();
+
+    } else if(mode==='mosaic'){
+      // Image clipped to shape + subtle colour tint
+      clipDrawImage(fn,s.x,s.y,s.size,s.rotation,S.imgOpacity);
+      ctx.globalAlpha=s.opacity*0.3;
+      ctx.fillStyle=s.color; fn(ctx,s.x,s.y,s.size,s.rotation); ctx.fill();
+      ctx.globalAlpha=s.opacity;
+      fn(ctx,s.x,s.y,s.size,s.rotation);
+      ctx.lineWidth=s.strokeWidth/S.zoom; ctx.strokeStyle=s.color;
+      if(s.strokeWidth>0) ctx.stroke();
+
+    } else if(mode==='blend'){
+      // Colour fill first, then image blended on top
+      ctx.globalAlpha=s.opacity;
+      ctx.fillStyle=s.color+'44'; fn(ctx,s.x,s.y,s.size,s.rotation); ctx.fill();
+      // Blend image in
+      const r=imgRect();
+      ctx.save();
+      fn(ctx,s.x,s.y,s.size,s.rotation); ctx.clip();
+      ctx.globalCompositeOperation=S.blendMode;
+      ctx.globalAlpha=S.imgOpacity;
+      ctx.drawImage(S.image,r.x,r.y,r.w,r.h);
+      ctx.restore();
+      ctx.globalAlpha=s.opacity;
+      fn(ctx,s.x,s.y,s.size,s.rotation);
+      ctx.lineWidth=s.strokeWidth/S.zoom; ctx.strokeStyle=s.color;
+      if(s.strokeWidth>0) ctx.stroke();
+
+    } else if(mode==='xray'){
+      // Bright image window + glowing edge
+      ctx.globalAlpha=s.opacity;
+      clipDrawImage(fn,s.x,s.y,s.size,s.rotation,S.imgOpacity);
+      fn(ctx,s.x,s.y,s.size,s.rotation);
+      ctx.lineWidth=(s.strokeWidth+2)/S.zoom; ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.stroke();
+      ctx.lineWidth=s.strokeWidth/S.zoom; ctx.strokeStyle=s.color;
+      if(s.strokeWidth>0) ctx.stroke();
+
+    } else if(mode==='cutout'){
+      // Bright image cut through dark bg (dim bg drawn above)
+      clipDrawImage(fn,s.x,s.y,s.size,s.rotation,S.imgOpacity);
+      fn(ctx,s.x,s.y,s.size,s.rotation);
+      ctx.lineWidth=s.strokeWidth/S.zoom; ctx.strokeStyle=s.color;
+      if(s.strokeWidth>0) ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+}
+
+// ─────────────────────────────
+// UI
+// ─────────────────────────────
+
+// Shape buttons
+const sgEl=document.getElementById('shape-grid');
+for(const[key,def] of Object.entries(SHAPES)){
+  const b=document.createElement('div');
+  b.className='shape-btn'+(key===S.shapeKey?' active':'');
+  b.dataset.key=key;
+  b.innerHTML=`<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.2"><path d="${def.svg}"/></svg>${def.label}`;
+  b.addEventListener('click',()=>{
+    S.shapeKey=key;
+    document.querySelectorAll('.shape-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('math-info').innerHTML=def.math.replace(/\n/g,'<br>');
+    updateStatus(); render();
+  });
+  sgEl.appendChild(b);
+}
+document.getElementById('math-info').innerHTML=SHAPES[S.shapeKey].math.replace(/\n/g,'<br>');
+
+// Colors
+const crEl=document.getElementById('color-row');
+for(const c of PALETTE){
+  const sw=document.createElement('div');
+  sw.className='color-swatch'+(c===S.color?' active':'');
+  sw.style.background=c;
+  sw.addEventListener('click',()=>{
+    S.color=c;
+    document.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('active'));
+    sw.classList.add('active'); render();
+  });
+  crEl.appendChild(sw);
+}
+
+// Toggles
+function mkToggle(id,key){
+  document.getElementById(id).addEventListener('click',function(){
+    S[key]=!S[key]; this.classList.toggle('on',S[key]); render();
+  });
+}
+mkToggle('toggle-grid','showGrid');
+mkToggle('toggle-construction','showConstruction');
+mkToggle('toggle-symmetry','showSymmetry');
+mkToggle('toggle-fill','fillShapes');
+
+// Tool buttons
+document.querySelectorAll('.tool-btn[data-tool]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    S.tool=b.dataset.tool;
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    canvas.style.cursor=S.tool==='pan'?'grab':S.tool==='erase'?'cell':'crosshair';
+    updateStatus(); render();
+  });
+});
+
+// Sym buttons
+document.querySelectorAll('.sym-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    S.symmetry=parseInt(b.dataset.n);
+    document.querySelectorAll('.sym-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); updateStatus(); render();
+  });
+});
+
+// Shape sliders
+function mkSlider(id,vid,key,fmt,post){
+  document.getElementById(id).addEventListener('input',function(){
+    S[key]=parseFloat(this.value);
+    if(post) S[key]=post(S[key]);
+    document.getElementById(vid).textContent=fmt(this.value);
+    render();
+  });
+}
+mkSlider('sl-size','v-size','size',v=>Math.round(v));
+mkSlider('sl-rot','v-rot','rotation',v=>Math.round(v)+'°');
+mkSlider('sl-stroke','v-stroke','strokeWidth',v=>parseFloat(v).toFixed(1));
+document.getElementById('sl-opacity').addEventListener('input',function(){
+  S.opacity=this.value/100; document.getElementById('v-opacity').textContent=Math.round(this.value)+'%'; render();
+});
+
+// Image sliders
+document.getElementById('sl-imgscale').addEventListener('input',function(){
+  S.imgScale=this.value/100; document.getElementById('v-imgscale').textContent=Math.round(this.value)+'%'; render();
+});
+document.getElementById('sl-imgox').addEventListener('input',function(){
+  S.imgOffsetX=parseFloat(this.value); document.getElementById('v-imgox').textContent=Math.round(this.value); render();
+});
+document.getElementById('sl-imgoy').addEventListener('input',function(){
+  S.imgOffsetY=parseFloat(this.value); document.getElementById('v-imgoy').textContent=Math.round(this.value); render();
+});
+document.getElementById('sl-imgopa').addEventListener('input',function(){
+  S.imgOpacity=this.value/100; document.getElementById('v-imgopa').textContent=Math.round(this.value)+'%'; render();
+});
+document.getElementById('blend-select').addEventListener('change',function(){
+  S.blendMode=this.value; render();
+});
+
+// Cut mode buttons
+const MODENAMES={color:'Color',reveal:'Reveal',mosaic:'Mosaic',blend:'Blend',xray:'X-Ray',cutout:'Cutout'};
+document.querySelectorAll('.mode-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    S.cutMode=b.dataset.mode;
+    document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    S.shapes.forEach(s=>s.cutMode=S.cutMode);
+    document.getElementById('blend-row').style.display=S.cutMode==='blend'?'block':'none';
+    updateImgUI(); updateStatus(); render();
+  });
+});
+
+// Zoom
+document.getElementById('btn-zoom-in').addEventListener('click',()=>{S.zoom=Math.min(S.zoom*1.25,8);updateZoom();render();});
+document.getElementById('btn-zoom-out').addEventListener('click',()=>{S.zoom=Math.max(S.zoom/1.25,0.1);updateZoom();render();});
+document.getElementById('btn-zoom-reset').addEventListener('click',()=>{S.zoom=1;S.panX=0;S.panY=0;updateZoom();render();});
+function updateZoom(){document.getElementById('zoom-val').textContent=Math.round(S.zoom*100)+'%';}
+
+// Actions
+document.getElementById('btn-undo').addEventListener('click',()=>{
+  if(S.shapes.length){S.history.push(S.shapes.pop());updateStatus();render();}
+});
+document.getElementById('btn-clear').addEventListener('click',()=>{
+  S.history.push(...S.shapes.splice(0));updateStatus();render();
+});
+document.getElementById('btn-fill-all').addEventListener('click',()=>{
+  S.fillShapes=!S.fillShapes;
+  document.getElementById('toggle-fill').classList.toggle('on',S.fillShapes);
+  S.shapes.forEach(s=>s.fillShapes=S.fillShapes); render();
+});
+document.getElementById('btn-export').addEventListener('click',()=>{
+  const a=document.createElement('a');
+  a.download='islamic-tessellation.png';
+  a.href=canvas.toDataURL('image/png');
+  a.click();
+});
+
+// ─────────────────────────────
+// IMAGE LOAD
+// ─────────────────────────────
+function loadImg(file){
+  if(!file||!file.type.startsWith('image/')) return;
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    if(S.imageURL) URL.revokeObjectURL(S.imageURL);
+    S.image=img; S.imageURL=url;
+    // Auto fit
+    const target=Math.min(canvas.width,canvas.height)*0.7/S.zoom;
+    S.imgScale=target/Math.max(img.width,img.height);
+    document.getElementById('sl-imgscale').value=Math.round(S.imgScale*100);
+    document.getElementById('v-imgscale').textContent=Math.round(S.imgScale*100)+'%';
+    S.imgOffsetX=0; S.imgOffsetY=0;
+    document.getElementById('sl-imgox').value=0;
+    document.getElementById('sl-imgoy').value=0;
+    // Thumb
+    document.getElementById('img-thumb').src=url;
+    document.getElementById('img-thumb-wrap').classList.add('visible');
+    // Auto switch to reveal
+    if(S.cutMode==='color') document.querySelector('[data-mode="reveal"]').click();
+    updateImgUI(); render();
+  };
+  img.src=url;
+}
+
+function clearImg(){
+  if(S.imageURL) URL.revokeObjectURL(S.imageURL);
+  S.image=null; S.imageURL=null;
+  document.getElementById('img-thumb-wrap').classList.remove('visible');
+  document.getElementById('img-thumb').src='';
+  document.querySelector('[data-mode="color"]').click();
+  updateImgUI(); render();
+}
+
+function updateImgUI(){
+  const has=!!S.image;
+  document.getElementById('img-xform').style.display=has?'block':'none';
+  const badge=document.getElementById('img-badge');
+  if(has&&S.cutMode!=='color'){
+    badge.classList.add('visible');
+    document.getElementById('img-badge-label').textContent=MODENAMES[S.cutMode]||S.cutMode;
+  } else {
+    badge.classList.remove('visible');
+  }
+}
+
+document.getElementById('file-input').addEventListener('change',function(){
+  if(this.files[0]) loadImg(this.files[0]); this.value='';
+});
+document.getElementById('img-clear').addEventListener('click',clearImg);
+
+// Sidebar drop zone
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files[0])loadImg(e.dataTransfer.files[0]);});
+
+// Canvas drop zone
+const cw=document.getElementById('canvas-wrap');
+const co=document.getElementById('canvas-drop-overlay');
+cw.addEventListener('dragenter',e=>{e.preventDefault();co.classList.add('visible');});
+cw.addEventListener('dragover',e=>e.preventDefault());
+cw.addEventListener('dragleave',e=>{if(!cw.contains(e.relatedTarget))co.classList.remove('visible');});
+cw.addEventListener('drop',e=>{
+  e.preventDefault();co.classList.remove('visible');
+  if(e.dataTransfer.files[0])loadImg(e.dataTransfer.files[0]);
+});
+
+// ─────────────────────────────
+// STATUS
+// ─────────────────────────────
+function updateStatus(){
+  document.getElementById('sb-tool').textContent=S.tool[0].toUpperCase()+S.tool.slice(1);
+  document.getElementById('sb-shape').textContent=SHAPES[S.shapeKey].label;
+  document.getElementById('sb-count').textContent=S.shapes.length;
+  document.getElementById('sb-sym').textContent=S.symmetry+'×';
+  document.getElementById('sb-mode').textContent=MODENAMES[S.cutMode]||S.cutMode;
+}
+
+// ─────────────────────────────
+// CANVAS EVENTS
+// ─────────────────────────────
+function worldCoords(e){
+  const r=canvas.getBoundingClientRect();
+  const cx=e.clientX-r.left, cy=e.clientY-r.top;
+  return {
+    cx,cy,
+    wx:(cx-canvas.width/2-S.panX)/S.zoom,
+    wy:(cy-canvas.height/2-S.panY)/S.zoom,
+  };
+}
+
+canvas.addEventListener('mousedown',e=>{
+  const{wx,wy}=worldCoords(e);
+  if(S.tool==='pan'){
+    S.isPanning=true;
+    S.panStart={mx:e.clientX,my:e.clientY,px:S.panX,py:S.panY};
+    canvas.style.cursor='grabbing'; return;
+  }
+  if(S.tool==='place'){
+    S.shapes.push({x:wx,y:wy,shapeKey:S.shapeKey,size:S.size,
+      rotation:S.rotation*Math.PI/180,color:S.color,fillShapes:S.fillShapes,
+      strokeWidth:S.strokeWidth,opacity:S.opacity,symmetry:S.symmetry,cutMode:S.cutMode});
+    S.history=[];updateStatus();render();
+  }
+  if(S.tool==='erase'){
+    let md=Infinity,mi=-1;
+    S.shapes.forEach((s,i)=>{const d=Math.hypot(s.x-wx,s.y-wy);if(d<s.size*1.2&&d<md){md=d;mi=i;}});
+    if(mi!==-1){S.history.push(S.shapes.splice(mi,1)[0]);updateStatus();render();}
+  }
+});
+
+canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  S.mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
+  if(S.isPanning&&S.panStart){
+    S.panX=S.panStart.px+(e.clientX-S.panStart.mx);
+    S.panY=S.panStart.py+(e.clientY-S.panStart.my);
+  }
+  render();
+});
+
+canvas.addEventListener('mouseup',()=>{
+  S.isPanning=false;
+  if(S.tool==='pan')canvas.style.cursor='grab';
+});
+canvas.addEventListener('mouseleave',()=>{
+  S.isPanning=false;S.mousePos={x:-9999,y:-9999};render();
+});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  S.zoom=Math.min(Math.max(S.zoom*(e.deltaY<0?1.1:0.9),0.1),8);
+  updateZoom();render();
+},{passive:false});
+
+window.addEventListener('keydown',e=>{
+  if(e.key==='p'||e.key==='P') document.querySelector('[data-tool="place"]').click();
+  else if(e.key==='e'||e.key==='E') document.querySelector('[data-tool="erase"]').click();
+  else if(e.key==='g'||e.key==='G') document.getElementById('toggle-grid').click();
+  else if((e.key==='z')&&(e.ctrlKey||e.metaKey)){e.preventDefault();document.getElementById('btn-undo').click();}
+  else if(e.key===' '){e.preventDefault();document.querySelector('[data-tool="pan"]').click();}
+});
+
+// ─────────────────────────────
+// INIT
+// ─────────────────────────────
+resize();
+updateStatus();
+</script>
+</body>
+</html>
