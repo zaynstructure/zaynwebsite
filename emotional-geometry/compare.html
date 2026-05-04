@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EVF — Grief: Blocked vs Completing</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#06070a;color:#d4cec6;font-family:'Cormorant Garamond',serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;overflow-x:hidden}
+
+.page-header{width:100%;max-width:880px;padding:24px 20px 8px;border-bottom:1px solid #181820}
+.ph-sup{font-family:‘DM Mono’,monospace;font-size:8px;letter-spacing:0.3em;color:#3a3848;text-transform:uppercase;margin-bottom:6px}
+.ph-title{font-size:1.8rem;font-weight:300;letter-spacing:-0.01em}
+.ph-title em{font-style:italic;color:#8899cc}
+.ph-sub{font-size:0.9rem;color:#6a6478;font-style:italic;margin-top:3px}
+
+/* Two-panel layout */
+.panels{width:100%;max-width:880px;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:12px 20px 0}
+@media(max-width:640px){.panels{grid-template-columns:1fr;padding:8px 12px 0}}
+
+.panel{display:flex;flex-direction:column}
+.panel-header{padding:10px 0 8px;display:flex;justify-content:space-between;align-items:flex-end}
+.panel-title{font-size:1.05rem;font-weight:400;letter-spacing:0.01em}
+.panel-a .panel-title{color:#8090c8}
+.panel-b .panel-title{color:#7aaa88}
+.panel-sub{font-family:‘DM Mono’,monospace;font-size:7.5px;letter-spacing:0.15em;color:#4a4858;text-transform:uppercase}
+
+.canvas-stack{position:relative;width:100%}
+.canvas-stack canvas{position:absolute;top:0;left:0;width:100%;pointer-events:none}
+.canvas-stack canvas:first-child{position:relative}
+
+/* Stage display */
+.stage-strip{padding:6px 0 4px;display:flex;justify-content:space-between;align-items:baseline;min-height:32px}
+.sname{font-size:1rem;font-style:italic}
+.panel-a .sname{color:#8090c8}
+.panel-b .sname{color:#7aaa88}
+.sdesc{font-family:‘DM Mono’,monospace;font-size:7.5px;color:#4a4858;letter-spacing:0.08em;text-align:right;max-width:55%}
+
+/* Parameters */
+.param-block{padding:6px 0}
+.param-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.p-sym{font-family:‘Cormorant Garamond’,serif;font-style:italic;font-size:1rem;width:13px;flex-shrink:0;line-height:1}
+.p-name{font-family:‘DM Mono’,monospace;font-size:7px;letter-spacing:0.12em;color:#4a4858;text-transform:uppercase;width:52px;flex-shrink:0}
+.p-track{flex:1;height:2px;background:#12131a;border-radius:2px;overflow:hidden}
+.p-fill{height:100%;border-radius:2px;transition:width 0.5s cubic-bezier(0.4,0,0.2,1)}
+.p-val{font-family:‘DM Mono’,monospace;font-size:7px;color:#4a4858;width:24px;text-align:right;flex-shrink:0}
+
+/* Triangle */
+.tri-block{padding:6px 0;display:flex;gap:10px;align-items:flex-start}
+.tri-notes{flex:1;display:flex;flex-direction:column;gap:3px}
+.tri-note{font-family:‘DM Mono’,monospace;font-size:7px;color:#5a5868;letter-spacing:0.05em;line-height:1.45;padding:3px 5px;border-left:1.5px solid}
+
+/* Timeline */
+.tl-wrap{padding:8px 20px 4px;width:100%;max-width:880px}
+.tl-label{font-family:‘DM Mono’,monospace;font-size:7px;letter-spacing:0.25em;color:#3a3848;text-transform:uppercase;margin-bottom:3px}
+.tl-row{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.tl-canvas-wrap canvas{width:100%;display:block}
+
+/* Controls */
+.controls{width:100%;max-width:880px;padding:8px 20px 24px;display:flex;align-items:center;gap:10px}
+.btn{font-family:‘DM Mono’,monospace;font-size:8.5px;letter-spacing:0.2em;text-transform:uppercase;border:1px solid #1e1e2a;background:transparent;color:#7a7888;padding:7px 14px;cursor:pointer;transition:all 0.2s;flex-shrink:0}
+.btn:hover,.btn.active{border-color:#8090c8;color:#8090c8}
+.prog-track{flex:1;height:2px;background:#12131a;position:relative;cursor:pointer}
+.prog-fill{height:100%;background:linear-gradient(90deg,#5c5090,#8090c8,#7aaa88);width:0%;transition:width 0.08s linear}
+.prog-head{position:absolute;top:-4px;width:10px;height:10px;background:#8090c8;border-radius:50%;transform:translateX(-50%);left:0%;transition:left 0.08s linear}
+
+/* Divider */
+.divider{width:100%;max-width:880px;height:1px;background:#181820;margin:0 0 2px}
+</style>
+
+</head>
+<body>
+
+<div class="page-header">
+  <div class="ph-sup">EVF · Emotional Valence Field · Comparative Map</div>
+  <div class="ph-title">Grief — <em>Blocked</em> vs <em>Completing</em></div>
+  <div class="ph-sub">Same loss-attractor, same wave pattern — different organization and outcome</div>
+</div>
+
+<div class="panels">
+
+  <!-- PANEL A: BLOCKED -->
+
+  <div class="panel panel-a">
+    <div class="panel-header">
+      <div>
+        <div class="panel-sub">Scenario A</div>
+        <div class="panel-title">Blocked / Looping</div>
+      </div>
+      <div class="panel-sub" style="text-align:right">λ high · κ low<br>no passage</div>
+    </div>
+    <div class="canvas-stack" id="stackA">
+      <canvas id="baseA"></canvas>
+      <canvas id="zonesA"></canvas>
+      <canvas id="attrA"></canvas>
+      <canvas id="coupA"></canvas>
+      <canvas id="probeA"></canvas>
+    </div>
+    <div class="stage-strip">
+      <div class="sname" id="snameA">—</div>
+      <div class="sdesc" id="sdescA">—</div>
+    </div>
+    <div class="param-block" id="paramsA"></div>
+    <div class="tri-block">
+      <svg id="triA" width="90" height="84" viewBox="0 0 90 84">
+        <polygon points="45,6 8,78 82,78" fill="none" stroke="#1e1e2a" stroke-width="1"/>
+        <polygon id="triStateA" points="45,6 8,78 82,78" fill="rgba(128,144,200,0.08)" stroke="rgba(128,144,200,0.35)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle id="triDotA" cx="45" cy="54" r="3" fill="#8090c8" opacity="0.85"/>
+        <text x="45" y="3" text-anchor="middle" font-family="DM Mono" font-size="5.5" fill="#505868" letter-spacing="1">DIR</text>
+        <text x="1" y="83" font-family="DM Mono" font-size="5.5" fill="#505060" letter-spacing="1">CONT</text>
+        <text x="89" y="83" text-anchor="end" font-family="DM Mono" font-size="5.5" fill="#406050" letter-spacing="1">DIFF</text>
+      </svg>
+      <div class="tri-notes" id="triNotesA">
+        <div class="tri-note" style="border-color:#505060;color:#7878a8">Containment: —</div>
+        <div class="tri-note" style="border-color:#406050;color:#609070">Diffusion: —</div>
+        <div class="tri-note" style="border-color:#505868;color:#909060">Direction: —</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL B: COMPLETING -->
+
+  <div class="panel panel-b">
+    <div class="panel-header">
+      <div>
+        <div class="panel-sub">Scenario B</div>
+        <div class="panel-title">Moving / Completing</div>
+      </div>
+      <div class="panel-sub" style="text-align:right">λ moderate · κ opens<br>passage forms</div>
+    </div>
+    <div class="canvas-stack" id="stackB">
+      <canvas id="baseB"></canvas>
+      <canvas id="zonesB"></canvas>
+      <canvas id="attrB"></canvas>
+      <canvas id="coupB"></canvas>
+      <canvas id="probeB"></canvas>
+    </div>
+    <div class="stage-strip">
+      <div class="sname" id="snameB">—</div>
+      <div class="sdesc" id="sdescB">—</div>
+    </div>
+    <div class="param-block" id="paramsB"></div>
+    <div class="tri-block">
+      <svg id="triB" width="90" height="84" viewBox="0 0 90 84">
+        <polygon points="45,6 8,78 82,78" fill="none" stroke="#1e1e2a" stroke-width="1"/>
+        <polygon id="triStateB" points="45,6 8,78 82,78" fill="rgba(122,170,136,0.08)" stroke="rgba(122,170,136,0.35)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle id="triDotB" cx="45" cy="54" r="3" fill="#7aaa88" opacity="0.85"/>
+        <text x="45" y="3" text-anchor="middle" font-family="DM Mono" font-size="5.5" fill="#505868" letter-spacing="1">DIR</text>
+        <text x="1" y="83" font-family="DM Mono" font-size="5.5" fill="#505060" letter-spacing="1">CONT</text>
+        <text x="89" y="83" text-anchor="end" font-family="DM Mono" font-size="5.5" fill="#406050" letter-spacing="1">DIFF</text>
+      </svg>
+      <div class="tri-notes" id="triNotesB">
+        <div class="tri-note" style="border-color:#505060;color:#7878a8">Containment: —</div>
+        <div class="tri-note" style="border-color:#406050;color:#609070">Diffusion: —</div>
+        <div class="tri-note" style="border-color:#505868;color:#909060">Direction: —</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Timelines -->
+
+<div class="tl-wrap">
+  <div class="tl-label">Activation history · λ attractor (blue/green) · σ volatility (red) · γ damping (violet)</div>
+  <div class="tl-row">
+    <div class="tl-canvas-wrap"><canvas id="tlA"></canvas></div>
+    <div class="tl-canvas-wrap"><canvas id="tlB"></canvas></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn active" id="playBtn">▶ PLAY</button>
+  <button class="btn" id="resetBtn">↺ RESET</button>
+  <div class="prog-track" id="progTrack">
+    <div class="prog-fill" id="progFill"></div>
+    <div class="prog-head" id="progHead"></div>
+  </div>
+</div>
+
+<script>
+// ── Canvas dimensions ──────────────────────────────────────────
+const CW = 420, CH = 300, TLH = 48, TL_MAX = 380;
+
+function setupStack(ids) {
+  const stack = document.getElementById('stack'+ids);
+  stack.style.height = CH + 'px';
+  const canvases = {};
+  ['base','zones','attr','coup','probe'].forEach(name => {
+    const c = document.getElementById(name + ids);
+    c.width = CW; c.height = CH;
+    canvases[name] = c.getContext('2d');
+  });
+  const tlc = document.getElementById('tl'+ids);
+  tlc.width = CW; tlc.height = TLH;
+  return { ...canvases, tl: tlc.getContext('2d') };
+}
+
+const ctxA = setupStack('A');
+const ctxB = setupStack('B');
+
+// Offscreen canvases (half-res)
+function makeOff() {
+  const c = document.createElement('canvas');
+  c.width = CW>>1; c.height = CH>>1;
+  return { c, ctx: c.getContext('2d') };
+}
+const offA = makeOff(), offB = makeOff();
+
+// ── Zone definitions ───────────────────────────────────────────
+const ZONE_HOME = {
+  physio:    { cx:0.24, cy:0.60, r:0.24 },
+  feeling:   { cx:0.50, cy:0.44, r:0.28 },
+  cognition: { cx:0.74, cy:0.28, r:0.22 },
+  behavior:  { cx:0.76, cy:0.68, r:0.22 },
+};
+const ZONE_COL = {
+  physio:    { h:228, s:48, l:58 },
+  feeling:   { h:210, s:38, l:62 },
+  cognition: { h:260, s:35, l:58 },
+  behavior:  { h:160, s:40, l:52 },
+};
+
+// ── SCENARIO A: Blocked grief ──────────────────────────────────
+// Character: λ stays high, κ never opens enough, cognition pulls back
+// each wave, rhythm loops without completion
+const STAGES_A = [
+  {
+    name: 'Before the wave',
+    desc: 'low activation · dull weight',
+    dur: 2200,
+    params: { lambda:0.35, sigma:0.18, gamma:0.62, kappa:0.28, drift:0.20 },
+    sources: [
+      { x:0.50, y:0.50, amp:0.30, vx: 0.00004, vy: 0.00002, sigX:0.22, sigY:0.22 },
+      { x:0.36, y:0.58, amp:0.18, vx:-0.00002, vy: 0.00003, sigX:0.18, sigY:0.18 },
+    ],
+    zones: { physio:0.32, feeling:0.38, cognition:0.20, behavior:0.10 },
+    coupling: [{ a:'physio', b:'feeling', strength:0.42 }],
+    attractor: { x:0.42, y:0.50, depth:0.32 },
+    probe: { x:0.58, y:0.55 },
+    reg: { contain:0.58, diffuse:0.30, direct:0.22 },
+    triNotes: ['holding — dull weight','partially open','no clear lean'],
+  },
+  {
+    name: 'Wave rises',
+    desc: 'memory activates · feeling surges',
+    dur: 2400,
+    params: { lambda:0.75, sigma:0.55, gamma:0.28, kappa:0.38, drift:0.35 },
+    sources: [
+      { x:0.40, y:0.48, amp:0.88, vx:-0.00004, vy: 0.00003, sigX:0.16, sigY:0.18 },
+      { x:0.24, y:0.38, amp:0.55, vx: 0.00003, vy:-0.00004, sigX:0.12, sigY:0.12 },
+      { x:0.58, y:0.36, amp:0.42, vx:-0.00003, vy:-0.00003, sigX:0.14, sigY:0.14 },
+    ],
+    zones: { physio:0.72, feeling:0.85, cognition:0.35, behavior:0.22 },
+    coupling: [
+      { a:'physio', b:'feeling',   strength:0.82 },
+      { a:'feeling', b:'cognition', strength:0.45 },
+    ],
+    attractor: { x:0.40, y:0.48, depth:0.72 },
+    probe: { x:0.40, y:0.48 },
+    reg: { contain:0.32, diffuse:0.40, direct:0.35 },
+    triNotes: ['strained — wave incoming','opening — some spread','toward loss basin'],
+  },
+  {
+    name: 'Peak — full heaviness',
+    desc: 'loss theme dominates · body loaded',
+    dur: 2600,
+    params: { lambda:0.88, sigma:0.48, gamma:0.22, kappa:0.24, drift:0.28 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.95, vx:-0.00002, vy: 0.00002, sigX:0.14, sigY:0.16 },
+      { x:0.22, y:0.35, amp:0.65, vx: 0.00003, vy:-0.00003, sigX:0.10, sigY:0.10 },
+      { x:0.56, y:0.34, amp:0.50, vx:-0.00003, vy:-0.00002, sigX:0.12, sigY:0.12 },
+      { x:0.34, y:0.62, amp:0.42, vx: 0.00002, vy: 0.00003, sigX:0.10, sigY:0.10 },
+    ],
+    zones: { physio:0.90, feeling:0.92, cognition:0.55, behavior:0.18 },
+    coupling: [
+      { a:'physio',    b:'feeling',   strength:0.92 },
+      { a:'feeling',   b:'cognition', strength:0.65 },
+      { a:'cognition', b:'physio',    strength:0.48 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.90 },
+    probe: { x:0.40, y:0.50 },
+    reg: { contain:0.18, diffuse:0.22, direct:0.28 },
+    triNotes: ['collapsed — wave peak','sealed — blocked','directionless — stuck'],
+  },
+  {
+    name: 'Cognition pulls back',
+    desc: '"I shouldn\'t feel this" · suppression',
+    dur: 2200,
+    params: { lambda:0.82, sigma:0.42, gamma:0.35, kappa:0.12, drift:0.68 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.82, vx: 0.00003, vy: 0.00002, sigX:0.13, sigY:0.15 },
+      { x:0.72, y:0.26, amp:0.72, vx:-0.00003, vy:-0.00002, sigX:0.10, sigY:0.10 },
+      { x:0.22, y:0.35, amp:0.45, vx: 0.00002, vy:-0.00002, sigX:0.09, sigY:0.09 },
+    ],
+    zones: { physio:0.60, feeling:0.58, cognition:0.92, behavior:0.35 },
+    coupling: [
+      { a:'cognition', b:'feeling',  strength:0.85 },
+      { a:'cognition', b:'physio',   strength:0.70 },
+      { a:'behavior',  b:'cognition', strength:0.55 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.82 },
+    probe: { x:0.52, y:0.44 },
+    reg: { contain:0.30, diffuse:0.10, direct:0.70 },
+    triNotes: ['suppression active','sealed off — shrinking','cognition overriding'],
+  },
+  {
+    name: 'False settling',
+    desc: 'surface calm · attractor intact',
+    dur: 2400,
+    params: { lambda:0.72, sigma:0.22, gamma:0.55, kappa:0.16, drift:0.42 },
+    sources: [
+      { x:0.44, y:0.52, amp:0.52, vx: 0.00003, vy: 0.00002, sigX:0.16, sigY:0.16 },
+      { x:0.66, y:0.30, amp:0.35, vx:-0.00003, vy:-0.00002, sigX:0.12, sigY:0.11 },
+    ],
+    zones: { physio:0.40, feeling:0.35, cognition:0.55, behavior:0.28 },
+    coupling: [
+      { a:'cognition', b:'feeling',  strength:0.55 },
+      { a:'cognition', b:'physio',   strength:0.42 },
+    ],
+    attractor: { x:0.44, y:0.52, depth:0.68 },
+    probe: { x:0.62, y:0.58 },
+    reg: { contain:0.52, diffuse:0.16, direct:0.42 },
+    triNotes: ['surface only — basin intact','still narrow — no integration','drift muted but held'],
+  },
+  {
+    name: 'Wave returns',
+    desc: 'cue reactivates · loop confirmed',
+    dur: 2800,
+    params: { lambda:0.86, sigma:0.58, gamma:0.25, kappa:0.20, drift:0.32 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.90, vx:-0.00003, vy: 0.00003, sigX:0.14, sigY:0.16 },
+      { x:0.22, y:0.34, amp:0.62, vx: 0.00003, vy:-0.00003, sigX:0.10, sigY:0.10 },
+      { x:0.56, y:0.34, amp:0.48, vx:-0.00003, vy:-0.00002, sigX:0.12, sigY:0.12 },
+      { x:0.34, y:0.62, amp:0.38, vx: 0.00002, vy: 0.00003, sigX:0.09, sigY:0.09 },
+    ],
+    zones: { physio:0.82, feeling:0.88, cognition:0.48, behavior:0.20 },
+    coupling: [
+      { a:'physio',    b:'feeling',   strength:0.88 },
+      { a:'feeling',   b:'cognition', strength:0.58 },
+      { a:'cognition', b:'physio',    strength:0.52 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.88 },
+    probe: { x:0.40, y:0.50 },
+    reg: { contain:0.20, diffuse:0.20, direct:0.30 },
+    triNotes: ['collapsed again — loop confirmed','sealed — no new passage','loss basin deepening'],
+  },
+];
+
+// ── SCENARIO B: Completing grief ──────────────────────────────
+// Character: λ rises then softens, κ genuinely opens mid-arc,
+// feeling zone expands, attractor basin flattens, probe moves through
+const STAGES_B = [
+  {
+    name: 'Before the wave',
+    desc: 'low activation · quiet weight',
+    dur: 2200,
+    params: { lambda:0.32, sigma:0.16, gamma:0.65, kappa:0.32, drift:0.22 },
+    sources: [
+      { x:0.52, y:0.50, amp:0.28, vx: 0.00004, vy: 0.00002, sigX:0.22, sigY:0.22 },
+      { x:0.38, y:0.58, amp:0.16, vx:-0.00002, vy: 0.00003, sigX:0.18, sigY:0.18 },
+    ],
+    zones: { physio:0.30, feeling:0.36, cognition:0.18, behavior:0.10 },
+    coupling: [{ a:'physio', b:'feeling', strength:0.40 }],
+    attractor: { x:0.44, y:0.50, depth:0.30 },
+    probe: { x:0.60, y:0.55 },
+    reg: { contain:0.62, diffuse:0.34, direct:0.22 },
+    triNotes: ['holding — quiet weight','gently open','no lean yet'],
+  },
+  {
+    name: 'Wave rises',
+    desc: 'memory activates · feeling opens',
+    dur: 2400,
+    params: { lambda:0.72, sigma:0.52, gamma:0.30, kappa:0.52, drift:0.38 },
+    sources: [
+      { x:0.42, y:0.48, amp:0.85, vx:-0.00004, vy: 0.00003, sigX:0.17, sigY:0.19 },
+      { x:0.26, y:0.36, amp:0.52, vx: 0.00003, vy:-0.00004, sigX:0.13, sigY:0.12 },
+      { x:0.58, y:0.36, amp:0.40, vx:-0.00003, vy:-0.00003, sigX:0.15, sigY:0.14 },
+    ],
+    zones: { physio:0.68, feeling:0.88, cognition:0.30, behavior:0.25 },
+    coupling: [
+      { a:'physio',  b:'feeling',  strength:0.80 },
+      { a:'feeling', b:'behavior', strength:0.40 },
+    ],
+    attractor: { x:0.42, y:0.48, depth:0.68 },
+    probe: { x:0.42, y:0.48 },
+    reg: { contain:0.35, diffuse:0.54, direct:0.38 },
+    triNotes: ['strained — wave rises','opening — feeling diffuses','toward expression'],
+  },
+  {
+    name: 'Peak — fullness',
+    desc: 'grief allowed · body and feeling full',
+    dur: 2600,
+    params: { lambda:0.82, sigma:0.45, gamma:0.25, kappa:0.62, drift:0.42 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.92, vx:-0.00002, vy: 0.00003, sigX:0.16, sigY:0.18 },
+      { x:0.24, y:0.35, amp:0.60, vx: 0.00003, vy:-0.00003, sigX:0.11, sigY:0.11 },
+      { x:0.56, y:0.35, amp:0.48, vx:-0.00003, vy:-0.00002, sigX:0.13, sigY:0.13 },
+      { x:0.38, y:0.64, amp:0.40, vx: 0.00002, vy: 0.00003, sigX:0.11, sigY:0.11 },
+    ],
+    zones: { physio:0.85, feeling:0.95, cognition:0.42, behavior:0.38 },
+    coupling: [
+      { a:'physio',   b:'feeling',  strength:0.90 },
+      { a:'feeling',  b:'behavior', strength:0.65 },
+      { a:'feeling',  b:'cognition', strength:0.42 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.82 },
+    probe: { x:0.40, y:0.50 },
+    reg: { contain:0.22, diffuse:0.62, direct:0.42 },
+    triNotes: ['held — allowed not suppressed','wide open — wave spreading','expression emerging'],
+  },
+  {
+    name: 'Expression — wave moves',
+    desc: 'feeling given form · diffusion opens',
+    dur: 2400,
+    params: { lambda:0.65, sigma:0.38, gamma:0.42, kappa:0.78, drift:0.52 },
+    sources: [
+      { x:0.42, y:0.50, amp:0.70, vx: 0.00004, vy: 0.00003, sigX:0.20, sigY:0.20 },
+      { x:0.62, y:0.44, amp:0.45, vx: 0.00005, vy:-0.00003, sigX:0.18, sigY:0.16 },
+      { x:0.26, y:0.56, amp:0.38, vx:-0.00004, vy: 0.00002, sigX:0.16, sigY:0.16 },
+    ],
+    zones: { physio:0.62, feeling:0.78, cognition:0.38, behavior:0.68 },
+    coupling: [
+      { a:'feeling',  b:'behavior', strength:0.80 },
+      { a:'feeling',  b:'cognition', strength:0.55 },
+      { a:'behavior', b:'physio',    strength:0.60 },
+    ],
+    attractor: { x:0.44, y:0.50, depth:0.58 },
+    probe: { x:0.56, y:0.50 },
+    reg: { contain:0.42, diffuse:0.78, direct:0.52 },
+    triNotes: ['stabilizing — held well','spreading — integrating','toward contact or expression'],
+  },
+  {
+    name: 'Settling — basin softening',
+    desc: 'attractor flattens · spread redistributes',
+    dur: 2800,
+    params: { lambda:0.42, sigma:0.22, gamma:0.62, kappa:0.72, drift:0.45 },
+    sources: [
+      { x:0.48, y:0.52, amp:0.45, vx: 0.00003, vy: 0.00002, sigX:0.24, sigY:0.24 },
+      { x:0.64, y:0.46, amp:0.28, vx: 0.00004, vy:-0.00002, sigX:0.20, sigY:0.18 },
+      { x:0.32, y:0.56, amp:0.22, vx:-0.00003, vy: 0.00002, sigX:0.18, sigY:0.18 },
+    ],
+    zones: { physio:0.42, feeling:0.55, cognition:0.32, behavior:0.48 },
+    coupling: [
+      { a:'feeling',  b:'behavior', strength:0.55 },
+      { a:'physio',   b:'feeling',  strength:0.45 },
+    ],
+    attractor: { x:0.48, y:0.52, depth:0.35 },
+    probe: { x:0.64, y:0.52 },
+    reg: { contain:0.62, diffuse:0.72, direct:0.45 },
+    triNotes: ['settling — basin softening','open — redistribution','movement without fixation'],
+  },
+  {
+    name: 'Passage',
+    desc: 'activation reduced · field opens · rhythm completes',
+    dur: 3000,
+    params: { lambda:0.22, sigma:0.14, gamma:0.78, kappa:0.82, drift:0.35 },
+    sources: [
+      { x:0.52, y:0.54, amp:0.24, vx: 0.00003, vy: 0.00002, sigX:0.28, sigY:0.28 },
+      { x:0.68, y:0.48, amp:0.14, vx: 0.00003, vy:-0.00002, sigX:0.22, sigY:0.20 },
+    ],
+    zones: { physio:0.22, feeling:0.30, cognition:0.18, behavior:0.28 },
+    coupling: [
+      { a:'feeling', b:'physio', strength:0.28 },
+    ],
+    attractor: { x:0.52, y:0.54, depth:0.14 },
+    probe: { x:0.72, y:0.60 },
+    reg: { contain:0.78, diffuse:0.82, direct:0.35 },
+    triNotes: ['restored — holding gently','open — integrated','flexible — no fixed pull'],
+  },
+];
+
+const TOTAL_DUR = Math.max(
+  STAGES_A.reduce((s,st)=>s+st.dur,0),
+  STAGES_B.reduce((s,st)=>s+st.dur,0)
+);
+
+// ── State ──────────────────────────────────────────────────────
+let playing = false, elapsed = 0, lastTS = null, globalT = 0, rafId = null;
+
+function makeState(stages) {
+  return {
+    params:  { ...stages[0].params },
+    zones:   { ...stages[0].zones },
+    attr:    { ...stages[0].attractor },
+    reg:     { ...stages[0].reg },
+    coupling:[],
+    probe:   { ...stages[0].probe },
+    pvx: 0, pvy: 0,
+    sources: stages[0].sources.map(s=>({...s})),
+    tlHistory: [],
+  };
+}
+let stA = makeState(STAGES_A);
+let stB = makeState(STAGES_B);
+
+// ── Helpers ────────────────────────────────────────────────────
+const lerp = (a,b,t) => a+(b-a)*t;
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const ease = t => t<0.5?2*t*t:-1+(4-2*t)*t;
+
+function getStateAt(stages, el) {
+  let acc = 0;
+  for (let i=0; i<stages.length; i++) {
+    const st = stages[i];
+    if (el < acc+st.dur || i===stages.length-1) {
+      const raw = clamp((el-acc)/st.dur,0,1);
+      const t   = ease(raw);
+      const nx  = stages[Math.min(i+1,stages.length-1)];
+      return { stage:st, next:nx, t };
+    }
+    acc += st.dur;
+  }
+}
+
+function lerpSources(sA,sB,t) {
+  const len = Math.max(sA.length,sB.length);
+  const res = [];
+  for (let i=0;i<len;i++) {
+    const a = sA[i]||{x:0.5,y:0.5,amp:0,vx:0,vy:0,sigX:0.16,sigY:0.16};
+    const b = sB[i]||{x:0.5,y:0.5,amp:0,vx:0,vy:0,sigX:0.16,sigY:0.16};
+    res.push({ x:lerp(a.x,b.x,t), y:lerp(a.y,b.y,t), amp:lerp(a.amp,b.amp,t),
+      vx:lerp(a.vx,b.vx,t), vy:lerp(a.vy,b.vy,t),
+      sigX:lerp(a.sigX,b.sigX,t), sigY:lerp(a.sigY,b.sigY,t) });
+  }
+  return res;
+}
+
+function lerpObj(a,b,t) {
+  const r={};
+  for (const k in a) r[k]=lerp(a[k], b[k]??a[k], t);
+  return r;
+}
+
+function smoothLerp(cur,tgt,f) {
+  const r={};
+  for (const k in tgt) r[k]=lerp(cur[k]??tgt[k],tgt[k],f);
+  return r;
+}
+
+// ── Field ──────────────────────────────────────────────────────
+function fieldVal(x,y,sources,W,H) {
+  const nx=x/W, ny=y/H; let v=0;
+  for (const s of sources) {
+    const dx=(nx-s.x)/s.sigX, dy=(ny-s.y)/s.sigY;
+    v += s.amp*Math.exp(-(dx*dx+dy*dy)*0.5);
+  }
+  return clamp(v,0,1);
+}
+
+// Grief color map — cool blues/indigos with deep violet at peak
+function grieveColor(h) {
+  if      (h<0.04) return [6,7,10];
+  else if (h<0.20) { const q=h/0.20;      return [6+q*18, 7+q*14, 10+q*28]; }
+  else if (h<0.42) { const q=(h-0.20)/0.22; return [24+q*38, 21+q*32, 38+q*55]; }
+  else if (h<0.65) { const q=(h-0.42)/0.23; return [62+q*55, 53+q*30, 93+q*65]; }
+  else             { const q=(h-0.65)/0.35; return [117+q*50, 83+q*15, 158+q*60]; }
+}
+
+function renderBase(off, ctx, sources, sigma, t) {
+  const sw=off.c.width, sh=off.c.height;
+  const W2=CW, H2=CH;
+  const img=off.ctx.createImageData(sw,sh);
+  const d=img.data;
+  for (let y=0;y<sh;y++) for (let x=0;x<sw;x++) {
+    const h=fieldVal(x*2,y*2,sources,W2,H2);
+    const idx=(y*sw+x)*4;
+    const [r,g,b]=grieveColor(h);
+    d[idx]=r; d[idx+1]=g; d[idx+2]=b; d[idx+3]=255;
+  }
+  off.ctx.putImageData(img,0,0);
+  ctx.base.clearRect(0,0,CW,CH);
+  ctx.base.drawImage(off.c,0,0,CW,CH);
+
+  // Grid
+  ctx.base.strokeStyle='rgba(255,255,255,0.02)';
+  ctx.base.lineWidth=1;
+  for (let x=0;x<CW;x+=40){ctx.base.beginPath();ctx.base.moveTo(x,0);ctx.base.lineTo(x,CH);ctx.base.stroke();}
+  for (let y=0;y<CH;y+=40){ctx.base.beginPath();ctx.base.moveTo(0,y);ctx.base.lineTo(CW,y);ctx.base.stroke();}
+
+  // Contours
+  const levels=[0.10,0.26,0.44,0.62,0.78];
+  levels.forEach((lv,li)=>{
+    ctx.base.beginPath();
+    const step=6;
+    for (let y=step;y<CH-step;y+=step) for (let x=step;x<CW-step;x+=step) {
+      const corners=[[x,y],[x+step,y],[x+step,y+step],[x,y+step]].map(([cx,cy])=>fieldVal(cx,cy,sources,CW,CH));
+      for (let i=0;i<4;i++) {
+        const ha=corners[i],hb=corners[(i+1)%4];
+        if ((ha>=lv)!==(hb>=lv)) {
+          const tt=(lv-ha)/(hb-ha);
+          const pts=[[x,y],[x+step,y],[x+step,y+step],[x,y+step]];
+          const pa=pts[i],pb=pts[(i+1)%4];
+          ctx.base.moveTo(pa[0]+tt*(pb[0]-pa[0]),pa[1]+tt*(pb[1]-pa[1]));
+          ctx.base.arc(pa[0]+tt*(pb[0]-pa[0]),pa[1]+tt*(pb[1]-pa[1]),0.65,0,Math.PI*2);
+        }
+      }
+    }
+    ctx.base.fillStyle=`rgba(190,180,240,${0.04+li*0.04})`;
+    ctx.base.fill();
+  });
+
+  // Flow vectors
+  const vstep=52, eps=6;
+  for (let y=vstep/2;y<CH;y+=vstep) for (let x=vstep/2;x<CW;x+=vstep) {
+    const h=fieldVal(x,y,sources,CW,CH);
+    if (h<0.05) continue;
+    const ddx=(fieldVal(x+eps,y,sources,CW,CH)-fieldVal(x-eps,y,sources,CW,CH))/(2*eps);
+    const ddy=(fieldVal(x,y+eps,sources,CW,CH)-fieldVal(x,y-eps,sources,CW,CH))/(2*eps);
+    const mag=Math.sqrt(ddx*ddx+ddy*ddy);
+    if (mag<0.0003) continue;
+    const sc=Math.min(18,mag*260);
+    const ndx=-ddx/mag, ndy=-ddy/mag;
+    const wb=Math.sin(t*0.002+x*0.05+y*0.04)*0.5;
+    const ex=x+ndx*(sc+wb), ey=y+ndy*(sc+wb);
+    const al=Math.min(0.48,h*0.55);
+    ctx.base.beginPath();ctx.base.moveTo(x,y);ctx.base.lineTo(ex,ey);
+    ctx.base.strokeStyle=`rgba(160,155,210,${al})`;ctx.base.lineWidth=0.8;ctx.base.stroke();
+    const ang=Math.atan2(ndy,ndx);
+    ctx.base.beginPath();
+    ctx.base.moveTo(ex,ey);ctx.base.lineTo(ex-4.5*Math.cos(ang-0.5),ey-4.5*Math.sin(ang-0.5));
+    ctx.base.moveTo(ex,ey);ctx.base.lineTo(ex-4.5*Math.cos(ang+0.5),ey-4.5*Math.sin(ang+0.5));
+    ctx.base.strokeStyle=`rgba(160,155,210,${al*1.4})`;ctx.base.lineWidth=0.8;ctx.base.stroke();
+  }
+}
+
+function drawZones(ctx, zones, t) {
+  ctx.zones.clearRect(0,0,CW,CH);
+  Object.entries(zones).forEach(([key,act])=>{
+    if (act<0.04) return;
+    const home=ZONE_HOME[key];
+    const cx=lerp(home.cx,0.50,act*0.25)*CW;
+    const cy=lerp(home.cy,0.48,act*0.20)*CH;
+    const r =lerp(home.r, 0.32,act*0.28)*CW;
+    const col=ZONE_COL[key];
+
+    const grd=ctx.zones.createRadialGradient(cx,cy,0,cx,cy,r);
+    grd.addColorStop(0,  `hsla(${col.h},${col.s}%,${col.l}%,${act*0.20})`);
+    grd.addColorStop(0.5,`hsla(${col.h},${col.s}%,${col.l*0.7}%,${act*0.10})`);
+    grd.addColorStop(1,  `hsla(${col.h},${col.s}%,${col.l*0.4}%,0)`);
+    ctx.zones.beginPath();ctx.zones.arc(cx,cy,r,0,Math.PI*2);
+    ctx.zones.fillStyle=grd;ctx.zones.fill();
+
+    ctx.zones.beginPath();ctx.zones.arc(cx,cy,r*0.70,0,Math.PI*2);
+    ctx.zones.strokeStyle=`hsla(${col.h},${col.s}%,${col.l}%,${act*0.32})`;
+    ctx.zones.lineWidth=1;ctx.zones.setLineDash([4,5]);ctx.zones.stroke();ctx.zones.setLineDash([]);
+
+    const la=clamp(act*1.3,0,0.88);
+    ctx.zones.font='400 7px "DM Mono"';ctx.zones.textAlign='center';
+    ctx.zones.fillStyle=`hsla(${col.h},${col.s}%,${col.l+15}%,${la})`;
+    ctx.zones.fillText(key.toUpperCase(),cx,cy-r*0.78);
+    const bw=r*0.95, bh=2.5, bx=cx-bw/2, by=cy-r*0.78+4;
+    ctx.zones.fillStyle='rgba(10,12,16,0.5)';ctx.zones.fillRect(bx,by,bw,bh);
+    ctx.zones.fillStyle=`hsla(${col.h},${col.s}%,${col.l}%,${la*0.85})`;
+    ctx.zones.fillRect(bx,by,bw*act,bh);
+    ctx.zones.textAlign='left';
+  });
+}
+
+function drawAttractor(ctx, attr, lambda, t) {
+  ctx.attr.clearRect(0,0,CW,CH);
+  if (lambda<0.10) return;
+  const cx=attr.x*CW, cy=attr.y*CH, depth=attr.depth;
+  const pulse=0.5+0.5*Math.sin(t*0.0018);
+  for (let i=6;i>=1;i--) {
+    const rFrac=i/6;
+    const r=80*rFrac*(1-depth*0.45)+depth*7;
+    const al=depth*(0.05+(1-rFrac)*0.11)*(0.7+pulse*0.3);
+    ctx.attr.beginPath();ctx.attr.arc(cx,cy,r,0,Math.PI*2);
+    ctx.attr.strokeStyle=`rgba(150,140,220,${al})`;
+    ctx.attr.lineWidth=0.7+depth*0.5;
+    ctx.attr.setLineDash([i%2===0?5:3,i%2===0?4:6]);ctx.attr.stroke();ctx.attr.setLineDash([]);
+  }
+  const gr=25*depth;
+  if (gr>2) {
+    const grd=ctx.attr.createRadialGradient(cx,cy,0,cx,cy,gr);
+    grd.addColorStop(0,`rgba(160,150,230,${depth*0.30*pulse})`);
+    grd.addColorStop(1,`rgba(100,90,180,0)`);
+    ctx.attr.beginPath();ctx.attr.arc(cx,cy,gr,0,Math.PI*2);
+    ctx.attr.fillStyle=grd;ctx.attr.fill();
+  }
+  const la=clamp((lambda-0.10)/0.5,0,1);
+  if (la>0.2) {
+    ctx.attr.textAlign='center';
+    ctx.attr.font='400 7px "DM Mono"';
+    ctx.attr.fillStyle=`rgba(150,140,210,${la*0.80})`;
+    ctx.attr.fillText('LOSS ATTRACTOR',cx,cy-84);
+    ctx.attr.font='italic 300 9px "Cormorant Garamond"';
+    ctx.attr.fillStyle=`rgba(150,140,210,${la*0.52})`;
+    ctx.attr.fillText(`λ ${lambda.toFixed(2)} · depth ${depth.toFixed(2)}`,cx,cy-73);
+    ctx.attr.textAlign='left';
+  }
+}
+
+function drawCoupling(ctx, couplings, zones, t) {
+  ctx.coup.clearRect(0,0,CW,CH);
+  couplings.forEach(({a,b,strength})=>{
+    if (strength<0.08) return;
+    const za=ZONE_HOME[a], zb=ZONE_HOME[b];
+    const zav=zones[a], zbv=zones[b];
+    const ax=lerp(za.cx,0.50,zav*0.25)*CW, ay=lerp(za.cy,0.48,zav*0.20)*CH;
+    const bx=lerp(zb.cx,0.50,zbv*0.25)*CW, by=lerp(zb.cy,0.48,zbv*0.20)*CH;
+    const mx=(ax+bx)*0.5, my=(ay+by)*0.5;
+    const dx=bx-ax,dy=by-ay;
+    const cpx=mx-dy*0.20, cpy=my+dx*0.20;
+    const phase=t*0.003+(a.charCodeAt(0)+b.charCodeAt(0))*0.1;
+    const pulse=0.5+0.5*Math.sin(phase);
+    const al=strength*(0.45+pulse*0.40);
+
+    ctx.coup.beginPath();ctx.coup.moveTo(ax,ay);ctx.coup.quadraticCurveTo(cpx,cpy,bx,by);
+    ctx.coup.strokeStyle=`rgba(170,165,220,${al*0.22})`;ctx.coup.lineWidth=strength*5;ctx.coup.stroke();
+    ctx.coup.beginPath();ctx.coup.moveTo(ax,ay);ctx.coup.quadraticCurveTo(cpx,cpy,bx,by);
+    ctx.coup.strokeStyle=`rgba(200,195,240,${al*0.68})`;ctx.coup.lineWidth=strength*1.6;ctx.coup.stroke();
+
+    const dt=Math.sin(phase*1.3)*0.5+0.5;
+    const dtx=(1-dt)*(1-dt)*ax+2*(1-dt)*dt*cpx+dt*dt*bx;
+    const dty=(1-dt)*(1-dt)*ay+2*(1-dt)*dt*cpy+dt*dt*by;
+    ctx.coup.beginPath();ctx.coup.arc(dtx,dty,2.2,0,Math.PI*2);
+    ctx.coup.fillStyle=`rgba(220,215,255,${al})`;ctx.coup.fill();
+  });
+}
+
+function updateProbe(state, targetX, targetY, sources) {
+  const tx=targetX*CW, ty=targetY*CH;
+  const px=state.probe.x*CW, py=state.probe.y*CH;
+  const spring=0.0016, damp=0.88;
+  state.pvx += (tx-px)*spring;
+  state.pvy += (ty-py)*spring;
+  const eps=7;
+  const gx=(fieldVal(px+eps,py,sources,CW,CH)-fieldVal(px-eps,py,sources,CW,CH))/(2*eps);
+  const gy=(fieldVal(px,py+eps,sources,CW,CH)-fieldVal(px,py-eps,sources,CW,CH))/(2*eps);
+  state.pvx -= gx*0.7; state.pvy -= gy*0.7;
+  state.pvx *= damp; state.pvy *= damp;
+  state.probe.x = clamp((px+state.pvx)/CW,0.02,0.98);
+  state.probe.y = clamp((py+state.pvy)/CH,0.02,0.98);
+}
+
+function drawProbe(ctx, state, t, params) {
+  ctx.probe.clearRect(0,0,CW,CH);
+  const px=state.probe.x*CW, py=state.probe.y*CH;
+  const pulse=0.5+0.5*Math.sin(t*0.005);
+  const intensity=params.lambda;
+  [30,18,10].forEach((r,i)=>{
+    ctx.probe.beginPath();ctx.probe.arc(px,py,r*(0.8+pulse*0.22),0,Math.PI*2);
+    ctx.probe.fillStyle=`rgba(160,155,220,${(1-i/3)*0.10*intensity*pulse})`;ctx.probe.fill();
+  });
+  ctx.probe.beginPath();ctx.probe.arc(px,py,3.5+pulse*1.0,0,Math.PI*2);
+  ctx.probe.fillStyle=`rgba(210,205,240,${0.65+pulse*0.3})`;ctx.probe.fill();
+  ctx.probe.beginPath();ctx.probe.arc(px,py,2,0,Math.PI*2);
+  ctx.probe.fillStyle='#e0daf0';ctx.probe.fill();
+}
+
+function updateTL(ctx, history, params, accentColor) {
+  const act = params.lambda*0.5 + params.sigma*0.3 + (1-params.gamma)*0.2;
+  history.push({ lambda:params.lambda, sigma:params.sigma, gamma:params.gamma });
+  if (history.length>TL_MAX) history.shift();
+  const n=history.length;
+  ctx.tl.fillStyle='#08090c';ctx.tl.fillRect(0,0,CW,TLH);
+  [0.25,0.5,0.75].forEach(y=>{
+    ctx.tl.beginPath();ctx.tl.moveTo(0,y*TLH);ctx.tl.lineTo(CW,y*TLH);
+    ctx.tl.strokeStyle='rgba(255,255,255,0.025)';ctx.tl.lineWidth=1;ctx.tl.stroke();
+  });
+  if (n<2) return;
+  // Fill under lambda
+  ctx.tl.beginPath();
+  history.forEach((h,i)=>{ const x=(i/(TL_MAX-1))*CW, y=TLH-3-h.lambda*(TLH-6); i===0?ctx.tl.moveTo(x,y):ctx.tl.lineTo(x,y); });
+  ctx.tl.lineTo((n-1)/(TL_MAX-1)*CW,TLH); ctx.tl.lineTo(0,TLH); ctx.tl.closePath();
+  ctx.tl.fillStyle=accentColor.replace(')',',0.10)').replace('rgb','rgba');ctx.tl.fill();
+  // Lambda
+  ctx.tl.beginPath();
+  history.forEach((h,i)=>{ const x=(i/(TL_MAX-1))*CW,y=TLH-3-h.lambda*(TLH-6); i===0?ctx.tl.moveTo(x,y):ctx.tl.lineTo(x,y); });
+  ctx.tl.strokeStyle=accentColor;ctx.tl.lineWidth=1.5;ctx.tl.stroke();
+  // Sigma
+  ctx.tl.beginPath();
+  history.forEach((h,i)=>{ const x=(i/(TL_MAX-1))*CW,y=TLH-3-h.sigma*(TLH-6); i===0?ctx.tl.moveTo(x,y):ctx.tl.lineTo(x,y); });
+  ctx.tl.strokeStyle='rgba(190,100,100,0.55)';ctx.tl.lineWidth=1;ctx.tl.stroke();
+  // Gamma (inverted)
+  ctx.tl.beginPath();
+  history.forEach((h,i)=>{ const x=(i/(TL_MAX-1))*CW,y=TLH-3-(1-h.gamma)*(TLH-6); i===0?ctx.tl.moveTo(x,y):ctx.tl.lineTo(x,y); });
+  ctx.tl.strokeStyle='rgba(140,120,200,0.40)';ctx.tl.lineWidth=1;ctx.tl.stroke();
+}
+
+function buildParams(parentId, params, accentColor) {
+  const el = document.getElementById(parentId);
+  el.innerHTML = '';
+  const defs = [
+    { k:'lambda', sym:'λ', name:'Attractor', col:accentColor },
+    { k:'sigma',  sym:'σ', name:'Volatility', col:'rgba(190,100,100,1)' },
+    { k:'gamma',  sym:'γ', name:'Damping',    col:'rgba(140,120,200,1)' },
+    { k:'kappa',  sym:'κ', name:'Diffusion',  col:'rgba(100,160,130,1)' },
+    { k:'drift',  sym:'G', name:'Drift',      col:'rgba(160,160,100,1)' },
+  ];
+  defs.forEach(({k,sym,name,col})=>{
+    const row=document.createElement('div'); row.className='param-row';
+    row.innerHTML=`<span class="p-sym" style="color:${col}">${sym}</span>
+      <span class="p-name">${name}</span>
+      <div class="p-track"><div class="p-fill" id="pf-${parentId}-${k}" style="background:${col};width:${params[k]*100}%"></div></div>
+      <span class="p-val" id="pv-${parentId}-${k}">${params[k].toFixed(2)}</span>`;
+    el.appendChild(row);
+  });
+}
+
+function updateParamUI(parentId, params) {
+  ['lambda','sigma','gamma','kappa','drift'].forEach(k=>{
+    const f=document.getElementById('pf-'+parentId+'-'+k);
+    const v=document.getElementById('pv-'+parentId+'-'+k);
+    if(f) f.style.width=(params[k]*100).toFixed(0)+'%';
+    if(v) v.textContent=params[k].toFixed(2);
+  });
+}
+
+function updateTriangle(svgId, notesId, reg, notes) {
+  const D={x:45,y:6}, C={x:8,y:78}, Df={x:82,y:78};
+  function bary(d,c,df){return{x:d*D.x+c*C.x+df*Df.x, y:d*D.y+c*C.y+df*Df.y};}
+  const dW=reg.direct*0.82+0.05, cW=reg.contain*0.82+0.05, dfW=reg.diffuse*0.82+0.05;
+  const sT=bary(dW,(1-dW)*0.5,(1-dW)*0.5);
+  const sL=bary((1-cW)*0.5,cW,(1-cW)*0.5);
+  const sR=bary((1-dfW)*0.5,(1-dfW)*0.5,dfW);
+  document.getElementById('triState'+svgId).setAttribute('points',`${sT.x},${sT.y} ${sL.x},${sL.y} ${sR.x},${sR.y}`);
+  const dx=(sT.x+sL.x+sR.x)/3, dy=(sT.y+sL.y+sR.y)/3;
+  document.getElementById('triDot'+svgId).setAttribute('cx',dx.toFixed(1));
+  document.getElementById('triDot'+svgId).setAttribute('cy',dy.toFixed(1));
+  if (notes) {
+    const el=document.getElementById(notesId);
+    const children=el.querySelectorAll('.tri-note');
+    if(children[0]) children[0].textContent='Containment: '+notes[0];
+    if(children[1]) children[1].textContent='Diffusion: '+notes[1];
+    if(children[2]) children[2].textContent='Direction: '+notes[2];
+  }
+}
+
+// ── Tick both panels ───────────────────────────────────────────
+function tickPanel(stages, state, ctx, off, stateEl, notesId, svgSuffix, accentColor) {
+  const sv = getStateAt(stages, Math.min(elapsed, stages.reduce((s,st)=>s+st.dur,0)));
+  const { stage, next, t } = sv;
+
+  const tParams  = lerpObj(stage.params, next.params, t*0.32);
+  const tZones   = lerpObj(stage.zones,  next.zones,  t*0.32);
+  const tAttr    = lerpObj(stage.attractor, next.attractor, t*0.30);
+  const tReg     = lerpObj(stage.reg,    next.reg,    t*0.32);
+  const tSrcs    = lerpSources(stage.sources, next.sources, t*0.28);
+
+  const sf = 0.050;
+  state.params  = smoothLerp(state.params,  tParams,  sf);
+  state.zones   = smoothLerp(state.zones,   tZones,   sf*0.7);
+  state.attr    = smoothLerp(state.attr,    tAttr,    sf*0.5);
+  state.reg     = smoothLerp(state.reg,     tReg,     sf*0.5);
+
+  state.sources = lerpSources(state.sources, tSrcs, 0.038);
+  state.sources.forEach(s=>{
+    s.x=clamp(s.x+s.vx*16,0.05,0.95); s.y=clamp(s.y+s.vy*16,0.05,0.95);
+    if(s.x<0.08||s.x>0.92) s.vx*=-1;
+    if(s.y<0.08||s.y>0.92) s.vy*=-1;
+  });
+
+  state.coupling = stage.coupling.map((c,i)=>{
+    const nc=next.coupling[i]||{...c,strength:c.strength*0.3};
+    return {a:c.a,b:c.b,strength:lerp(c.strength,nc.strength,t*0.3)};
+  });
+
+  const tProbe = {
+    x:lerp(stage.probe.x,next.probe.x,t),
+    y:lerp(stage.probe.y,next.probe.y,t),
+  };
+  updateProbe(state, tProbe.x, tProbe.y, state.sources);
+
+  renderBase(off, ctx, state.sources, state.params.sigma, globalT);
+  drawZones(ctx, state.zones, globalT);
+  drawAttractor(ctx, state.attr, state.params.lambda, globalT);
+  drawCoupling(ctx, state.coupling, state.zones, globalT);
+  drawProbe(ctx, state, globalT, state.params);
+
+  updateParamUI(stateEl, state.params);
+  updateTL(ctx, state.tlHistory, state.params, accentColor);
+  updateTriangle(svgSuffix, notesId, state.reg, stage.triNotes);
+
+  document.getElementById('sname'+svgSuffix).textContent = stage.name;
+  document.getElementById('sdesc'+svgSuffix).textContent = stage.desc;
+}
+
+// ── Animation loop ─────────────────────────────────────────────
+function frame(ts) {
+  if (!playing) return;
+  const dt = lastTS ? Math.min(ts-lastTS,60) : 16;
+  lastTS = ts; globalT = ts;
+  elapsed = Math.min(elapsed+dt, TOTAL_DUR);
+
+  tickPanel(STAGES_A, stA, ctxA, offA, 'paramsA', 'triNotesA', 'A', 'rgba(128,144,200,0.85)');
+  tickPanel(STAGES_B, stB, ctxB, offB, 'paramsB', 'triNotesB', 'B', 'rgba(122,170,136,0.85)');
+
+  const pct = elapsed/TOTAL_DUR*100;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progHead').style.left=pct+'%';
+
+  if (elapsed>=TOTAL_DUR) {
+    playing=false;
+    document.getElementById('playBtn').textContent='▶ PLAY';
+    document.getElementById('playBtn').classList.remove('active');
+    return;
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+function resetAll() {
+  stA = makeState(STAGES_A);
+  stB = makeState(STAGES_B);
+  elapsed=0; lastTS=null;
+  buildParams('paramsA', STAGES_A[0].params, 'rgba(128,144,200,1)');
+  buildParams('paramsB', STAGES_B[0].params, 'rgba(122,170,136,1)');
+  tickPanel(STAGES_A, stA, ctxA, offA, 'paramsA', 'triNotesA', 'A', 'rgba(128,144,200,0.85)');
+  tickPanel(STAGES_B, stB, ctxB, offB, 'paramsB', 'triNotesB', 'B', 'rgba(122,170,136,0.85)');
+}
+
+document.getElementById('playBtn').addEventListener('click',()=>{
+  if (elapsed>=TOTAL_DUR) resetAll();
+  playing=!playing;
+  if (playing) {
+    lastTS=null;
+    document.getElementById('playBtn').textContent='⏸ PAUSE';
+    document.getElementById('playBtn').classList.add('active');
+    rafId=requestAnimationFrame(frame);
+  } else {
+    document.getElementById('playBtn').textContent='▶ PLAY';
+    document.getElementById('playBtn').classList.remove('active');
+    cancelAnimationFrame(rafId);
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  playing=false; cancelAnimationFrame(rafId);
+  document.getElementById('playBtn').textContent='▶ PLAY';
+  document.getElementById('playBtn').classList.remove('active');
+  document.getElementById('progFill').style.width='0%';
+  document.getElementById('progHead').style.left='0%';
+  resetAll();
+});
+
+document.getElementById('progTrack').addEventListener('click',e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  elapsed=(e.clientX-r.left)/r.width*TOTAL_DUR;
+  stA=makeState(STAGES_A); stB=makeState(STAGES_B);
+  buildParams('paramsA',STAGES_A[0].params,'rgba(128,144,200,1)');
+  buildParams('paramsB',STAGES_B[0].params,'rgba(122,170,136,1)');
+  tickPanel(STAGES_A,stA,ctxA,offA,'paramsA','triNotesA','A','rgba(128,144,200,0.85)');
+  tickPanel(STAGES_B,stB,ctxB,offB,'paramsB','triNotesB','B','rgba(122,170,136,0.85)');
+  const pct=elapsed/TOTAL_DUR*100;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progHead').style.left=pct+'%';
+});
+
+resetAll();
+</script>
+
+</body>
+</html>
