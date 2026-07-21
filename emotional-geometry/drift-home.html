@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>drift home</title>
+<style>
+  :root{--paper:#EFEDE6;--ink:#1A1A1A;--red:#C0392B;--dim:#8d8a80}
+  *{margin:0;padding:0;box-sizing:border-box;border-radius:0}
+  html,body{height:100%;overflow:hidden;background:var(--paper)}
+  body{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;color:var(--ink);
+    font-size:11px;text-transform:lowercase;letter-spacing:.04em}
+  #stage{position:fixed;inset:0;display:block;cursor:crosshair}
+  .fix{position:fixed;pointer-events:none}
+  #ttl{top:10px;left:10px}
+  #ro{top:10px;right:10px;text-align:right;line-height:1.7;color:var(--dim)}
+  #ro .c{color:var(--red)}
+  #bands{top:0;left:0;bottom:0}
+  .bl{position:absolute;left:10px;color:var(--dim);opacity:.7;transform:translateY(-50%)}
+  .btn{background:none;border:none;color:var(--ink);font:inherit;cursor:pointer;padding:4px 2px}
+  .btn:hover{color:var(--red)}
+  .btn:focus-visible{outline:1px dashed var(--ink);outline-offset:2px}
+  #ev{position:fixed;bottom:8px;left:8px;pointer-events:auto}
+  #hint{position:fixed;bottom:8px;right:10px;color:var(--dim);pointer-events:none}
+  #veil{position:fixed;inset:0;background:var(--paper);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;z-index:10;transition:opacity .8s}
+  #veil.gone{opacity:0;pointer-events:none}
+  #veil .t{letter-spacing:.2em}
+  #veil .s{color:var(--dim)}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div class="fix" id="ttl">drift home</div>
+<div class="fix" id="bands"></div>
+<div class="fix" id="ro"><div id="ro1">quiet</div><div id="ro2"></div><div id="ro3"></div></div>
+<button id="ev" class="btn">[event]</button>
+<span id="qctl" style="position:fixed;bottom:8px;left:86px;z-index:5">q <span id="qv">18</span> <button id="qm" class="btn">[–]</button><button id="qp" class="btn">[+]</button></span>
+<div class="fix" id="hint">tap = name · e = event</div>
+<div id="veil">
+  <div class="t">drift home</div>
+  <div class="s">what goes unnamed does not stay where it happened</div>
+  <button id="begin" class="btn">[start]</button>
+</div>
+
+<script>
+'use strict';
+/* field: u_t = K u_dd - g u - G u_d + L(d,t) + s xi ; canonical form, rescaled timescales.
+   naming = sampling the centroid. derived: drift, fossil, detune, late names deep/false.
+   chosen: drone-as-self, boundary absorption swell, timescales, sound design. */
+const N=192,h=1/(N-1);
+const K_diff=0.00045,G_drift=0.0155,gamma_=0.075,sigma_=0.006,dtSim=0.008;
+const u=new Float64Array(N),uNew=new Float64Array(N);
+let forcing=false,forceT=0,dLoad=0.22,absorbFlux=0,droneSwell=0;
+const FORCE_DUR=2.4,A_load=3.4,wLoad=0.045;
+const F_TOP=1000,F_TONIC=110;
+const f_of_d=d=>F_TOP*Math.pow(F_TONIC/F_TOP,d);
+const TH1=0.42,TH2=0.72;
+const cutLabel=d=>d<TH1?'texture':(d<TH2?'regime':'identity');
+
+function gauss(){let a=Math.random(),b=Math.random();
+  return Math.sqrt(-2*Math.log(a+1e-12))*Math.cos(2*Math.PI*b);}
+function stepField(dt){
+  const sn=sigma_*Math.sqrt(dt);
+  for(let i=1;i<N-1;i++){
+    const udd=(u[i+1]-2*u[i]+u[i-1])/(h*h);
+    const ud=(u[i+1]-u[i-1])/(2*h);
+    let L=0;
+    if(forcing){const x=(i*h-dLoad)/wLoad;L=A_load*Math.exp(-0.5*x*x);}
+    uNew[i]=u[i]+dt*(K_diff*udd-gamma_*u[i]-G_drift*ud+L)+sn*gauss();
+  }
+  absorbFlux+=Math.max(0,u[N-2])*G_drift*dt;
+  uNew[0]=0;uNew[N-1]=0;u.set(uNew);
+}
+function centroid(){let m=0,c=0;
+  for(let i=0;i<N;i++){const a=Math.abs(u[i]);m+=a;c+=a*(i*h);}
+  return m>1e-9?c/m:NaN;}
+function fieldMass(){let m=0;for(let i=0;i<N;i++)m+=Math.abs(u[i]);return m*h;}
+
+/* ---------- audio: band-filtered noise + sine drone + sine fossils ---------- */
+let ac=null,master=null,droneGain=null,_silent=null;
+const NB=44,bank=[],fossils=[];const MAXF=3;
+function unlockAudio(){
+  if(ac.state!=='running')ac.resume();
+  if(!_silent){try{_silent=document.createElement('audio');
+    _silent.setAttribute('playsinline','');_silent.loop=true;
+    _silent.src='data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    _silent.play().catch(()=>{});}catch(e){}}
+}
+function initAudio(){
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  const comp=ac.createDynamicsCompressor();
+  comp.threshold.value=-24;comp.ratio.value=6;comp.knee.value=18;
+  master=ac.createGain();master.gain.value=0;
+  master.connect(comp);comp.connect(ac.destination);
+  // noise bank
+  const len=2*ac.sampleRate,b=ac.createBuffer(1,len,ac.sampleRate);
+  const ch=b.getChannelData(0);
+  for(let i=0;i<len;i++)ch[i]=Math.random()*2-1;
+  const src=ac.createBufferSource();src.buffer=b;src.loop=true;src.start();
+  for(let k=0;k<NB;k++){
+    const d=k/(NB-1),f=ac.createBiquadFilter();
+    f.type='bandpass';f.frequency.value=f_of_d(d);f.Q.value=18;
+    const g=ac.createGain();g.gain.value=0;
+    src.connect(f);f.connect(g);g.connect(master);
+    bank.push({g,d,f});
+  }
+  // drone stays sine: the one thing already in key
+  droneGain=ac.createGain();droneGain.gain.value=0.018;droneGain.connect(master);
+  [[110,1.0],[220,0.35]].forEach(([f,w])=>{
+    const o=ac.createOscillator();o.type='sine';o.frequency.value=f;
+    const g=ac.createGain();g.gain.value=w;o.connect(g);g.connect(droneGain);o.start();});
+  master.gain.setTargetAtTime(0.9,ac.currentTime,1.4);
+  unlockAudio();
+}
+function updateAudio(){
+  if(!ac)return;const t=ac.currentTime;
+  for(const p of bank){
+    const i=Math.min(N-1,Math.max(0,Math.round(p.d/h)));
+    const v=Math.max(0,u[i]);
+    const gv=Math.min(0.8,0.3*Math.pow(v,0.8));
+    p.g.gain.setTargetAtTime(gv,t,0.06);
+  }
+  droneSwell=droneSwell*0.995+absorbFlux*0.9;absorbFlux=0;
+  droneGain.gain.setTargetAtTime(0.018+Math.min(droneSwell*0.5,0.05),t,0.4);
+}
+function name(){
+  if(!ac)return;
+  const d=centroid();if(!isFinite(d))return;
+  const f=f_of_d(d),t=ac.currentTime;
+  const o=ac.createOscillator();o.type='sine';o.frequency.value=f;
+  const g=ac.createGain();g.gain.value=0;
+  o.connect(g);g.connect(master);o.start();
+  g.gain.setTargetAtTime(0.05,t,0.25);
+  const fz={osc:o,gain:g,d,f,label:cutLabel(d)};
+  fossils.push(fz);
+  while(fossils.length>MAXF){
+    const old=fossils.shift();
+    old.gain.gain.setTargetAtTime(0,ac.currentTime,1.6);
+    setTimeout(()=>{try{old.osc.stop()}catch(e){}},7000);
+    old.dead=true;
+  }
+  ro2.textContent=fz.label+' · '+f.toFixed(1)+' hz';
+  ro2.className=fz.label==='identity'?'c':'';
+}
+
+/* ---------- visuals: ink stipple waterfall on paper ---------- */
+const stage=document.getElementById('stage'),ctx=stage.getContext('2d');
+let W=0,H=0,dpr=1,wf=null,wfx=null;
+function resize(){
+  dpr=Math.min(devicePixelRatio||1,2);
+  W=Math.floor(innerWidth*dpr);H=Math.floor(innerHeight*dpr);
+  stage.width=W;stage.height=H;
+  stage.style.width=innerWidth+'px';stage.style.height=innerHeight+'px';
+  const n=document.createElement('canvas');n.width=W;n.height=H;
+  const nx=n.getContext('2d');nx.fillStyle='#EFEDE6';nx.fillRect(0,0,W,H);
+  if(wf)nx.drawImage(wf,0,0,W,H);
+  wf=n;wfx=nx;placeBands();
+}
+window.addEventListener('resize',resize);
+function placeBands(){
+  const el=document.getElementById('bands');el.innerHTML='';
+  const mk=(dv,t)=>{const s=document.createElement('span');s.className='bl';
+    s.style.top=(dv*100)+'%';s.textContent=t;el.appendChild(s);};
+  mk(TH1/2,'texture');mk((TH1+TH2)/2,'regime');mk((TH2+1)/2*0.96,'identity');
+}
+function drawColumn(){
+  const shift=Math.max(1,Math.round(dpr));
+  wfx.drawImage(wf,-shift,0);
+  const x=W-shift;
+  wfx.fillStyle='#EFEDE6';wfx.fillRect(x,0,shift,H);
+  // field: stipple dots, density ∝ u
+  wfx.fillStyle='#1A1A1A';
+  for(let i=1;i<N-1;i++){
+    const v=Math.max(0,u[i]);if(v<0.02)continue;
+    const y=(i*h)*H,rowH=H/N;
+    const nd=Math.min(10,Math.ceil(v*6));
+    for(let k=0;k<nd;k++){
+      if(Math.random()>Math.min(1,v*1.2))continue;
+      wfx.fillRect(x+Math.random()*shift,y+(Math.random()-0.5)*rowH,1.2*dpr,1.2*dpr);
+    }
+  }
+  // fossils: red pencil lines
+  wfx.fillStyle='#C0392B';
+  for(const fz of fossils){
+    if(fz.dead)continue;
+    wfx.fillRect(x,Math.round(fz.d*H),shift,Math.max(1,Math.round(dpr*0.8)));
+  }
+}
+function render(){
+  ctx.drawImage(wf,0,0);
+  // threshold rules
+  ctx.strokeStyle='rgba(26,26,26,0.25)';ctx.lineWidth=1;
+  ctx.setLineDash([3*dpr,6*dpr]);
+  [TH1,TH2].forEach(dv=>{const y=dv*H;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();});
+  ctx.setLineDash([]);
+  // drone line
+  ctx.strokeStyle='rgba(192,57,43,'+(0.35+Math.min(droneSwell*3,0.4))+')';
+  ctx.lineWidth=1.5*dpr;
+  const dy=H-1.5*dpr;
+  ctx.beginPath();ctx.moveTo(0,dy);ctx.lineTo(W,dy);ctx.stroke();
+  // live centroid tick
+  const c=centroid();
+  if(isFinite(c)&&fieldMass()>0.02){
+    ctx.fillStyle='#1A1A1A';
+    ctx.fillRect(W-4*dpr,c*H-1,4*dpr,2);
+  }
+}
+
+/* ---------- readouts ---------- */
+const ro1=document.getElementById('ro1'),ro2=document.getElementById('ro2'),ro3=document.getElementById('ro3');
+function updateReadout(){
+  const m=fieldMass();
+  ro1.textContent=forcing?'event':(m>0.06?'unnamed · drifting':(m>0.02?'thinning':'noise'));
+  const last=fossils[fossils.length-1];
+  if(last&&!last.dead&&m>0.02){
+    const c=centroid();
+    if(isFinite(c)){
+      const cents=1200*Math.log2(f_of_d(c)/last.f);
+      ro3.textContent='drift since naming '+(cents>0?'+':'')+cents.toFixed(0)+' cents';
+      ro3.className=Math.abs(cents)>200?'c':'';
+    }
+  }else ro3.textContent='';
+}
+
+/* ---------- loop ---------- */
+let lastT=0,acc=0,running=false;
+function loop(tms){
+  if(!running)return;requestAnimationFrame(loop);
+  const t=tms/1000;let dt=Math.min(0.05,t-lastT);lastT=t;acc+=dt;
+  while(acc>dtSim){
+    if(forcing){forceT+=dtSim;if(forceT>FORCE_DUR)forcing=false;}
+    stepField(dtSim);acc-=dtSim;
+  }
+  drawColumn();render();updateAudio();updateReadout();
+}
+let QVAL=18;
+function setQ(q){QVAL=Math.max(4,Math.min(60,q));
+  document.getElementById('qv').textContent=Math.round(QVAL);
+  if(!ac)return;const t=ac.currentTime;
+  for(const b of bank)b.f.Q.setTargetAtTime(QVAL,t,0.1);}
+document.getElementById('qm').addEventListener('click',e=>{e.stopPropagation();setQ(QVAL/1.25);});
+document.getElementById('qp').addEventListener('click',e=>{e.stopPropagation();setQ(QVAL*1.25);});
+function triggerEvent(){forcing=true;forceT=0;dLoad=0.15+Math.random()*0.15;}
+document.getElementById('begin').addEventListener('click',()=>{
+  initAudio();
+  document.getElementById('veil').classList.add('gone');
+  resize();running=true;lastT=performance.now()/1000;
+  requestAnimationFrame(loop);
+  setTimeout(triggerEvent,3000);
+});
+document.getElementById('ev').addEventListener('click',e=>{e.stopPropagation();triggerEvent();});
+stage.addEventListener('pointerdown',()=>{if(running)name();});
+window.addEventListener('keydown',e=>{if(e.key==='e'||e.key==='E')triggerEvent();});
+window.addEventListener('pointerdown',()=>{if(ac&&ac.state!=='running')unlockAudio();},true);
+resize();
+</script>
+</body>
+</html>
