@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Prelude — Register / Node</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#0E0D12; --ink:#8A8694; --ivory:#F2E4C8;
+    --ember:#C96A3F; --ice:#BFD9E8; --faint:#3A3744;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--ground)}
+  body{font-family:'IBM Plex Mono',monospace;color:var(--ink)}
+  #title{position:fixed;top:20px;left:0;right:0;text-align:center;pointer-events:none;z-index:3}
+  #title h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;
+    font-size:clamp(18px,2.4vw,26px);color:var(--ivory);opacity:.85}
+  #title p{font-size:9px;letter-spacing:.18em;text-transform:uppercase;margin-top:5px;opacity:.5}
+  #split{position:fixed;inset:0;display:flex}
+  .panel{position:relative;flex:1;touch-action:none;cursor:crosshair}
+  .panel canvas{position:absolute;inset:0;width:100%;height:100%}
+  #divider{width:1px;background:var(--faint);opacity:.6}
+  .plabel{position:absolute;top:64px;left:0;right:0;text-align:center;pointer-events:none}
+  .plabel .nm{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--ivory);opacity:.6}
+  .plabel .law{font-size:9px;letter-spacing:.14em;margin-top:5px;opacity:.45}
+  .ro{position:absolute;bottom:64px;left:0;right:0;text-align:center;pointer-events:none;
+    font-size:10px;font-weight:300;line-height:1.9;letter-spacing:.1em}
+  .ro .w{color:var(--ivory)}
+  .ro .commit{color:var(--ember);letter-spacing:.26em;text-transform:uppercase}
+  #contain{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+    background:none;border:1px solid var(--faint);color:var(--ink);
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    padding:9px 20px;cursor:pointer;opacity:0;transition:opacity .8s,border-color .3s;pointer-events:none}
+  #contain.on{opacity:1;pointer-events:auto}
+  #contain:hover{border-color:var(--ember);color:var(--ivory)}
+  #contain:focus-visible{outline:1px solid var(--ice);outline-offset:3px}
+  #hint{position:fixed;bottom:20px;left:26px;font-size:9px;letter-spacing:.16em;
+    text-transform:uppercase;opacity:.4;pointer-events:none}
+  #veil{position:fixed;inset:0;background:var(--ground);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:24px;z-index:10;transition:opacity 1.4s}
+  #veil.gone{opacity:0;pointer-events:none}
+  #veil h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;
+    font-size:clamp(30px,5.4vw,50px);color:var(--ivory);opacity:.9}
+  #veil p{max-width:32em;text-align:center;font-size:11px;font-weight:300;line-height:2.1;
+    letter-spacing:.05em;opacity:.6;padding:0 24px}
+  #begin{background:none;border:1px solid var(--faint);color:var(--ivory);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.3em;text-transform:uppercase;
+    padding:12px 44px;cursor:pointer;transition:border-color .4s}
+  #begin:hover{border-color:var(--ivory)}
+  #begin:focus-visible{outline:1px solid var(--ice);outline-offset:3px}
+</style>
+</head>
+<body>
+<div id="title">
+  <h1>Prelude</h1>
+  <p>the same gesture · two kinds of object</p>
+</div>
+
+<div id="split">
+  <div class="panel" id="pL">
+    <canvas></canvas>
+    <div class="plabel"><div class="nm">register</div><div class="law">λ = 0 · cannot commit</div></div>
+    <div class="ro" id="roL"></div>
+  </div>
+  <div id="divider"></div>
+  <div class="panel" id="pR">
+    <canvas></canvas>
+    <div class="plabel"><div class="nm">node</div><div class="law">λ &gt; 0 · can commit</div></div>
+    <div class="ro" id="roR"></div>
+    <button id="contain">contain (γ)</button>
+  </div>
+</div>
+<div id="hint">press &amp; hold to drive · height = strength · release to let go</div>
+
+<div id="veil">
+  <h1>Register / Node</h1>
+  <p>Two voices, one physics, one difference: the self-term. Press and hold either side to
+     drive it — higher is stronger. The register only ever gets louder: its width never moves,
+     and when you let go it always falls silent. The node thickens as it loudens — and driven
+     hard enough, it keeps sounding after you release. It has committed. Only damping brings
+     it back.</p>
+  <button id="begin">begin</button>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   PRELUDE — Law II made audible.
+   Both voices:  u_t = K u_dd − γ_eff u + SELF(u) + drive·L(d) + σξ
+   Register: SELF = 0                       (λ_feel = 0 — §9.9)
+   Node:     SELF = λ[tanh(β(u−u*)) − tanh(−βu*)]   (bistable per point;
+             rest at u=0 stable, high branch reachable, basin real)
+   Derived: louder-never-wider (register), width-moves-with-amplitude
+     (node = the §9.9 positive control), no-basin vs commitment,
+     containment-as-γ knocking the node back (γ as dominant lever —
+     consistent with the elasticity ranking, staged not re-derived).
+   Chosen: all timbre, timescales, gesture design. Drift G = 0 here —
+     one mechanism per scene; this scene isolates the self-term.
+   ===================================================================== */
+
+const N=160, h=1/(N-1);
+const K_diff=0.00035, GAMMA=0.9, SIG=0.005, dtSim=0.006;
+const LAM=0.9, BETA=3.0, USTAR=0.5, TANH0=Math.tanh(BETA*USTAR);
+const D0=0.5, WLOAD=0.06, AMAX=6.5;
+const F_TOP=1000, F_TONIC=110;
+const f_of_d=d=>F_TOP*Math.pow(F_TONIC/F_TOP,d);
+const SEMISPAN=12*Math.log2(F_TOP/F_TONIC);
+
+function gauss(){let a=Math.random(),b=Math.random();
+  return Math.sqrt(-2*Math.log(a+1e-12))*Math.cos(2*Math.PI*b);}
+
+class Voice{
+  constructor(isNode){
+    this.isNode=isNode;
+    this.u=new Float64Array(N); this.un=new Float64Array(N);
+    this.drive=0; this.gBoost=1; this.committed=false; this.quietDriveT=0;
+  }
+  step(dt){
+    const u=this.u,un=this.un,sn=SIG*Math.sqrt(dt),g=GAMMA*this.gBoost;
+    for(let i=1;i<N-1;i++){
+      const udd=(u[i+1]-2*u[i]+u[i-1])/(h*h);
+      let f=K_diff*udd-g*u[i];
+      if(this.isNode) f+=LAM*(Math.tanh(BETA*(u[i]-USTAR))+TANH0);
+      if(this.drive>0){
+        const x=(i*h-D0)/WLOAD; f+=this.drive*Math.exp(-0.5*x*x);
+      }
+      un[i]=u[i]+dt*f+sn*gauss();
+    }
+    un[0]=0; un[N-1]=0; u.set(un);
+    // commitment detection: mass persists with no drive
+    if(this.isNode){
+      if(this.drive<=0 && this.mass()>0.05){ this.quietDriveT+=dt;
+        if(this.quietDriveT>0.5) this.committed=true;
+      } else { this.quietDriveT=0; if(this.drive>0||this.mass()<=0.05) this.committed=false; }
+    }
+  }
+  mass(){let m=0;for(let i=0;i<N;i++)m+=Math.max(0,this.u[i]);return m*h;}
+  peak(){let p=0;for(let i=0;i<N;i++)if(this.u[i]>p)p=this.u[i];return p;}
+  fwhmSemis(){
+    const p=this.peak(); if(p<0.03) return 0;
+    const half=p/2; let lo=-1,hi=-1;
+    for(let i=0;i<N;i++){if(this.u[i]>=half){if(lo<0)lo=i;hi=i;}}
+    return lo<0?0:(hi-lo)*h*SEMISPAN;
+  }
+}
+const reg=new Voice(false), node=new Voice(true);
+
+// ---------- audio ----------
+let ac=null,master=null;
+function makeBank(voice,pan){
+  const p=ac.createStereoPanner(); p.pan.value=pan; p.connect(master);
+  voice.bank=[];
+  const NP=40;
+  for(let k=0;k<NP;k++){
+    const d=k/(NP-1);
+    const o=ac.createOscillator(); o.type='sine'; o.frequency.value=f_of_d(d);
+    const g=ac.createGain(); g.gain.value=0;
+    o.connect(g); g.connect(p); o.start();
+    voice.bank.push({g,d});
+  }
+}
+let _silentEl=null;
+function iosMediaSession(){
+  if(_silentEl) return;
+  try{
+    _silentEl=document.createElement('audio');
+    _silentEl.setAttribute('playsinline','');
+    _silentEl.loop=true;
+    _silentEl.src='data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    _silentEl.play().catch(()=>{});
+  }catch(e){}
+}
+function unlockAudio(){
+  if(!ac) return;
+  if(ac.state!=='running'){ ac.resume(); }
+  iosMediaSession();
+  try{ const b=ac.createBuffer(1,1,22050); const s=ac.createBufferSource();
+    s.buffer=b; s.connect(ac.destination); s.start(0);}catch(e){}
+}
+function initAudio(){
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  const comp=ac.createDynamicsCompressor();
+  comp.threshold.value=-24; comp.ratio.value=6; comp.knee.value=18;
+  master=ac.createGain(); master.gain.value=0;
+  master.connect(comp); comp.connect(ac.destination);
+  makeBank(reg,-0.55); makeBank(node,0.55);
+  unlockAudio();
+  master.gain.setTargetAtTime(0.85,ac.currentTime,1.8);
+}
+function updateAudio(){
+  if(!ac)return; const t=ac.currentTime;
+  for(const v of [reg,node]){
+    for(const b of v.bank){
+      const i=Math.min(N-1,Math.max(0,Math.round(b.d/h)));
+      const val=Math.max(0,v.u[i]);
+      const gv=Math.min(0.10,Math.pow(val,1.25)*0.085);
+      b.g.gain.setTargetAtTime(gv,t,0.06);
+    }
+  }
+}
+
+// ---------- visuals: vertical flame profile per panel ----------
+function setupPanel(el,voice){
+  const cv=el.querySelector('canvas'),cx=cv.getContext('2d');
+  const st={el,cv,cx,voice,W:0,H:0,dpr:1};
+  const rs=()=>{st.dpr=Math.min(devicePixelRatio||1,2);
+    st.W=Math.floor(el.clientWidth*st.dpr); st.H=Math.floor(el.clientHeight*st.dpr);
+    cv.width=st.W; cv.height=st.H;};
+  rs(); window.addEventListener('resize',rs);
+  return st;
+}
+function massColor(v,d){
+  const r=Math.round(242-(242-201)*d), g=Math.round(228-(228-106)*d),
+        b=Math.round(200-(200-63)*d);
+  return [r,g,b];
+}
+function drawPanel(st){
+  const {cx,W,H,voice}=st;
+  cx.fillStyle='#0E0D12'; cx.fillRect(0,0,W,H);
+  const cxr=W/2, maxHalf=W*0.42;
+  for(let y=0;y<H;y+=1){
+    const d=y/H, i=Math.min(N-1,Math.round(d/h));
+    const v=Math.max(0,voice.u[i]);
+    if(v>0.012){
+      const half=Math.min(maxHalf,Math.pow(v,0.8)*maxHalf*0.55);
+      const [r,g,b]=massColor(v,d);
+      const a=Math.min(0.85,0.15+v*0.4);
+      cx.fillStyle=`rgba(${r},${g},${b},${a})`;
+      cx.fillRect(cxr-half,y,half*2,1);
+    }
+  }
+  // committed glow ring
+  if(voice.committed){
+    cx.strokeStyle='rgba(201,106,63,0.35)'; cx.lineWidth=1.5*st.dpr;
+    cx.strokeRect(6*st.dpr,6*st.dpr,W-12*st.dpr,H-12*st.dpr);
+  }
+}
+
+// ---------- readouts ----------
+const roL=document.getElementById('roL'), roR=document.getElementById('roR');
+const containBtn=document.getElementById('contain');
+function fmtRo(v){
+  const p=v.peak(), w=v.fwhmSemis();
+  let line1=`level ${p.toFixed(2)} · width <span class="w">${w.toFixed(1)} st</span>`;
+  let line2='';
+  if(v.isNode){ line2=v.committed?'<span class="commit">committed</span>'
+      :(v.drive>0?'driven':(v.mass()>0.02?'relaxing':'quiet')); }
+  else line2=v.drive>0?'driven — louder, never wider':(v.mass()>0.02?'relaxing — always':'quiet');
+  return line1+'<br>'+line2;
+}
+
+// ---------- interaction ----------
+function bindDrive(st){
+  const el=st.el; let pid=null;
+  const setDrive=e=>{
+    const r=el.getBoundingClientRect();
+    const frac=1-Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+    st.voice.drive=AMAX*Math.pow(frac,1.4);
+  };
+  el.addEventListener('pointerdown',e=>{
+    if(e.target===containBtn)return;
+    pid=e.pointerId; el.setPointerCapture(pid); setDrive(e);});
+  el.addEventListener('pointermove',e=>{if(e.pointerId===pid)setDrive(e);});
+  const off=e=>{if(e.pointerId===pid){pid=null;st.voice.drive=0;}};
+  el.addEventListener('pointerup',off); el.addEventListener('pointercancel',off);
+}
+let containing=false;
+containBtn.addEventListener('pointerdown',e=>{e.stopPropagation();containing=true;});
+window.addEventListener('pointerup',()=>{containing=false;});
+
+// ---------- loop ----------
+let stL,stR,running=false,lastT=0,acc=0,roT=0;
+function loop(tms){
+  if(!running)return;
+  requestAnimationFrame(loop);
+  const t=tms/1000; let dt=Math.min(0.05,t-lastT); lastT=t; acc+=dt;
+  node.gBoost=containing?4.5:1;
+  while(acc>dtSim){ reg.step(dtSim); node.step(dtSim); acc-=dtSim; }
+  drawPanel(stL); drawPanel(stR); updateAudio();
+  roT+=dt;
+  if(roT>0.12){ roT=0;
+    roL.innerHTML=fmtRo(reg); roR.innerHTML=fmtRo(node);
+    containBtn.classList.toggle('on',node.committed||containing);
+  }
+}
+
+document.getElementById('begin').addEventListener('click',()=>{
+  initAudio();
+  document.getElementById('veil').classList.add('gone');
+  stL=setupPanel(document.getElementById('pL'),reg);
+  stR=setupPanel(document.getElementById('pR'),node);
+  bindDrive(stL); bindDrive(stR);
+  running=true; lastT=performance.now()/1000;
+  requestAnimationFrame(loop);
+});
+
+window.addEventListener('pointerdown',()=>{ if(ac && ac.state!=='running'){ unlockAudio(); } },true);
+setInterval(()=>{
+  if(!ac) return;
+  let el=document.getElementById('audiowarn');
+  if(ac.state!=='running'){
+    if(!el){ el=document.createElement('div'); el.id='audiowarn';
+      el.style.cssText='position:fixed;top:50%;left:0;right:0;text-align:center;z-index:20;'+
+      'font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.2em;'+
+      'text-transform:uppercase;color:#C96A3F;pointer-events:none';
+      el.textContent='audio suspended — tap anywhere · check silent switch';
+      document.body.appendChild(el); }
+  } else if(el) el.remove();
+},800);
+</script>
+</body>
+</html>
