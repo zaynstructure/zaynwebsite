@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>prelude</title>
+<style>
+  :root{--paper:#EFEDE6;--ink:#1A1A1A;--red:#C0392B;--dim:#8d8a80}
+  *{margin:0;padding:0;box-sizing:border-box;border-radius:0}
+  html,body{height:100%;overflow:hidden;background:var(--paper)}
+  body{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;color:var(--ink);
+    font-size:11px;text-transform:lowercase;letter-spacing:.04em}
+  #split{position:fixed;inset:0;display:flex}
+  .panel{position:relative;flex:1;touch-action:none;cursor:crosshair}
+  .panel canvas{position:absolute;inset:0;width:100%;height:100%}
+  #divider{width:1px;background:var(--ink);opacity:.35}
+  .plabel{position:absolute;top:10px;left:10px;pointer-events:none}
+  .ro{position:absolute;bottom:34px;left:10px;pointer-events:none;line-height:1.7;color:var(--dim)}
+  .ro .c{color:var(--red)}
+  .btn{background:none;border:none;color:var(--ink);font:inherit;cursor:pointer;padding:4px 2px}
+  .btn:focus-visible{outline:1px dashed var(--ink);outline-offset:2px}
+  #contain{position:absolute;bottom:8px;left:8px;opacity:0;pointer-events:none;transition:opacity .5s}
+  #contain.on{opacity:1;pointer-events:auto}
+  #contain:hover{color:var(--red)}
+  #hint{position:fixed;bottom:8px;right:10px;color:var(--dim);pointer-events:none}
+  #veil{position:fixed;inset:0;background:var(--paper);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;z-index:10;transition:opacity .8s}
+  #veil.gone{opacity:0;pointer-events:none}
+  #veil .t{letter-spacing:.2em}
+  #veil .s{color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="split">
+  <div class="panel" id="pL"><canvas></canvas>
+    <div class="plabel">register &nbsp;λ=0</div><div class="ro" id="roL"></div></div>
+  <div id="divider"></div>
+  <div class="panel" id="pR"><canvas></canvas>
+    <div class="plabel">node &nbsp;λ&gt;0</div><div class="ro" id="roR"></div>
+    <button id="contain" class="btn">[contain γ]</button></div>
+</div>
+<div id="hint">hold = drive · height = strength</div>
+<div id="qctl" style="position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:5">q <span id="qv">18</span> <button id="qm" class="btn">[–]</button><button id="qp" class="btn">[+]</button></div>
+<div id="veil">
+  <div class="t">prelude · register / node</div>
+  <div class="s">same physics, one difference: the self-term</div>
+  <button id="begin" class="btn">[start]</button>
+</div>
+
+<script>
+'use strict';
+/* physics: verified 2026-07-20 (verify_flat.py). node: masked bistable self-term,
+   commit threshold ~40% press, residue widens with press, contained by flat-top mask. */
+const N=160, h=1/(N-1);
+const K_diff=0.00035, GAMMA=0.9, SIG=0.005, dtSim=0.006;
+const LAM=1.7, BETA=3.0, USTAR=2.0, TANH0=Math.tanh(BETA*USTAR);
+const WMASK=0.16;
+const D0=0.5, WLOAD=0.032, AMAX=6.5;
+const MASKA=new Float64Array(N);
+for(let i=0;i<N;i++){const x=(i*h-D0)/WMASK; MASKA[i]=Math.exp(-Math.pow(x,8));}
+const F_TOP=1000, F_TONIC=110;
+const f_of_d=d=>F_TOP*Math.pow(F_TONIC/F_TOP,d);
+const SEMISPAN=12*Math.log2(F_TOP/F_TONIC);
+
+function gauss(){let a=Math.random(),b=Math.random();
+  return Math.sqrt(-2*Math.log(a+1e-12))*Math.cos(2*Math.PI*b);}
+
+class Voice{
+  constructor(isNode){this.isNode=isNode;
+    this.u=new Float64Array(N);this.un=new Float64Array(N);
+    this.drive=0;this.gBoost=1;this.committed=false;this.qt=0;}
+  step(dt){
+    const u=this.u,un=this.un,sn=SIG*Math.sqrt(dt),g=GAMMA*this.gBoost;
+    for(let i=1;i<N-1;i++){
+      const udd=(u[i+1]-2*u[i]+u[i-1])/(h*h);
+      let f=K_diff*udd-g*u[i];
+      if(this.isNode) f+=LAM*MASKA[i]*(Math.tanh(BETA*(u[i]-USTAR))+TANH0);
+      if(this.drive>0){const x=(i*h-D0)/WLOAD; f+=this.drive*Math.exp(-0.5*x*x);}
+      un[i]=u[i]+dt*f+sn*gauss();
+    }
+    un[0]=0;un[N-1]=0;u.set(un);
+    if(this.isNode){
+      if(this.drive<=0&&this.mass()>0.08){this.qt+=dt;if(this.qt>0.5)this.committed=true;}
+      else{this.qt=0;if(this.drive>0||this.mass()<=0.08)this.committed=false;}
+    }
+  }
+  mass(){let m=0;for(let i=0;i<N;i++)m+=Math.max(0,this.u[i]);return m*h;}
+  peak(){let p=0;for(let i=0;i<N;i++)if(this.u[i]>p)p=this.u[i];return p;}
+  fwhm(){const p=this.peak();if(p<0.05)return 0;const half=p/2;let lo=-1,hi=-1;
+    for(let i=0;i<N;i++){if(this.u[i]>=half){if(lo<0)lo=i;hi=i;}}
+    return lo<0?0:(hi-lo)*h*SEMISPAN;}
+}
+const reg=new Voice(false), node=new Voice(true);
+
+/* ---------- audio: band-filtered noise ---------- */
+let ac=null,master=null,_silent=null;
+const NB=44;
+function noiseSrc(){
+  const len=2*ac.sampleRate, b=ac.createBuffer(1,len,ac.sampleRate);
+  const ch=b.getChannelData(0);
+  for(let i=0;i<len;i++)ch[i]=Math.random()*2-1;
+  const s=ac.createBufferSource(); s.buffer=b; s.loop=true; s.start(); return s;
+}
+function makeBank(voice,pan){
+  const p=ac.createStereoPanner(); p.pan.value=pan; p.connect(master);
+  const src=noiseSrc(); voice.bank=[];
+  for(let k=0;k<NB;k++){
+    const d=k/(NB-1), f=ac.createBiquadFilter();
+    f.type='bandpass'; f.frequency.value=f_of_d(d); f.Q.value=18;
+    const g=ac.createGain(); g.gain.value=0;
+    src.connect(f); f.connect(g); g.connect(p);
+    voice.bank.push({g,d,f});
+  }
+}
+function unlockAudio(){
+  if(ac.state!=='running')ac.resume();
+  if(!_silent){try{_silent=document.createElement('audio');
+    _silent.setAttribute('playsinline','');_silent.loop=true;
+    _silent.src='data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    _silent.play().catch(()=>{});}catch(e){}}
+}
+function initAudio(){
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  const comp=ac.createDynamicsCompressor();
+  comp.threshold.value=-24;comp.ratio.value=6;comp.knee.value=18;
+  master=ac.createGain();master.gain.value=0;
+  master.connect(comp);comp.connect(ac.destination);
+  makeBank(reg,-0.55);makeBank(node,0.55);
+  master.gain.setTargetAtTime(0.9,ac.currentTime,1.2);
+  unlockAudio();
+}
+function updateAudio(){
+  if(!ac)return;const t=ac.currentTime;
+  for(const v of [reg,node]){
+    for(const b of v.bank){
+      const i=Math.min(N-1,Math.max(0,Math.round(b.d/h)));
+      const val=Math.max(0,v.u[i]);
+      const gv=Math.min(0.9,0.22*Math.pow(val,0.7));
+      b.g.gain.setTargetAtTime(gv,t,0.06);
+    }
+  }
+}
+
+/* ---------- visuals: ink stipple on paper ---------- */
+function setupPanel(el,voice){
+  const cv=el.querySelector('canvas'),cx=cv.getContext('2d');
+  const st={el,cv,cx,voice,W:0,H:0,dpr:1};
+  const rs=()=>{st.dpr=Math.min(devicePixelRatio||1,2);
+    st.W=Math.floor(el.clientWidth*st.dpr);st.H=Math.floor(el.clientHeight*st.dpr);
+    cv.width=st.W;cv.height=st.H;};
+  rs();window.addEventListener('resize',rs);return st;
+}
+function drawPanel(st){
+  const {cx,W,H,voice,dpr}=st;
+  cx.fillStyle='#EFEDE6';cx.fillRect(0,0,W,H);
+  // faint ruled line at u* threshold height? no — keep paper bare except mask edges on node
+  if(voice.isNode){
+    cx.strokeStyle='rgba(26,26,26,0.18)';cx.lineWidth=1;
+    cx.setLineDash([3*dpr,5*dpr]);
+    const y1=(D0-WMASK)*H,y2=(D0+WMASK)*H;
+    [y1,y2].forEach(y=>{cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();});
+    cx.setLineDash([]);
+  }
+  // stipple: dot density ∝ u
+  const cxr=W/2,span=W*0.42;
+  cx.fillStyle=voice.committed?'#C0392B':'#1A1A1A';
+  for(let i=1;i<N-1;i++){
+    const v=Math.max(0,voice.u[i]);if(v<0.02)continue;
+    const y=(i*h)*H;
+    const ndots=Math.min(60,Math.floor(v*14));
+    const spread=Math.min(span,Math.pow(v,0.8)*span*0.35+4*dpr);
+    for(let k=0;k<ndots;k++){
+      const x=cxr+(Math.random()*2-1)*spread;
+      cx.fillRect(x,y+(Math.random()-0.5)*H/N,1.3*dpr,1.3*dpr);
+    }
+  }
+}
+
+/* ---------- readouts ---------- */
+const roL=document.getElementById('roL'),roR=document.getElementById('roR');
+const containBtn=document.getElementById('contain');
+function fmt(v){
+  let s=`lvl ${v.peak().toFixed(2)} · w ${v.fwhm().toFixed(1)}st`;
+  if(v.isNode&&v.committed)s+=' · <span class="c">committed</span>';
+  return s;
+}
+
+/* ---------- interaction ---------- */
+function bindDrive(st){
+  const el=st.el;let pid=null;
+  const set=e=>{const r=el.getBoundingClientRect();
+    const fr=1-Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+    st.voice.drive=AMAX*Math.pow(fr,1.4);};
+  el.addEventListener('pointerdown',e=>{if(e.target===containBtn)return;
+    pid=e.pointerId;el.setPointerCapture(pid);set(e);});
+  el.addEventListener('pointermove',e=>{if(e.pointerId===pid)set(e);});
+  const off=e=>{if(e.pointerId===pid){pid=null;st.voice.drive=0;}};
+  el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);
+}
+let QVAL=18;
+function setQ(q){QVAL=Math.max(4,Math.min(60,q));
+  document.getElementById('qv').textContent=Math.round(QVAL);
+  if(!ac)return;const t=ac.currentTime;
+  for(const v of [reg,node])for(const b of v.bank)b.f.Q.setTargetAtTime(QVAL,t,0.1);}
+document.getElementById('qm').addEventListener('click',e=>{e.stopPropagation();setQ(QVAL/1.25);});
+document.getElementById('qp').addEventListener('click',e=>{e.stopPropagation();setQ(QVAL*1.25);});
+let containing=false;
+containBtn.addEventListener('pointerdown',e=>{e.stopPropagation();containing=true;});
+window.addEventListener('pointerup',()=>{containing=false;});
+window.addEventListener('pointerdown',()=>{if(ac&&ac.state!=='running')unlockAudio();},true);
+
+/* ---------- loop ---------- */
+let stL,stR,running=false,lastT=0,acc=0,roT=0;
+function loop(tms){
+  if(!running)return;requestAnimationFrame(loop);
+  const t=tms/1000;let dt=Math.min(0.05,t-lastT);lastT=t;acc+=dt;
+  node.gBoost=containing?4.5:1;
+  while(acc>dtSim){reg.step(dtSim);node.step(dtSim);acc-=dtSim;}
+  drawPanel(stL);drawPanel(stR);updateAudio();
+  roT+=dt;
+  if(roT>0.12){roT=0;roL.innerHTML=fmt(reg);roR.innerHTML=fmt(node);
+    containBtn.classList.toggle('on',node.committed||containing);}
+}
+document.getElementById('begin').addEventListener('click',()=>{
+  initAudio();
+  document.getElementById('veil').classList.add('gone');
+  stL=setupPanel(document.getElementById('pL'),reg);
+  stR=setupPanel(document.getElementById('pR'),node);
+  bindDrive(stL);bindDrive(stR);
+  running=true;lastT=performance.now()/1000;
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
