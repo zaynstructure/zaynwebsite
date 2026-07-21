@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>the ghost dance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#8f8798; --ink-dim:#565064; --ink-bright:#cfc8da;
+    --panel:#0b0a10f2; --line:#1c1926;
+    --a:#ffb08a; --b:#8ac4ff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#08070c}
+  body{font-family:'Space Mono',ui-monospace,monospace;color:var(--ink)}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+  #title{position:fixed;top:22px;left:24px;z-index:5;pointer-events:none;max-width:70vw}
+  #title h1{font-family:inherit;font-style:italic;font-weight:700;
+    font-size:clamp(17px,2.6vw,22px);color:var(--ink-bright);letter-spacing:0}
+  #title p{font-size:10px;letter-spacing:.02em;line-height:1.6;margin-top:6px;color:var(--ink);max-width:38ch}
+  #title .status{color:var(--ink-dim);margin-top:3px;font-size:9px}
+
+  #btns{position:fixed;top:22px;right:20px;z-index:6;display:flex;gap:18px}
+  .btn{background:none;border:none;border-bottom:1px solid transparent;color:var(--ink-dim);
+    font-family:inherit;font-size:10px;letter-spacing:.03em;padding:2px 0;cursor:pointer}
+  .btn:hover,.btn:focus-visible{color:var(--ink-bright);border-bottom-color:var(--ink-dim);outline:none}
+  .btn:focus-visible{outline:1px solid var(--ink-dim);outline-offset:4px;border-bottom-color:transparent}
+
+  #panel{position:fixed;left:0;right:0;bottom:0;z-index:5;
+    background:var(--panel);
+    border-top:1px solid var(--line);
+    padding:14px 24px calc(14px + env(safe-area-inset-bottom));
+    transform:translateY(0);transition:transform .35s cubic-bezier(.4,0,.2,1)}
+  #panel.hidden{transform:translateY(calc(100% - 32px))}
+  #panelbar{display:flex;justify-content:space-between;align-items:center;
+    cursor:pointer;user-select:none;padding-bottom:10px}
+  #panelbar span{font-size:9.5px;letter-spacing:.06em;color:var(--ink-dim)}
+  #panelbar b{font-weight:700;font-size:9.5px;letter-spacing:.06em;color:var(--ink);font-style:italic;font-family:inherit}
+
+  #presets{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;
+    border-bottom:1px solid var(--line);padding-bottom:10px}
+  .chip{background:none;border:none;color:var(--ink-dim);
+    font-family:inherit;font-size:9.5px;letter-spacing:.03em;padding:2px 0;
+    cursor:pointer;border-bottom:1px solid transparent}
+  .chip.on{color:var(--ink-bright);border-bottom-color:var(--ink-bright)}
+  .chip:hover{color:var(--ink)}
+  .chip:focus-visible{outline:1px solid #4a4260;outline-offset:2px}
+
+  #sliders{display:grid;grid-template-columns:1fr;gap:11px;max-width:520px}
+  @media(min-width:700px){#sliders{grid-template-columns:1fr 1fr;gap:11px 32px;max-width:900px}}
+  .ctl{display:grid;grid-template-columns:88px 1fr auto;align-items:center;gap:12px}
+  .ctl label{font-size:9.5px;letter-spacing:.02em;white-space:nowrap;color:var(--ink)}
+  .ctl output{font-size:9.5px;color:var(--ink-bright);width:44px;text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:1px;background:#2a2536}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:11px;height:11px;border-radius:50%;background:#6e6486;margin-top:-5px;border:none}
+  input[type=range]:focus-visible::-webkit-slider-thumb{background:var(--ink-bright)}
+  input[type=range]::-moz-range-track{height:1px;background:#2a2536}
+  input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:#6e6486;border:none}
+
+  #devout{font-size:9px;color:var(--ink-dim);letter-spacing:.02em;margin-top:14px}
+  #devout i{font-style:normal}
+  #devout .ca{color:var(--a)} #devout .cb{color:var(--b)}
+
+  #notesBar{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+    margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  #notesBar span{font-size:9px;letter-spacing:.06em;color:var(--ink-dim)}
+  #notesBar span:hover{color:var(--ink)}
+  #notesDrop{max-height:0;overflow:hidden;transition:max-height .3s ease,opacity .3s ease;opacity:0;max-width:900px}
+  #notesDrop.open{max-height:600px;opacity:1;margin-top:10px}
+  #notesList{font-size:8.5px;line-height:1.6;color:var(--ink-dim);letter-spacing:.01em;
+    display:grid;grid-template-columns:auto 1fr;gap:3px 14px}
+  #notesList dt{color:var(--ink);white-space:nowrap}
+  #notesDrop p{font-size:8.5px;line-height:1.75;color:var(--ink-dim);letter-spacing:.01em;
+    margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+  #notesDrop em{font-style:normal;color:var(--ink)}
+
+  #playhint{position:fixed;inset:0;z-index:10;display:none;place-items:center;background:#08070ce6}
+  #playhint.show{display:grid}
+  #playhint button{background:none;border:1px solid var(--line);color:var(--ink-bright);
+    font-family:inherit;font-weight:700;font-style:italic;font-size:16px;padding:14px 34px;
+    border-radius:3px;cursor:pointer}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="title">
+  <h1>the ghost dance</h1>
+  <p>love as a coupled two-body loop — each body answers only the other's delayed trace, u(t−τ)</p>
+  <p class="status">EVF · M-branch rendering of an open-branch scaffold</p>
+</div>
+
+<div id="btns">
+  <button class="btn" id="pauseBtn" aria-label="pause or resume">pause</button>
+  <button class="btn" id="resetBtn" aria-label="reset states and trails">reset</button>
+</div>
+
+<div id="panel">
+  <div id="panelbar" role="button" tabindex="0" aria-label="toggle parameter panel">
+    <b>parameters</b><span id="panelchev">hide ▾</span>
+  </div>
+  <div id="panelbody">
+    <div id="presets">
+      <button class="chip on" data-p="settle">settling</button>
+      <button class="chip" data-p="pursue">pursue–withdraw</button>
+      <button class="chip" data-p="distance">long distance</button>
+    </div>
+    <div id="sliders">
+      <div class="ctl">
+        <label>τ delay</label>
+        <input type="range" id="tau" min="0.05" max="2.6" step="0.01" value="0.45">
+        <output id="tauV">0.45s</output>
+      </div>
+      <div class="ctl">
+        <label>c approach</label>
+        <input type="range" id="cg" min="0.2" max="2.6" step="0.01" value="1.6">
+        <output id="cgV">1.60</output>
+      </div>
+      <div class="ctl">
+        <label>ν A→B</label>
+        <input type="range" id="nuAB" min="-1.6" max="1.7" step="0.01" value="1.00">
+        <output id="nuABV">+1.00</output>
+      </div>
+      <div class="ctl">
+        <label>ν B→A</label>
+        <input type="range" id="nuBA" min="-1.6" max="1.7" step="0.01" value="1.00">
+        <output id="nuBAV">+1.00</output>
+      </div>
+      <div class="ctl">
+        <label>σ volatility</label>
+        <input type="range" id="sig" min="0" max="0.3" step="0.005" value="0.05">
+        <output id="sigV">0.05</output>
+      </div>
+      <div class="ctl">
+        <label>t time ×</label>
+        <input type="range" id="tsc" min="1" max="24" step="1" value="1">
+        <output id="tscV">×1</output>
+      </div>
+    </div>
+    <div id="devout">w_dev · <i class="ca">A 0.00</i> · <i class="cb">B 0.00</i> · settled 0%</div>
+
+    <div id="notesBar" role="button" tabindex="0" aria-label="toggle notes">
+      <span>notes</span><span id="notesChev">show ▾</span>
+    </div>
+    <div id="notesDrop">
+      <dl id="notesList">
+        <dt>τ delay</dt><dd>loop structure — how long before each answers the other's trace</dd>
+        <dt>c approach</dt><dd>[EDGE] branch run · [GATE] would draw the identical dance within one episode</dd>
+        <dt>ν A→B</dt><dd>appetitive sign, asserted · ν&lt;0 flips it to a fear-mirror</dd>
+        <dt>ν B→A</dt><dd>asymmetry→stability is a conjecture, still watched</dd>
+        <dt>σ volatility</dt><dd>keeps the dance alive</dd>
+        <dt>t time ×</dt><dd>display compression only, to watch ε — the timescale split holds in-model</dd>
+      </dl>
+      <p>
+        pull's self-term <em>open</em> — omitted, driven-node default · devotion deposition <em>asserted by analogy</em> ·
+        ghosts and threads are derived, not decoration: the thread points at what each body is actually answering ·
+        at these gains delay alone never destabilizes — pursue–withdraw needs a fear-mirror sign (ν&lt;0); long distance is a ghost-fidelity regime, not an instability ·
+        rings render w_dev's feedforward, the well forms where the pair actually settles · the shared halo reads a display statistic (calm × proximity), not a model object
+      </p>
+    </div>
+  </div>
+</div>
+
+<div id="playhint"><button id="playBtn">begin</button></div>
+
+<script>
+'use strict';
+/* ============ simulation ============
+   Person A (B symmetric):
+   ṁ = −γm·m + ν_partner·u_partner(t−τ) + b0·w_dev + σ·ξ      (self-term OPEN → omitted)
+   u̇ = −γu·u − λ·tanh(u − q·w_dev) + c·tanh(m) + σ·ξ           ([EDGE] branch)
+   ẇ = ε·( tanh(relu(min(uA,uB))) − δ·w )                       (reciprocation-deposited, slow)
+*/
+const P = { gm:1.8, gu:0.5, lam:0.3, q:0.5, b0:0.35,
+            c:1.6, nuAB:1.0, nuBA:1.0, tau:0.45, sig:0.05,
+            eps:0.004, ddev:0.6 };
+let TSC=1;                                   // display-time compression only
+let settle=0, wellX=0, wellY=0, wellInit=false, pvA=0, pvB=0;
+let wAvgPrev=0, depoPulse=0;                 // tracks the moment devotion is actively being laid down
+
+const DT = 1/120, HLEN = 4096;           // ring buffer ≈ 34 s of history
+const hist = new Float32Array(HLEN*4);   // uA, mA, uB, mB per step
+let step = 0;
+const S = { mA:0.60, uA:0.10, mB:-0.10, uB:0.05, wA:0, wB:0 };  // small initial spark: the episode begins with a pull
+
+function gauss(){ return (Math.random()+Math.random()+Math.random()-1.5)*1.6329; }
+function clampv(x,a,b){ return x<a?a:(x>b?b:x); }
+
+function pushHist(){
+  const i=(step%HLEN)*4;
+  hist[i]=S.uA; hist[i+1]=S.mA; hist[i+2]=S.uB; hist[i+3]=S.mB;
+}
+function sampleHist(lagSteps){
+  const s=Math.max(0, step-lagSteps), i=(s%HLEN)*4;
+  return [hist[i],hist[i+1],hist[i+2],hist[i+3]];
+}
+function simStep(){
+  const lag = Math.round(P.tau/DT);
+  const [uAd,mAd,uBd,mBd] = sampleHist(lag);
+  const sq = P.sig*Math.sqrt(DT);
+  const dmA = (-P.gm*S.mA + P.nuBA*uBd + P.b0*S.wA)*DT + sq*gauss()*2.0;
+  const dmB = (-P.gm*S.mB + P.nuAB*uAd + P.b0*S.wB)*DT + sq*gauss()*2.0;
+  const duA = (-P.gu*S.uA - P.lam*Math.tanh(S.uA - P.q*S.wA) + P.c*Math.tanh(S.mA))*DT + sq*gauss();
+  const duB = (-P.gu*S.uB - P.lam*Math.tanh(S.uB - P.q*S.wB) + P.c*Math.tanh(S.mB))*DT + sq*gauss();
+  const recip = Math.max(0, Math.min(S.uA, S.uB));
+  S.wA = clampv(S.wA + P.eps*(Math.tanh(recip) - P.ddev*S.wA)*DT*8, 0, 1.5);
+  S.wB = clampv(S.wB + P.eps*(Math.tanh(recip) - P.ddev*S.wB)*DT*8, 0, 1.5);
+  S.mA=clampv(S.mA+dmA,-4,4); S.mB=clampv(S.mB+dmB,-4,4);
+  S.uA=clampv(S.uA+duA,-4,4); S.uB=clampv(S.uB+duB,-4,4);
+  pushHist(); step++;
+  return {uAd,mAd,uBd,mBd};
+}
+function resetSim(){
+  S.mA=0.60; S.uA=0.10; S.mB=-0.10; S.uB=0.05; S.wA=0; S.wB=0;
+  step=0; hist.fill(0); pushHist();
+}
+pushHist();
+
+/* ============ webgl ============ */
+const cv=document.getElementById('c');
+const gl=cv.getContext('webgl',{antialias:false,alpha:false,preserveDrawingBuffer:false})
+       ||cv.getContext('experimental-webgl',{antialias:false,alpha:false,preserveDrawingBuffer:false});
+if(!gl){
+  document.body.insertAdjacentHTML('beforeend',
+    '<div style="position:fixed;inset:0;z-index:20;display:grid;place-items:center;'
+    +'background:#08070cf2;color:#cfc8da;font-family:\'Space Mono\',monospace;font-size:13px;'
+    +'text-align:center;padding:24px;line-height:1.7">webgl isn\'t available here — '
+    +'this preview sandbox likely blocks it.<br>open this file directly in a browser tab to see the piece.</div>');
+}
+let W=0,H=0,DPR=1;
+let paused=false, simAcc=0, lastT=0;    // shared with the UI section below regardless of gl support
+const devEl=document.getElementById('devout');
+if(gl){
+
+function mkShader(t,src){const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s;}
+function mkProg(vs,fs){const p=gl.createProgram();
+  gl.attachShader(p,mkShader(gl.VERTEX_SHADER,vs));
+  gl.attachShader(p,mkShader(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(p);return p;}
+
+const quadVS=`attribute vec2 aP;varying vec2 vUv;
+void main(){vUv=aP*.5+.5;gl_Position=vec4(aP,0.,1.);}`;
+
+const fadeFS=`precision mediump float;varying vec2 vUv;uniform sampler2D uT;
+void main(){vec3 c=texture2D(uT,vUv).rgb*0.965 - (1.2/255.0);
+gl_FragColor=vec4(max(c,0.0),1.0);}`;
+
+const screenFS=`precision mediump float;varying vec2 vUv;
+uniform sampler2D uT;uniform vec2 uRes;uniform float uDev;
+uniform vec2 uWell;uniform float uSettle;
+void main(){
+  vec2 p=(vUv-0.5)*vec2(uRes.x/uRes.y,1.0);
+  float r=length(p);
+  vec3 cold=vec3(0.031,0.027,0.047);
+  vec3 warm=vec3(0.105,0.070,0.055);
+  vec3 bg=mix(cold,warm,uDev*smoothstep(0.9,0.0,r));
+  bg*= (1.0-0.55*smoothstep(0.35,1.05,r));            /* vignette */
+  bg+= vec3(0.05,0.032,0.02)*uDev*exp(-r*r*6.0);      /* devotion halo */
+  /* the slow layer carves the room: growth rings accrete outward from where they settle */
+  vec2 q=vUv-uWell; q.x*=uRes.x/uRes.y;
+  float rw=length(q);
+  float basinR=uDev*0.40+0.02;
+  float rings=exp(-pow(sin(rw*60.0),2.0)*26.0);
+  float mask=smoothstep(basinR,basinR-0.05,rw)*smoothstep(0.012,0.04,rw)*step(0.02,uDev);
+  bg+=vec3(0.105,0.062,0.038)*rings*mask*(0.3+0.7*uDev);
+  bg-=vec3(0.014,0.012,0.010)*smoothstep(basinR,0.0,rw)*uDev;   /* depth: the well darkens as it deepens */
+  bg=max(bg,vec3(0.0));
+  vec3 trail=texture2D(uT,vUv).rgb;
+  gl_FragColor=vec4(bg+trail,1.0);
+}`;
+
+const spriteVS=`attribute vec2 aP;varying vec2 vUv;
+uniform vec2 uC,uRes;uniform float uS;
+void main(){vUv=aP;
+vec2 px=uC+aP*uS;
+gl_Position=vec4(px/uRes*2.0-1.0,0.,1.);
+gl_Position.y*=-1.0;}`;
+
+const spriteFS=`precision mediump float;varying vec2 vUv;
+uniform vec3 uCol;uniform float uA,uK;
+void main(){float d=dot(vUv,vUv);float a=exp(-d*uK)*uA;
+gl_FragColor=vec4(uCol*a,a);}`;
+
+const lineVS=`attribute vec2 aP;uniform vec2 uRes;
+void main(){gl_Position=vec4(aP/uRes*2.0-1.0,0.,1.);gl_Position.y*=-1.0;}`;
+const lineFS=`precision mediump float;uniform vec3 uCol;uniform float uA;
+void main(){gl_FragColor=vec4(uCol*uA,uA);}`;
+
+const progFade=mkProg(quadVS,fadeFS);
+const progScreen=mkProg(quadVS,screenFS);
+const progSprite=mkProg(spriteVS,spriteFS);
+const progLine=mkProg(lineVS,lineFS);
+
+const quadBuf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,quadBuf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const lineBuf=gl.createBuffer();
+
+let tex=[null,null],fbo=[null,null],cur=0;
+function mkTarget(i){
+  if(tex[i])gl.deleteTexture(tex[i]); if(fbo[i])gl.deleteFramebuffer(fbo[i]);
+  tex[i]=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,tex[i]);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  fbo[i]=gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo[i]);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex[i],0);
+  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
+}
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=Math.floor(innerWidth*DPR); H=Math.floor(innerHeight*DPR);
+  cv.width=W; cv.height=H;
+  mkTarget(0); mkTarget(1);
+}
+addEventListener('resize',resize); resize();
+
+function bindQuad(prog){
+  const loc=gl.getAttribLocation(prog,'aP');
+  gl.bindBuffer(gl.ARRAY_BUFFER,quadBuf);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+}
+function drawSprite(x,y,size,col,alpha,k){
+  gl.useProgram(progSprite);
+  bindQuad(progSprite);
+  gl.uniform2f(gl.getUniformLocation(progSprite,'uC'),x,y);
+  gl.uniform2f(gl.getUniformLocation(progSprite,'uRes'),W,H);
+  gl.uniform1f(gl.getUniformLocation(progSprite,'uS'),size);
+  gl.uniform3f(gl.getUniformLocation(progSprite,'uCol'),col[0],col[1],col[2]);
+  gl.uniform1f(gl.getUniformLocation(progSprite,'uA'),alpha);
+  gl.uniform1f(gl.getUniformLocation(progSprite,'uK'),k);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+function drawThread(x1,y1,x2,y2,col,alpha){
+  gl.useProgram(progLine);
+  const loc=gl.getAttribLocation(progLine,'aP');
+  gl.bindBuffer(gl.ARRAY_BUFFER,lineBuf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([x1,y1,x2,y2]),gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  gl.uniform2f(gl.getUniformLocation(progLine,'uRes'),W,H);
+  gl.uniform3f(gl.getUniformLocation(progLine,'uCol'),col[0],col[1],col[2]);
+  gl.uniform1f(gl.getUniformLocation(progLine,'uA'),alpha);
+  gl.drawArrays(gl.LINES,0,2);
+}
+
+/* ============ mapping model → screen ============ */
+const COL_A=[1.0,0.60,0.40], COL_B=[0.46,0.70,1.0];
+function mapPos(u,m,side){ // side: -1 = A (left), +1 = B (right)
+  const R=Math.min(W,H)*0.30, V=R*0.55;
+  const cx=W*0.5, cy=H*0.46;
+  const x=cx + side*(R - R*0.9*Math.tanh(Math.max(u,0)) + R*0.25*Math.tanh(Math.max(-u,0)));
+  const y=cy - side*V*Math.tanh(m*0.7);
+  return [x,y];
+}
+
+/* ============ frame loop ============ */
+function frame(t){
+  requestAnimationFrame(frame);
+  if(!lastT)lastT=t;
+  let dt=Math.min((t-lastT)/1000,0.05); lastT=t;
+
+  let ghosts=null;
+  if(!paused){
+    simAcc+=dt*TSC;
+    while(simAcc>DT){ ghosts=simStep(); simAcc-=DT; }
+  } else {
+    dt=0;   // frozen: still paint the current/last state instead of leaving the canvas blank
+  }
+  if(!ghosts){ const lag=Math.round(P.tau/DT); const g=sampleHist(lag);
+    ghosts={uAd:g[0],mAd:g[1],uBd:g[2],mBd:g[3]}; }
+
+  const [xA,yA]=mapPos(S.uA,S.mA,-1);
+  const [xB,yB]=mapPos(S.uB,S.mB,+1);
+  const [xGB,yGB]=mapPos(ghosts.uBd,ghosts.mBd,+1);  // ghost of B, what A answers
+  const [xGA,yGA]=mapPos(ghosts.uAd,ghosts.mAd,-1);  // ghost of A, what B answers
+  const sz=Math.min(W,H)*0.035;
+
+  /* settledness: calm × proximity, slow attack */
+  const simAdv=Math.max(dt*TSC,1e-4);
+  const spd=(Math.abs(S.uA-pvA)+Math.abs(S.uB-pvB))/simAdv;
+  pvA=S.uA; pvB=S.uB;
+  const dscr=Math.hypot(xA-xB,yA-yB)/Math.min(W,H);
+  const prox=clampv((0.5-dscr)/0.38,0,1);
+  const raw=Math.exp(-spd*2.5)*prox;
+  settle+=(raw-settle)*Math.min(1,dt*(raw>settle?0.6:1.4));
+  const midX=(xA+xB)/2, midY=(yA+yB)/2;
+  if(!wellInit){wellX=W*0.5;wellY=H*0.46;wellInit=true;}
+  const wl=Math.min(1,dt*0.25*settle);
+  wellX+=(midX-wellX)*wl; wellY+=(midY-wellY)*wl;
+
+  /* devotion being actively deposited: a decaying pulse envelope that spikes on w_dev's rise */
+  const wAvg=(S.wA+S.wB)/2;
+  const depoRate=Math.max(0,(wAvg-wAvgPrev))/Math.max(dt,1e-4);
+  wAvgPrev=wAvg;
+  depoPulse=Math.max(depoPulse*Math.exp(-dt*2.0), clampv(depoRate*36,0,1));
+  /* the more devotion has settled, the closer + bigger + brighter the pair reads */
+  const closeness=clampv(wAvg/1.2,0,1);
+  const pull=Math.pow(closeness,0.6)*0.30;
+  const rxA=xA+(midX-xA)*pull, ryA=yA+(midY-yA)*pull;
+  const rxB=xB+(midX-xB)*pull, ryB=yB+(midY-yB)*pull;
+  const growA=1+0.35*closeness+0.5*depoPulse, growB=growA;
+
+  /* pass 1: fade previous trails into current fbo */
+  const nxt=1-cur;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo[nxt]);
+  gl.viewport(0,0,W,H);
+  gl.disable(gl.BLEND);
+  gl.useProgram(progFade);
+  bindQuad(progFade);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,tex[cur]);
+  gl.uniform1i(gl.getUniformLocation(progFade,'uT'),0);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+
+  /* pass 2: deposit body glows into trail buffer */
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE);
+  const pA=(1+0.4*Math.tanh(S.mA))*growA, pB=(1+0.4*Math.tanh(S.mB))*growB;
+  drawSprite(rxA,ryA,sz*2.4*pA,COL_A,0.10+0.10*depoPulse,5.0);
+  drawSprite(rxA,ryA,sz*0.8*pA,COL_A,0.30+0.15*depoPulse,7.0);
+  drawSprite(rxB,ryB,sz*2.4*pB,COL_B,0.10+0.10*depoPulse,5.0);
+  drawSprite(rxB,ryB,sz*0.8*pB,COL_B,0.30+0.15*depoPulse,7.0);
+
+  /* pass 3: composite room + trails to screen */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,W,H);
+  gl.disable(gl.BLEND);
+  gl.useProgram(progScreen);
+  bindQuad(progScreen);
+  gl.bindTexture(gl.TEXTURE_2D,tex[nxt]);
+  gl.uniform1i(gl.getUniformLocation(progScreen,'uT'),0);
+  gl.uniform2f(gl.getUniformLocation(progScreen,'uRes'),W,H);
+  gl.uniform1f(gl.getUniformLocation(progScreen,'uDev'),
+    clampv((S.wA+S.wB)/2/1.2,0,1));
+  gl.uniform2f(gl.getUniformLocation(progScreen,'uWell'),wellX/W,1.0-wellY/H);
+  gl.uniform1f(gl.getUniformLocation(progScreen,'uSettle'),settle);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+
+  /* pass 4: shared halo (settledness), threads + ghosts + crisp cores — ephemeral, on screen only */
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE);
+  if(settle>0.02||depoPulse>0.02){
+    const hs=Math.min(W,H)*(0.10+0.08*settle+0.05*depoPulse);
+    const breath=0.7+0.3*Math.sin(t*0.0011);       // the settled pair breathes as one envelope
+    const glow=Math.max(settle,depoPulse*0.8);
+    drawSprite(midX,midY,hs*2.2,[0.73,0.65,0.70],0.11*glow*breath,3.5);
+    drawSprite(midX,midY,hs,[0.82,0.73,0.79],(0.08*settle*breath)+0.16*depoPulse,5.0);
+  }
+  const rxGA=xGA+(midX-xGA)*pull, ryGA=yGA+(midY-yGA)*pull;
+  const rxGB=xGB+(midX-xGB)*pull, ryGB=yGB+(midY-yGB)*pull;
+  drawThread(rxA,ryA,rxGB,ryGB,COL_B,0.13);
+  drawThread(rxB,ryB,rxGA,ryGA,COL_A,0.13);
+  drawSprite(rxGB,ryGB,sz*1.5*growB,COL_B,0.10,4.0);   // translucent ghosts
+  drawSprite(rxGA,ryGA,sz*1.5*growA,COL_A,0.10,4.0);
+  const coreA=[1,0.92,0.85], coreB=[0.88,0.95,1];
+  drawSprite(rxA,ryA,sz*0.45*growA,coreA,Math.min(1,0.85+0.15*depoPulse),9.0);  // crisp cores, pulsing on deposit
+  drawSprite(rxB,ryB,sz*0.45*growB,coreB,Math.min(1,0.85+0.15*depoPulse),9.0);
+  if(depoPulse>0.04){
+    drawSprite(rxA,ryA,sz*1.1*growA,coreA,0.22*depoPulse,6.0);
+    drawSprite(rxB,ryB,sz*1.1*growB,coreB,0.22*depoPulse,6.0);
+  }
+
+  cur=nxt;
+
+  if((t|0)%16===0){
+    devEl.innerHTML='w_dev · <i class="ca">A '
+      +S.wA.toFixed(2)+'</i> · <i class="cb">B '+S.wB.toFixed(2)
+      +'</i> · settled '+Math.round(settle*100)+'%';
+  }
+}
+requestAnimationFrame(frame);
+
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  resetSim(); mkTarget(0); mkTarget(1); cur=0;
+  settle=0; wellInit=false; pvA=0; pvB=0; wAvgPrev=0; depoPulse=0;
+});
+
+} // end if(gl)
+
+/* ============ ui ============ */
+function bind(id,key,fmt){
+  const el=document.getElementById(id), out=document.getElementById(id+'V');
+  el.addEventListener('input',()=>{P[key]=parseFloat(el.value);out.textContent=fmt(P[key]);
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));});
+  out.textContent=fmt(P[key]);
+  return el;
+}
+const fmtS=v=>v.toFixed(2)+'s', fmt2=v=>v.toFixed(2),
+      fmtSg=v=>(v>=0?'+':'')+v.toFixed(2);
+const eTau=bind('tau','tau',fmtS), eC=bind('cg','c',fmt2),
+      eAB=bind('nuAB','nuAB',fmtSg), eBA=bind('nuBA','nuBA',fmtSg),
+      eSig=bind('sig','sig',fmt2);
+
+const eTs=document.getElementById('tsc');
+eTs.addEventListener('input',()=>{TSC=parseFloat(eTs.value);
+  document.getElementById('tscV').textContent='×'+eTs.value;});
+
+const PRESETS={
+  settle:  {tau:0.45,c:1.6,nuAB:1.00,nuBA:1.00,sig:0.05},
+  pursue:  {tau:0.90,c:2.2,nuAB:1.50,nuBA:-1.30,sig:0.06},
+  distance:{tau:2.30,c:1.6,nuAB:1.00,nuBA:1.00,sig:0.07}
+};
+document.querySelectorAll('.chip').forEach(ch=>{
+  ch.addEventListener('click',()=>{
+    const p=PRESETS[ch.dataset.p]; Object.assign(P,p);
+    eTau.value=P.tau; eC.value=P.c; eAB.value=P.nuAB; eBA.value=P.nuBA; eSig.value=P.sig;
+    document.getElementById('tauV').textContent=fmtS(P.tau);
+    document.getElementById('cgV').textContent=fmt2(P.c);
+    document.getElementById('nuABV').textContent=fmtSg(P.nuAB);
+    document.getElementById('nuBAV').textContent=fmtSg(P.nuBA);
+    document.getElementById('sigV').textContent=fmt2(P.sig);
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    ch.classList.add('on');
+  });
+});
+
+const pauseBtn=document.getElementById('pauseBtn');
+pauseBtn.addEventListener('click',()=>{paused=!paused;pauseBtn.textContent=paused?'resume':'pause';lastT=0;});
+
+const panel=document.getElementById('panel'), bar=document.getElementById('panelbar'),
+      chev=document.getElementById('panelchev');
+function togglePanel(){
+  panel.classList.toggle('hidden');
+  chev.textContent=panel.classList.contains('hidden')?'show ▴':'hide ▾';
+}
+bar.addEventListener('click',togglePanel);
+bar.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();togglePanel();}});
+if(innerWidth<700)togglePanel();  // start collapsed on small screens
+
+const notesBar=document.getElementById('notesBar'), notesDrop=document.getElementById('notesDrop'),
+      notesChev=document.getElementById('notesChev');
+function toggleNotes(){
+  notesDrop.classList.toggle('open');
+  notesChev.textContent=notesDrop.classList.contains('open')?'hide ▴':'show ▾';
+}
+notesBar.addEventListener('click',toggleNotes);
+notesBar.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleNotes();}});
+
+/* reduced motion: start paused with an explicit begin */
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){
+  paused=true;
+  const ph=document.getElementById('playhint');
+  ph.classList.add('show');
+  document.getElementById('playBtn').addEventListener('click',()=>{
+    ph.classList.remove('show');paused=false;pauseBtn.textContent='pause';lastT=0;
+  });
+}
+</script>
+</body>
+</html>
