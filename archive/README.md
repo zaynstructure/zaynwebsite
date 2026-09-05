@@ -8,3 +8,4 @@ the live site and not linked from its navigation:
 - `emotional-geometry/` — EVF / emotional-geometry sandbox experiments
 - `something/`, `web/` — generative "art web" system sketches
 - `evf_geometry_v0_2_full_fixed.html`, `geometry_v0.3.html`, `ghost_dance2.html` — related sandbox pages
+- `processes/` — retired methodology page (capture → edit → compose → output); may resurface as an `/experiments/` writeup later
