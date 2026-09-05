@@ -15,7 +15,8 @@
   --wide-w: 1180px;
   --radius: 4px;
 
-  --font: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font: 'Work Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
 
   --t-fast: .15s ease;
   --t-med: .25s ease;
@@ -74,14 +75,21 @@ a { color: inherit; }
 }
 
 .brand {
-  font-weight: 600;
-  font-size: 1rem;
-  letter-spacing: .3px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.1rem;
+  letter-spacing: 0;
   text-decoration: none;
   white-space: nowrap;
 }
 
-.brand .dim { color: var(--muted); font-weight: 400; margin-left: .55rem; }
+.brand .dim {
+  font-family: var(--font);
+  color: var(--muted);
+  font-weight: 400;
+  font-size: .85rem;
+  margin-left: .55rem;
+}
 
 .site-nav {
   display: flex;
@@ -181,16 +189,19 @@ main { flex: 1; }
 }
 
 h1 {
+  font-family: var(--font-display);
   font-size: clamp(1.8rem, 1.4rem + 1.6vw, 2.6rem);
-  font-weight: 600;
-  letter-spacing: -.2px;
+  font-weight: 500;
+  letter-spacing: -.3px;
   margin: 0 0 .8rem;
   line-height: 1.15;
 }
 
 h2 {
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: -.2px;
   margin: 2.4rem 0 .8rem;
 }
 
@@ -274,9 +285,10 @@ p { margin: 0 0 1.1rem; }
 }
 
 .card h3 {
+  font-family: var(--font-display);
   margin: .9rem 0 .2rem;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 
 .card p { margin: 0; color: var(--muted); font-size: .88rem; }
