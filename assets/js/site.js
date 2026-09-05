@@ -1,4 +1,4 @@
-// site.js — mobile nav toggle + footer year
+// site.js — mobile nav toggle, work slider, footer year
 
 document.addEventListener('DOMContentLoaded', () => {
   const toggle = document.querySelector('.nav-toggle');
@@ -17,6 +17,21 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  document.querySelectorAll('.slider').forEach((slider) => {
+    const track = slider.querySelector('.slider-track');
+    if (!track) return;
+
+    slider.querySelectorAll('.slider-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const dir = parseInt(btn.dataset.dir, 10) || 1;
+        const slide = track.querySelector('.slide');
+        const gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap) || 0;
+        const amount = slide ? slide.getBoundingClientRect().width + gap : track.clientWidth;
+        track.scrollBy({ left: dir * amount, behavior: 'smooth' });
+      });
+    });
+  });
 
   const year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();

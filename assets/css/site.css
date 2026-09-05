@@ -275,6 +275,57 @@ p { margin: 0 0 1.1rem; }
 
 .card:hover img { transform: scale(1.03); }
 
+/* =========================================================
+   SLIDER (home "selected work")
+========================================================= */
+
+.slider { position: relative; }
+
+.slider-track {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding: .25rem .25rem 1rem;
+  scrollbar-width: none;
+}
+
+.slider-track::-webkit-scrollbar { display: none; }
+
+.slide {
+  flex: 0 0 min(420px, 82%);
+  scroll-snap-align: start;
+}
+
+.slider-btn {
+  position: absolute;
+  top: 38%;
+  transform: translateY(-50%);
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast);
+}
+
+.slider-btn:hover { background: var(--surface); }
+.slider-btn.prev { left: -1rem; }
+.slider-btn.next { right: -1rem; }
+
+@media (max-width: 700px) {
+  .slider-btn { display: none; }
+}
+
 .card .frame.placeholder {
   display: flex;
   align-items: center;
