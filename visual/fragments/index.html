@@ -1,221 +1,77 @@
-<<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>fragments · visual · zayn wiwchar</title>
+<meta name="description" content="Fragments — short-form visual clips from the fragments a/v performance, by Zayn Wiwchar.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 
-<!-- font + site css -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Notch:wght@200..700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/css/landing.css">
-
-<style>
-/* allow scroll on subpages */
-html, body { overflow: auto; }
-
-/* main beside fixed sidebar */
-main {
-  margin-left: 320px;
-  padding: 1.5rem 2rem 3rem;
-  max-width: 1200px;
-}
-
-h1.page-title {
-  font-weight: 600;
-  font-size: 2rem;
-  margin: 0 0 .5rem;
-}
-
-.lede {
-  color: var(--muted,#666);
-  margin: 0 0 1.6rem;
-}
-
-/* responsive grid */
-.grid {
-  display: grid;
-  gap: 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  margin-top: 1rem;
-  margin-bottom: 2rem;
-}
-
-@media(min-width:880px){
-  .grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media(max-width:879px){
-  main { margin-left: 0; padding: 2rem 1rem; }
-  .grid { grid-template-columns: 1fr; gap: 1.5rem; }
-}
-
-figure.work { margin: 0; }
-
-figcaption {
-  margin-top: .6rem;
-  font-size: .9rem;
-  color: var(--muted,#666);
-}
-
-/* vimeo embeds — normalized, privacy-safe */
-.vimeo-wrap {
-  position: relative;
-  width: 100%;
-  padding-top: 56.25%; /* 16:9 */
-  background: #000;
-  border-radius: 6px;
-  overflow: hidden;
-  filter: grayscale(.05) contrast(1.05);
-  transition: filter .3s ease, transform .3s ease;
-}
-
-.vimeo-wrap:hover {
-  filter: none;
-  transform: scale(1.02);
-}
-
-.vimeo-wrap iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/site.css">
 </head>
 
 <body>
 
-<!-- fixed sidebar -->
-<aside class="side" aria-label="main navigation">
-  <h1 class="name"><a href="/">zayn wiwchar</a></h1>
-  <p class="tagline">art · systems · sound</p>
+<header class="site-header">
+<a class="brand" href="/">zayn wiwchar <span class="dim">art · systems · sound</span></a>
+<button class="nav-toggle" aria-expanded="false" aria-controls="nav">menu</button>
+<nav class="site-nav" id="nav">
+<a href="/visual/" aria-current="page">visual</a>
+<a href="/audio/">audio</a>
+<a href="/processes/">processes</a>
+<a href="/about/">about</a>
+<a href="/contact/">contact</a>
+</nav>
+</header>
 
-  <nav class="nav-tree">
-
-    <details>
-      <summary><span class="caret"></span><span class="label">visual</span></summary>
-      <div class="children">
-        <a href="/visual/sensor-noise/">sensor noise</a>
-        <a href="/visual/fragments/" aria-current="page">fragments</a>
-        <a href="/visual/painting/">painting</a>
-        <a href="/visual/misc/">misc</a>
-      </div>
-    </details>
-
-    <details>
-      <summary><span class="caret"></span><span class="label">audio</span></summary>
-      <div class="children">
-        <a href="/audio/">overview</a>
-        <a href="/audio/compositions/">compositions</a>
-        <a href="/audio/installations/">installations</a>
-        <a href="/audio/misc/">misc</a>
-      </div>
-    </details>
-
-    <div class="single"><a href="/processes/">processes</a></div>
-
-    <details>
-      <summary><span class="caret"></span><span class="label">about</span></summary>
-      <div class="children">
-        <a href="/about/">bio / statement</a>
-        <a href="/about#cv">cv</a>
-        <a href="/contact/">contact</a>
-      </div>
-    </details>
-
-  </nav>
-
-  <div class="sys" aria-hidden="true">
-    <hr>
-    <div class="row"><span>build</span><span>v0.3</span></div>
-    <div class="row"><span>updated</span><span>2025-11-11</span></div>
-  </div>
-</aside>
-
-<!-- main -->
 <main>
+<div class="wrap-wide">
 
-  <nav class="crumbs">
-    <button type="button" class="menu-btn" aria-controls="menu">menu</button>
-    <span class="page-label">fragments</span>
-  </nav>
+<span class="eyebrow"><a href="/visual/" style="text-decoration:underline;">visual</a> / fragments</span>
+<h1>fragments</h1>
+<p class="lede">short-form visual clips from the fragments a/v performance · ongoing</p>
 
-  <h1 class="page-title">fragments</h1>
-  <p class="lede">short-form visual clips from fragments a/v performance · ongoing</p>
+<div class="work-grid cols-2">
 
-  <section class="grid">
+<figure class="work">
+<div class="embed">
+<iframe src="https://player.vimeo.com/video/1162403301?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" title="fragment 001"></iframe>
+</div>
+<figcaption>fragment 001 · projection sample</figcaption>
+</figure>
 
-    <!-- Fragment 001 -->
-    <figure class="work">
-      <div class="vimeo-wrap">
-        <iframe
-          src="https://player.vimeo.com/video/1162403301?badge=0&autopause=0&player_id=0&app_id=58479"
-          loading="lazy"
-          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
-          referrerpolicy="strict-origin-when-cross-origin"
-          title="fragment 001"
-          ></iframe>
-      </div>
-      <figcaption>fragment 001 · projection sample</figcaption>
-    </figure>
+<figure class="work">
+<div class="embed">
+<iframe src="https://player.vimeo.com/video/1162394500?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" title="fragment 002"></iframe>
+</div>
+<figcaption>fragment 002 · projection sample</figcaption>
+</figure>
 
-    <!-- Fragment 002 -->
-    <figure class="work">
-      <div class="vimeo-wrap">
-        <iframe
-          src="https://player.vimeo.com/video/1162394500?badge=0&autopause=0&player_id=0&app_id=58479"
-          loading="lazy"
-          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
-          referrerpolicy="strict-origin-when-cross-origin"
-          title="fragment 002"
-        ></iframe>
-      </div>
-      <figcaption>fragment 002 · projection sample</figcaption>
-    </figure>
+<figure class="work">
+<div class="embed">
+<iframe src="https://player.vimeo.com/video/1123455684?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" title="fragment 003"></iframe>
+</div>
+<figcaption>fragment 003 · projection sample</figcaption>
+</figure>
 
-        <!-- Fragment 001 -->
-    <figure class="work">
-      <div class="vimeo-wrap">
-        <iframe
-          src="https://player.vimeo.com/video/1123455684?badge=0&autopause=0&player_id=0&app_id=58479"
-          loading="lazy"
-          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
-          referrerpolicy="strict-origin-when-cross-origin"
-          title="fragment 003"
-          
-        ></iframe>
-      </div>
-      <figcaption>fragment 003 · projection sample</figcaption>
-    </figure>
+<figure class="work">
+<div class="embed">
+<iframe src="https://player.vimeo.com/video/1146458430?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" title="fragment 004"></iframe>
+</div>
+<figcaption>fragment 004 · projection sample</figcaption>
+</figure>
 
-    <!-- Fragment 002 -->
-    <figure class="work">
-      <div class="vimeo-wrap">
-        <iframe
-          src="https://player.vimeo.com/video/1146458430?badge=0&autopause=0&player_id=0&app_id=58479"
-          loading="lazy"
-          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
-          referrerpolicy="strict-origin-when-cross-origin"
-          title="fragment 004"
-        ></iframe>
-      </div>
-      <figcaption>fragment 004 · projection sample</figcaption>
-    </figure>
-
-  </section>
-
+</div>
+</div>
 </main>
 
-<script src="/assets/js/global.js"></script>
+<footer class="site-footer">
+© <span id="year"></span> zayn wiwchar. all rights reserved.
+</footer>
 
+<script src="/assets/js/site.js" defer></script>
 </body>
 </html>
-
-
-
-
-
