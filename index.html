@@ -3,103 +3,73 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ZAYN WIWCHAR</title>
-<link rel="icon" href="/assets/favicon.png">
+<title>zayn wiwchar</title>
+<meta name="description" content="Zayn Wiwchar — experimental media artist working across image, sound, and system. Vancouver Island, Lekwungen territory.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 
-<!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Notch:wght@200..700&display=swap" rel="stylesheet">
-
-<!-- Main CSS -->
-<link rel="stylesheet" href="/assets/css/landing.css">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/site.css">
 </head>
 
-<body class="is-landing">
+<body>
 
-<!-- Fullscreen background video -->
-<div class="landing-bg" aria-hidden="true">
-<video
-class="bg-video"
-autoplay
-muted
-loop
-playsinline
-preload="metadata"
-poster="/assets/videos/Landingloop.jpg"
->
-<source src="/assets/videos/Landingloop.mp4" type="video/mp4"><!-- optional MP4 fallback -->
-Your browser does not support HTML5 video.
-</video>
-</div>
-<div class="frost"></div>
-<!-- Sidebar Menu -->
-<aside class="side" aria-label="main navigation">
-<h1 class="name"><a href="/">zayn wiwchar</a></h1>
-<p class="tagline">art · systems · sound</p>
-
-<nav class="nav-tree">
-<details>
-<summary><span class="caret"></span><span class="label">visual</span></summary>
-<div class="children">
-<a href="/visual/sensor-noise/">sensor noise</a>
-<a href="/visual/fragments/">fragments</a>
-<a href="/visual/painting/">painting</a>
-<a href="/visual/misc/">misc</a>
-</div>
-</details>
-
-<details>
-<summary><span class="caret"></span><span class="label">audio</span></summary>
-<div class="children">
-<a href="/audio/">overview</a>
-<a href="/audio/compositions/">compositions</a>
-<a href="/audio/installations/">installations</a>
-<a href="/audio/misc/">misc</a>
-</div>
-</details>
-
-<div class="single"><a href="/ripples/">ripples</a></div>
-
-<details>
-<summary><span class="caret"></span><span class="label">about</span></summary>
-<div class="children">
-<a href="/about/">bio / statement</a>
-<a href="/about#cv">cv</a>
+<header class="site-header">
+<a class="brand" href="/">zayn wiwchar <span class="dim">art · systems · sound</span></a>
+<button class="nav-toggle" aria-expanded="false" aria-controls="nav">menu</button>
+<nav class="site-nav" id="nav">
+<a href="/visual/">visual</a>
+<a href="/audio/">audio</a>
+<a href="/processes/">processes</a>
+<a href="/about/">about</a>
 <a href="/contact/">contact</a>
-</div>
-</details>
 </nav>
+</header>
 
-<div class="sys" aria-hidden="true">
-<div class="row"><span>build</span><span>v0.3</span></div>
-<div class="row"><span>updated</span><span>2025-11-10</span></div>
+<main>
+
+<section class="hero">
+<span class="eyebrow">experimental media artist</span>
+<h1>image, sound, and the systems that shape how they're made.</h1>
+<p class="lede">Zayn Wiwchar works across animation, sound-responsive projection, video, and collage — using layered, iterative editing to explore how emotion and memory register through media.</p>
+<div class="hero-meta">
+<a href="/about/">read the bio / statement</a>
+<a href="/contact/">get in touch</a>
 </div>
-</aside>
+</section>
 
-<script src="/assets/js/global.js"></script>
-</body>
-<script>
-  document.getElementById("year").textContent = new Date().getFullYear();
-</script>
-  <footer class="site-footer">
-  © <span id="year"></span> Zayn Wiwchar. All rights reserved.
+<section class="wrap-wide">
+<h2 style="margin-top:0;">selected work</h2>
+<div class="grid">
+
+<a class="card" href="/visual/sensor-noise/">
+<div class="frame"><img src="/assets/images/SN-01.jpeg" alt="Sensor Noise — composite still"></div>
+<h3>sensor noise</h3>
+<p>prints · video — iterative capture / edit / print</p>
+</a>
+
+<a class="card" href="/visual/painting/">
+<div class="frame"><img src="/assets/images/painting/P-01.jpg" alt="Untitled painting, acrylic and gouache"></div>
+<h3>painting</h3>
+<p>mixed media on board</p>
+</a>
+
+<a class="card" href="/visual/fragments/">
+<div class="frame placeholder">video · projection</div>
+<h3>fragments</h3>
+<p>short-form a/v performance clips</p>
+</a>
+
+</div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+© <span id="year"></span> zayn wiwchar. all rights reserved.
 </footer>
+
+<script src="/assets/js/site.js" defer></script>
+</body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
