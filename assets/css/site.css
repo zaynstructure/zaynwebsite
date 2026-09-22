@@ -392,8 +392,12 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
 /* portrait variant + click-to-load facade, for embedding a heavier
    standalone piece without paying its load cost until asked for */
 .embed.portrait {
-  padding-top: 178%;
-  max-width: 380px;
+  /* aspect-ratio, not the padding-top hack: padding percentages resolve
+     against the containing block's width, not this element's own
+     max-width-clamped width, which made the box render far too tall */
+  padding-top: 0;
+  aspect-ratio: 9 / 16;
+  max-width: 420px;
   margin: 0 auto;
 }
 

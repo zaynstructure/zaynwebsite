@@ -55,7 +55,8 @@ canvas#c {
   inset: auto 0 0 0;        /* bottom of the box */
   padding: 10px 12px;
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   justify-content: center;
   align-items: center;
   z-index: 2;
