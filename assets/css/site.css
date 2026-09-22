@@ -401,6 +401,16 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
   margin: 0 auto;
 }
 
+/* landscape variant for a wide control-panel style tool, sized by height
+   rather than a ratio — the iframe scrolls internally if content runs
+   taller than the box on a given screen */
+.embed.tool {
+  padding-top: 0;
+  height: min(78vh, 760px);
+  max-width: 980px;
+  margin: 0 auto;
+}
+
 .embed-launch {
   position: absolute;
   inset: 0;
