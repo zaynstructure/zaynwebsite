@@ -33,6 +33,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.querySelectorAll('.embed-launch[data-src]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const iframe = document.createElement('iframe');
+      iframe.src = btn.dataset.src;
+      iframe.title = btn.dataset.title || '';
+      iframe.loading = 'lazy';
+      iframe.allow = 'autoplay';
+      btn.replaceWith(iframe);
+    });
+  });
+
   const year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();
 });

@@ -389,6 +389,50 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
   border: 0;
 }
 
+/* portrait variant + click-to-load facade, for embedding a heavier
+   standalone piece without paying its load cost until asked for */
+.embed.portrait {
+  padding-top: 178%;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.embed-launch {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: block;
+}
+
+.embed-launch img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.embed-launch span {
+  position: absolute;
+  left: 50%;
+  bottom: 1.1rem;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-size: .78rem;
+  letter-spacing: .04em;
+  color: #fff;
+  background: rgba(0,0,0,.55);
+  padding: .45rem .85rem;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+  transition: background var(--t-fast);
+}
+
+.embed-launch:hover span { background: rgba(0,0,0,.72); }
+
 /* =========================================================
    PROCESS / TEXT PAGES
 ========================================================= */
