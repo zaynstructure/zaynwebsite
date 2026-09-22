@@ -484,9 +484,9 @@
       last.connect(masterGain);
     }
 
-    if (delayNode && delayMode && voice === 'high'){
+    if (delayNode && delayMode){
       const send = audioCtx.createGain();
-      send.gain.setValueAtTime(0.6, now);
+      send.gain.setValueAtTime(voice === 'high' ? 0.6 : 0.35, now);
       gain.connect(send);
       send.connect(delayNode);
     }
