@@ -103,6 +103,7 @@ a { color: inherit; }
   font-size: .92rem;
   padding: .2rem 0;
   border-bottom: 1px solid transparent;
+  white-space: nowrap;
   transition: color var(--t-fast), border-color var(--t-fast);
 }
 
@@ -125,7 +126,14 @@ a { color: inherit; }
   cursor: pointer;
 }
 
-@media (max-width: 700px) {
+/* mid widths: drop the tagline and tighten the links so the longer
+   "emotional process geometry" label still fits on one row */
+@media (max-width: 1080px) {
+  .brand .dim { display: none; }
+  .site-nav { gap: 1.1rem; }
+}
+
+@media (max-width: 780px) {
   .brand .dim { display: none; }
 
   .nav-toggle { display: inline-block; }

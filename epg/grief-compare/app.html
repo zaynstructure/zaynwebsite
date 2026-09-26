@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>grief: blocked vs completing · zayn wiwchar</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+  /* plain lab-instrument look: paper, 1px ink boxes, dashed guides,
+     the field drawn as ink stipple; blue = blocked, red = completing */
+  :root {
+    --paper: #fbfbf8;
+    --ink: #141414;
+    --muted: #6f6e69;
+    --faint: #b9b8b2;
+    --red: #b3342a;
+    --blue: #2433a3;
+    --stipple: 3px;
+    --dots: radial-gradient(currentColor .95px, transparent 1.25px) 0 0 / var(--stipple) var(--stipple);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background-color: var(--paper);
+    background-image: radial-gradient(rgba(20,20,20,.07) .6px, transparent .9px);
+    background-size: 7px 7px;
+    color: var(--ink);
+    font: 15px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 20px 20px 32px; }
+
+  .page-header { padding-bottom: 10px; border-bottom: 1px solid var(--ink); }
+  .ph-title { margin: 0; font-size: 1.05rem; font-weight: 500; }
+  .ph-title .a { color: var(--blue); }
+  .ph-title .b { color: var(--red); }
+  .ph-sub { margin-top: 2px; color: var(--muted); font-size: .92rem; }
+
+  .panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 12px; }
+  .panel { min-width: 0; }
+  .panel-header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .panel-title { font-size: .95rem; }
+  .panel-a .panel-title { color: var(--blue); }
+  .panel-b .panel-title { color: var(--red); }
+  .panel-sub { color: var(--muted); font-size: .8rem; text-align: right; }
+
+  .canvas-stack { position: relative; width: 100%; aspect-ratio: 420 / 300; border: 1px solid var(--ink); background: var(--paper); }
+  .canvas-stack canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .stage-strip { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-height: 2.6em; padding: 6px 0 4px; }
+  .sname { font-size: .95rem; }
+  .sdesc { color: var(--muted); font-size: .8rem; text-align: right; max-width: 55%; }
+
+  .param-block { padding: 6px 0; border-top: 1px dashed var(--faint); }
+  .param-row { display: grid; grid-template-columns: 1.1em 5.6em minmax(0, 1fr) 2.4em; align-items: center; gap: 6px; margin-bottom: 4px; font-size: .82rem; }
+  .p-sym { color: var(--muted); }
+  .p-name { color: var(--muted); }
+  .p-track { height: 9px; border: 1px solid var(--ink); background: var(--paper); }
+  .p-fill { height: 100%; background: var(--dots); transition: width .5s cubic-bezier(.4,0,.2,1); }
+  .p-val { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .tri-block { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0 0; border-top: 1px dashed var(--faint); }
+  .tri-block svg { flex-shrink: 0; }
+  .tri-notes { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .tri-note { padding: 1px 0 1px 7px; border-left: 1px dashed var(--faint); font-size: .8rem; line-height: 1.4; color: var(--muted); }
+
+  .tl-wrap { margin-top: 16px; padding-top: 10px; border-top: 1px dashed var(--faint); }
+  .tl-label { margin-bottom: 5px; font-size: .82rem; color: var(--muted); }
+  .tl-label .k { color: var(--ink); }
+  .tl-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .tl-canvas-wrap canvas { width: 100%; display: block; border: 1px solid var(--ink); }
+
+  .controls { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+  .btn {
+    font: inherit; font-size: .92rem; color: var(--ink);
+    background: #ecebe6; border: 1px solid var(--ink); border-radius: 0;
+    padding: 3px 10px; cursor: pointer; flex-shrink: 0;
+  }
+  .btn:hover, .btn.active { background: var(--ink); color: var(--paper); }
+  .btn:focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
+  /* scrub bar: stippled track, red fill, round head */
+  .prog-track { position: relative; flex: 1; height: 8px; margin: 0 8px; cursor: pointer; color: var(--ink); background: var(--dots); }
+  .prog-fill { height: 100%; width: 0%; background: var(--red); }
+  .prog-head { position: absolute; top: -4px; left: 0%; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--red); transform: translateX(-50%); }
+
+  @media (max-width: 640px) {
+    .panels, .tl-row { grid-template-columns: minmax(0, 1fr); }
+    .wrap { padding: 16px 16px 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page-header">
+  <h1 class="ph-title">grief — <span class="a">blocked</span> vs <span class="b">completing</span></h1>
+  <div class="ph-sub">Same loss attractor, same wave pattern — different organization and outcome.</div>
+</header>
+
+<div class="panels">
+
+  <div class="panel panel-a">
+    <div class="panel-header">
+      <div class="panel-title">A · blocked / looping</div>
+      <div class="panel-sub">λ high · κ low · no passage</div>
+    </div>
+    <div class="canvas-stack" id="stackA">
+      <canvas id="baseA"></canvas><canvas id="zonesA"></canvas><canvas id="attrA"></canvas><canvas id="coupA"></canvas><canvas id="probeA"></canvas>
+    </div>
+    <div class="stage-strip"><div class="sname" id="snameA">—</div><div class="sdesc" id="sdescA">—</div></div>
+    <div class="param-block" id="paramsA"></div>
+    <div class="tri-block">
+      <svg id="triA" width="96" height="94" viewBox="-3 -8 96 94" aria-hidden="true">
+        <defs><pattern id="dotsA" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".7" fill="#2433a3"/></pattern></defs>
+        <polygon points="45,6 8,78 82,78" fill="none" stroke="#141414" stroke-width="1"/>
+        <polygon id="triStateA" points="45,6 8,78 82,78" fill="url(#dotsA)" stroke="#2433a3" stroke-width="1" stroke-dasharray="3 2"/>
+        <circle id="triDotA" cx="45" cy="54" r="3" fill="#2433a3"/>
+        <text x="45" y="1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="7" fill="#6f6e69">dir</text>
+        <text x="0" y="86" font-family="Helvetica, Arial, sans-serif" font-size="7" fill="#6f6e69">cont</text>
+        <text x="90" y="86" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="7" fill="#6f6e69">diff</text>
+      </svg>
+      <div class="tri-notes" id="triNotesA">
+        <div class="tri-note">Containment: —</div>
+        <div class="tri-note">Diffusion: —</div>
+        <div class="tri-note">Direction: —</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-b">
+    <div class="panel-header">
+      <div class="panel-title">B · moving / completing</div>
+      <div class="panel-sub">λ moderate · κ opens · passage forms</div>
+    </div>
+    <div class="canvas-stack" id="stackB">
+      <canvas id="baseB"></canvas><canvas id="zonesB"></canvas><canvas id="attrB"></canvas><canvas id="coupB"></canvas><canvas id="probeB"></canvas>
+    </div>
+    <div class="stage-strip"><div class="sname" id="snameB">—</div><div class="sdesc" id="sdescB">—</div></div>
+    <div class="param-block" id="paramsB"></div>
+    <div class="tri-block">
+      <svg id="triB" width="96" height="94" viewBox="-3 -8 96 94" aria-hidden="true">
+        <defs><pattern id="dotsB" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".7" fill="#b3342a"/></pattern></defs>
+        <polygon points="45,6 8,78 82,78" fill="none" stroke="#141414" stroke-width="1"/>
+        <polygon id="triStateB" points="45,6 8,78 82,78" fill="url(#dotsB)" stroke="#b3342a" stroke-width="1" stroke-dasharray="3 2"/>
+        <circle id="triDotB" cx="45" cy="54" r="3" fill="#b3342a"/>
+        <text x="45" y="1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="7" fill="#6f6e69">dir</text>
+        <text x="0" y="86" font-family="Helvetica, Arial, sans-serif" font-size="7" fill="#6f6e69">cont</text>
+        <text x="90" y="86" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="7" fill="#6f6e69">diff</text>
+      </svg>
+      <div class="tri-notes" id="triNotesB">
+        <div class="tri-note">Containment: —</div>
+        <div class="tri-note">Diffusion: —</div>
+        <div class="tri-note">Direction: —</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tl-wrap">
+  <div class="tl-label">Activation history · <span class="k">λ attractor</span> (solid, filled) · σ volatility (dashed) · 1−γ damping (dotted)</div>
+  <div class="tl-row">
+    <div class="tl-canvas-wrap"><canvas id="tlA"></canvas></div>
+    <div class="tl-canvas-wrap"><canvas id="tlB"></canvas></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="playBtn">play</button>
+  <button class="btn" id="resetBtn">reset</button>
+  <div class="prog-track" id="progTrack" role="slider" aria-label="scrub through the episode" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="prog-fill" id="progFill"></div>
+    <div class="prog-head" id="progHead"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ── Canvas dimensions ──────────────────────────────────────────
+const CW = 420, CH = 300, TLH = 48, TL_MAX = 380;
+
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+const INK = '#141414', MUTED = '#6f6e69', FAINT = '#b9b8b2', PAPER = '#fbfbf8';
+const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+function setupStack(ids) {
+  const canvases = {};
+  ['base','zones','attr','coup','probe'].forEach(name => {
+    const c = document.getElementById(name + ids);
+    c.width = CW * DPR; c.height = CH * DPR;
+    const g = c.getContext('2d'); g.scale(DPR, DPR);
+    canvases[name] = g;
+  });
+  const tlc = document.getElementById('tl'+ids);
+  tlc.width = CW * DPR; tlc.height = TLH * DPR;
+  const tg = tlc.getContext('2d'); tg.scale(DPR, DPR);
+  return { ...canvases, tl: tg };
+}
+
+const ctxA = setupStack('A');
+const ctxB = setupStack('B');
+ctxA.accent = '#2433a3'; ctxB.accent = '#b3342a';
+
+// fixed stipple thresholds: dots appear and thin in place as the field moves
+const STEP = 3;
+const THR = (() => { const t = new Float32Array(256*256); let s = 0x6d2b79f5;
+  for (let i = 0; i < t.length; i++) { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; t[i] = (s >>> 0) / 4294967296; } return t; })();
+const offA = null, offB = null;
+
+// ── Zone definitions ───────────────────────────────────────────
+const ZONE_HOME = {
+  physio:    { cx:0.24, cy:0.60, r:0.24 },
+  feeling:   { cx:0.50, cy:0.44, r:0.28 },
+  cognition: { cx:0.74, cy:0.28, r:0.22 },
+  behavior:  { cx:0.76, cy:0.68, r:0.22 },
+};
+
+// ── SCENARIO A: Blocked grief ──────────────────────────────────
+// Character: λ stays high, κ never opens enough, cognition pulls back
+// each wave, rhythm loops without completion
+const STAGES_A = [
+  {
+    name: 'Before the wave',
+    desc: 'low activation · dull weight',
+    dur: 2200,
+    params: { lambda:0.35, sigma:0.18, gamma:0.62, kappa:0.28, drift:0.20 },
+    sources: [
+      { x:0.50, y:0.50, amp:0.30, vx: 0.00004, vy: 0.00002, sigX:0.22, sigY:0.22 },
+      { x:0.36, y:0.58, amp:0.18, vx:-0.00002, vy: 0.00003, sigX:0.18, sigY:0.18 },
+    ],
+    zones: { physio:0.32, feeling:0.38, cognition:0.20, behavior:0.10 },
+    coupling: [{ a:'physio', b:'feeling', strength:0.42 }],
+    attractor: { x:0.42, y:0.50, depth:0.32 },
+    probe: { x:0.58, y:0.55 },
+    reg: { contain:0.58, diffuse:0.30, direct:0.22 },
+    triNotes: ['holding — dull weight','partially open','no clear lean'],
+  },
+  {
+    name: 'Wave rises',
+    desc: 'memory activates · feeling surges',
+    dur: 2400,
+    params: { lambda:0.75, sigma:0.55, gamma:0.28, kappa:0.38, drift:0.35 },
+    sources: [
+      { x:0.40, y:0.48, amp:0.88, vx:-0.00004, vy: 0.00003, sigX:0.16, sigY:0.18 },
+      { x:0.24, y:0.38, amp:0.55, vx: 0.00003, vy:-0.00004, sigX:0.12, sigY:0.12 },
+      { x:0.58, y:0.36, amp:0.42, vx:-0.00003, vy:-0.00003, sigX:0.14, sigY:0.14 },
+    ],
+    zones: { physio:0.72, feeling:0.85, cognition:0.35, behavior:0.22 },
+    coupling: [
+      { a:'physio', b:'feeling',   strength:0.82 },
+      { a:'feeling', b:'cognition', strength:0.45 },
+    ],
+    attractor: { x:0.40, y:0.48, depth:0.72 },
+    probe: { x:0.40, y:0.48 },
+    reg: { contain:0.32, diffuse:0.40, direct:0.35 },
+    triNotes: ['strained — wave incoming','opening — some spread','toward loss basin'],
+  },
+  {
+    name: 'Peak — full heaviness',
+    desc: 'loss theme dominates · body loaded',
+    dur: 2600,
+    params: { lambda:0.88, sigma:0.48, gamma:0.22, kappa:0.24, drift:0.28 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.95, vx:-0.00002, vy: 0.00002, sigX:0.14, sigY:0.16 },
+      { x:0.22, y:0.35, amp:0.65, vx: 0.00003, vy:-0.00003, sigX:0.10, sigY:0.10 },
+      { x:0.56, y:0.34, amp:0.50, vx:-0.00003, vy:-0.00002, sigX:0.12, sigY:0.12 },
+      { x:0.34, y:0.62, amp:0.42, vx: 0.00002, vy: 0.00003, sigX:0.10, sigY:0.10 },
+    ],
+    zones: { physio:0.90, feeling:0.92, cognition:0.55, behavior:0.18 },
+    coupling: [
+      { a:'physio',    b:'feeling',   strength:0.92 },
+      { a:'feeling',   b:'cognition', strength:0.65 },
+      { a:'cognition', b:'physio',    strength:0.48 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.90 },
+    probe: { x:0.40, y:0.50 },
+    reg: { contain:0.18, diffuse:0.22, direct:0.28 },
+    triNotes: ['collapsed — wave peak','sealed — blocked','directionless — stuck'],
+  },
+  {
+    name: 'Cognition pulls back',
+    desc: '"I shouldn\'t feel this" · suppression',
+    dur: 2200,
+    params: { lambda:0.82, sigma:0.42, gamma:0.35, kappa:0.12, drift:0.68 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.82, vx: 0.00003, vy: 0.00002, sigX:0.13, sigY:0.15 },
+      { x:0.72, y:0.26, amp:0.72, vx:-0.00003, vy:-0.00002, sigX:0.10, sigY:0.10 },
+      { x:0.22, y:0.35, amp:0.45, vx: 0.00002, vy:-0.00002, sigX:0.09, sigY:0.09 },
+    ],
+    zones: { physio:0.60, feeling:0.58, cognition:0.92, behavior:0.35 },
+    coupling: [
+      { a:'cognition', b:'feeling',  strength:0.85 },
+      { a:'cognition', b:'physio',   strength:0.70 },
+      { a:'behavior',  b:'cognition', strength:0.55 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.82 },
+    probe: { x:0.52, y:0.44 },
+    reg: { contain:0.30, diffuse:0.10, direct:0.70 },
+    triNotes: ['suppression active','sealed off — shrinking','cognition overriding'],
+  },
+  {
+    name: 'False settling',
+    desc: 'surface calm · attractor intact',
+    dur: 2400,
+    params: { lambda:0.72, sigma:0.22, gamma:0.55, kappa:0.16, drift:0.42 },
+    sources: [
+      { x:0.44, y:0.52, amp:0.52, vx: 0.00003, vy: 0.00002, sigX:0.16, sigY:0.16 },
+      { x:0.66, y:0.30, amp:0.35, vx:-0.00003, vy:-0.00002, sigX:0.12, sigY:0.11 },
+    ],
+    zones: { physio:0.40, feeling:0.35, cognition:0.55, behavior:0.28 },
+    coupling: [
+      { a:'cognition', b:'feeling',  strength:0.55 },
+      { a:'cognition', b:'physio',   strength:0.42 },
+    ],
+    attractor: { x:0.44, y:0.52, depth:0.68 },
+    probe: { x:0.62, y:0.58 },
+    reg: { contain:0.52, diffuse:0.16, direct:0.42 },
+    triNotes: ['surface only — basin intact','still narrow — no integration','drift muted but held'],
+  },
+  {
+    name: 'Wave returns',
+    desc: 'cue reactivates · loop confirmed',
+    dur: 2800,
+    params: { lambda:0.86, sigma:0.58, gamma:0.25, kappa:0.20, drift:0.32 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.90, vx:-0.00003, vy: 0.00003, sigX:0.14, sigY:0.16 },
+      { x:0.22, y:0.34, amp:0.62, vx: 0.00003, vy:-0.00003, sigX:0.10, sigY:0.10 },
+      { x:0.56, y:0.34, amp:0.48, vx:-0.00003, vy:-0.00002, sigX:0.12, sigY:0.12 },
+      { x:0.34, y:0.62, amp:0.38, vx: 0.00002, vy: 0.00003, sigX:0.09, sigY:0.09 },
+    ],
+    zones: { physio:0.82, feeling:0.88, cognition:0.48, behavior:0.20 },
+    coupling: [
+      { a:'physio',    b:'feeling',   strength:0.88 },
+      { a:'feeling',   b:'cognition', strength:0.58 },
+      { a:'cognition', b:'physio',    strength:0.52 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.88 },
+    probe: { x:0.40, y:0.50 },
+    reg: { contain:0.20, diffuse:0.20, direct:0.30 },
+    triNotes: ['collapsed again — loop confirmed','sealed — no new passage','loss basin deepening'],
+  },
+];
+
+// ── SCENARIO B: Completing grief ──────────────────────────────
+// Character: λ rises then softens, κ genuinely opens mid-arc,
+// feeling zone expands, attractor basin flattens, probe moves through
+const STAGES_B = [
+  {
+    name: 'Before the wave',
+    desc: 'low activation · quiet weight',
+    dur: 2200,
+    params: { lambda:0.32, sigma:0.16, gamma:0.65, kappa:0.32, drift:0.22 },
+    sources: [
+      { x:0.52, y:0.50, amp:0.28, vx: 0.00004, vy: 0.00002, sigX:0.22, sigY:0.22 },
+      { x:0.38, y:0.58, amp:0.16, vx:-0.00002, vy: 0.00003, sigX:0.18, sigY:0.18 },
+    ],
+    zones: { physio:0.30, feeling:0.36, cognition:0.18, behavior:0.10 },
+    coupling: [{ a:'physio', b:'feeling', strength:0.40 }],
+    attractor: { x:0.44, y:0.50, depth:0.30 },
+    probe: { x:0.60, y:0.55 },
+    reg: { contain:0.62, diffuse:0.34, direct:0.22 },
+    triNotes: ['holding — quiet weight','gently open','no lean yet'],
+  },
+  {
+    name: 'Wave rises',
+    desc: 'memory activates · feeling opens',
+    dur: 2400,
+    params: { lambda:0.72, sigma:0.52, gamma:0.30, kappa:0.52, drift:0.38 },
+    sources: [
+      { x:0.42, y:0.48, amp:0.85, vx:-0.00004, vy: 0.00003, sigX:0.17, sigY:0.19 },
+      { x:0.26, y:0.36, amp:0.52, vx: 0.00003, vy:-0.00004, sigX:0.13, sigY:0.12 },
+      { x:0.58, y:0.36, amp:0.40, vx:-0.00003, vy:-0.00003, sigX:0.15, sigY:0.14 },
+    ],
+    zones: { physio:0.68, feeling:0.88, cognition:0.30, behavior:0.25 },
+    coupling: [
+      { a:'physio',  b:'feeling',  strength:0.80 },
+      { a:'feeling', b:'behavior', strength:0.40 },
+    ],
+    attractor: { x:0.42, y:0.48, depth:0.68 },
+    probe: { x:0.42, y:0.48 },
+    reg: { contain:0.35, diffuse:0.54, direct:0.38 },
+    triNotes: ['strained — wave rises','opening — feeling diffuses','toward expression'],
+  },
+  {
+    name: 'Peak — fullness',
+    desc: 'grief allowed · body and feeling full',
+    dur: 2600,
+    params: { lambda:0.82, sigma:0.45, gamma:0.25, kappa:0.62, drift:0.42 },
+    sources: [
+      { x:0.40, y:0.50, amp:0.92, vx:-0.00002, vy: 0.00003, sigX:0.16, sigY:0.18 },
+      { x:0.24, y:0.35, amp:0.60, vx: 0.00003, vy:-0.00003, sigX:0.11, sigY:0.11 },
+      { x:0.56, y:0.35, amp:0.48, vx:-0.00003, vy:-0.00002, sigX:0.13, sigY:0.13 },
+      { x:0.38, y:0.64, amp:0.40, vx: 0.00002, vy: 0.00003, sigX:0.11, sigY:0.11 },
+    ],
+    zones: { physio:0.85, feeling:0.95, cognition:0.42, behavior:0.38 },
+    coupling: [
+      { a:'physio',   b:'feeling',  strength:0.90 },
+      { a:'feeling',  b:'behavior', strength:0.65 },
+      { a:'feeling',  b:'cognition', strength:0.42 },
+    ],
+    attractor: { x:0.40, y:0.50, depth:0.82 },
+    probe: { x:0.40, y:0.50 },
+    reg: { contain:0.22, diffuse:0.62, direct:0.42 },
+    triNotes: ['held — allowed not suppressed','wide open — wave spreading','expression emerging'],
+  },
+  {
+    name: 'Expression — wave moves',
+    desc: 'feeling given form · diffusion opens',
+    dur: 2400,
+    params: { lambda:0.65, sigma:0.38, gamma:0.42, kappa:0.78, drift:0.52 },
+    sources: [
+      { x:0.42, y:0.50, amp:0.70, vx: 0.00004, vy: 0.00003, sigX:0.20, sigY:0.20 },
+      { x:0.62, y:0.44, amp:0.45, vx: 0.00005, vy:-0.00003, sigX:0.18, sigY:0.16 },
+      { x:0.26, y:0.56, amp:0.38, vx:-0.00004, vy: 0.00002, sigX:0.16, sigY:0.16 },
+    ],
+    zones: { physio:0.62, feeling:0.78, cognition:0.38, behavior:0.68 },
+    coupling: [
+      { a:'feeling',  b:'behavior', strength:0.80 },
+      { a:'feeling',  b:'cognition', strength:0.55 },
+      { a:'behavior', b:'physio',    strength:0.60 },
+    ],
+    attractor: { x:0.44, y:0.50, depth:0.58 },
+    probe: { x:0.56, y:0.50 },
+    reg: { contain:0.42, diffuse:0.78, direct:0.52 },
+    triNotes: ['stabilizing — held well','spreading — integrating','toward contact or expression'],
+  },
+  {
+    name: 'Settling — basin softening',
+    desc: 'attractor flattens · spread redistributes',
+    dur: 2800,
+    params: { lambda:0.42, sigma:0.22, gamma:0.62, kappa:0.72, drift:0.45 },
+    sources: [
+      { x:0.48, y:0.52, amp:0.45, vx: 0.00003, vy: 0.00002, sigX:0.24, sigY:0.24 },
+      { x:0.64, y:0.46, amp:0.28, vx: 0.00004, vy:-0.00002, sigX:0.20, sigY:0.18 },
+      { x:0.32, y:0.56, amp:0.22, vx:-0.00003, vy: 0.00002, sigX:0.18, sigY:0.18 },
+    ],
+    zones: { physio:0.42, feeling:0.55, cognition:0.32, behavior:0.48 },
+    coupling: [
+      { a:'feeling',  b:'behavior', strength:0.55 },
+      { a:'physio',   b:'feeling',  strength:0.45 },
+    ],
+    attractor: { x:0.48, y:0.52, depth:0.35 },
+    probe: { x:0.64, y:0.52 },
+    reg: { contain:0.62, diffuse:0.72, direct:0.45 },
+    triNotes: ['settling — basin softening','open — redistribution','movement without fixation'],
+  },
+  {
+    name: 'Passage',
+    desc: 'activation reduced · field opens · rhythm completes',
+    dur: 3000,
+    params: { lambda:0.22, sigma:0.14, gamma:0.78, kappa:0.82, drift:0.35 },
+    sources: [
+      { x:0.52, y:0.54, amp:0.24, vx: 0.00003, vy: 0.00002, sigX:0.28, sigY:0.28 },
+      { x:0.68, y:0.48, amp:0.14, vx: 0.00003, vy:-0.00002, sigX:0.22, sigY:0.20 },
+    ],
+    zones: { physio:0.22, feeling:0.30, cognition:0.18, behavior:0.28 },
+    coupling: [
+      { a:'feeling', b:'physio', strength:0.28 },
+    ],
+    attractor: { x:0.52, y:0.54, depth:0.14 },
+    probe: { x:0.72, y:0.60 },
+    reg: { contain:0.78, diffuse:0.82, direct:0.35 },
+    triNotes: ['restored — holding gently','open — integrated','flexible — no fixed pull'],
+  },
+];
+
+const TOTAL_DUR = Math.max(
+  STAGES_A.reduce((s,st)=>s+st.dur,0),
+  STAGES_B.reduce((s,st)=>s+st.dur,0)
+);
+
+// ── State ──────────────────────────────────────────────────────
+let playing = false, elapsed = 0, lastTS = null, globalT = 0, rafId = null;
+
+function makeState(stages) {
+  return {
+    params:  { ...stages[0].params },
+    zones:   { ...stages[0].zones },
+    attr:    { ...stages[0].attractor },
+    reg:     { ...stages[0].reg },
+    coupling:[],
+    probe:   { ...stages[0].probe },
+    pvx: 0, pvy: 0,
+    sources: stages[0].sources.map(s=>({...s})),
+    tlHistory: [],
+  };
+}
+let stA = makeState(STAGES_A);
+let stB = makeState(STAGES_B);
+
+// ── Helpers ────────────────────────────────────────────────────
+const lerp = (a,b,t) => a+(b-a)*t;
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const ease = t => t<0.5?2*t*t:-1+(4-2*t)*t;
+
+function getStateAt(stages, el) {
+  let acc = 0;
+  for (let i=0; i<stages.length; i++) {
+    const st = stages[i];
+    if (el < acc+st.dur || i===stages.length-1) {
+      const raw = clamp((el-acc)/st.dur,0,1);
+      const t   = ease(raw);
+      const nx  = stages[Math.min(i+1,stages.length-1)];
+      return { stage:st, next:nx, t };
+    }
+    acc += st.dur;
+  }
+}
+
+function lerpSources(sA,sB,t) {
+  const len = Math.max(sA.length,sB.length);
+  const res = [];
+  for (let i=0;i<len;i++) {
+    const a = sA[i]||{x:0.5,y:0.5,amp:0,vx:0,vy:0,sigX:0.16,sigY:0.16};
+    const b = sB[i]||{x:0.5,y:0.5,amp:0,vx:0,vy:0,sigX:0.16,sigY:0.16};
+    res.push({ x:lerp(a.x,b.x,t), y:lerp(a.y,b.y,t), amp:lerp(a.amp,b.amp,t),
+      vx:lerp(a.vx,b.vx,t), vy:lerp(a.vy,b.vy,t),
+      sigX:lerp(a.sigX,b.sigX,t), sigY:lerp(a.sigY,b.sigY,t) });
+  }
+  return res;
+}
+
+function lerpObj(a,b,t) {
+  const r={};
+  for (const k in a) r[k]=lerp(a[k], b[k]??a[k], t);
+  return r;
+}
+
+function smoothLerp(cur,tgt,f) {
+  const r={};
+  for (const k in tgt) r[k]=lerp(cur[k]??tgt[k],tgt[k],f);
+  return r;
+}
+
+// ── Field ──────────────────────────────────────────────────────
+function fieldVal(x,y,sources,W,H) {
+  const nx=x/W, ny=y/H; let v=0;
+  for (const s of sources) {
+    const dx=(nx-s.x)/s.sigX, dy=(ny-s.y)/s.sigY;
+    v += s.amp*Math.exp(-(dx*dx+dy*dy)*0.5);
+  }
+  return clamp(v,0,1);
+}
+
+// field as ink stipple on paper: density follows field height
+function renderBase(off, ctx, sources, sigma, t) {
+  const g = ctx.base;
+  g.fillStyle = PAPER; g.fillRect(0, 0, CW, CH);
+
+  g.fillStyle = INK;
+  for (let y = 0, ry = 0; y < CH; y += STEP, ry++) for (let x = 0, rx = 0; x < CW; x += STEP, rx++) {
+    const h = fieldVal(x, y, sources, CW, CH);
+    if (h < 0.04) continue;
+    const k = ((ry & 255) << 8) | (rx & 255);
+    if (THR[k] < Math.min(0.95, Math.pow(h, 1.4) * 1.25)) {
+      const jx = (THR[(k * 7 + 3) & 65535] - 0.5) * 2.2, jy = (THR[(k * 13 + 5) & 65535] - 0.5) * 2.2;
+      g.fillRect(x + jx, y + jy, 1.35, 1.35);
+    }
+  }
+
+  // contour levels as fine dotted rules
+  const levels=[0.10,0.26,0.44,0.62,0.78];
+  levels.forEach((lv,li)=>{
+    g.beginPath();
+    const step=6;
+    for (let y=step;y<CH-step;y+=step) for (let x=step;x<CW-step;x+=step) {
+      const corners=[[x,y],[x+step,y],[x+step,y+step],[x,y+step]].map(([cx,cy])=>fieldVal(cx,cy,sources,CW,CH));
+      for (let i=0;i<4;i++) {
+        const ha=corners[i],hb=corners[(i+1)%4];
+        if ((ha>=lv)!==(hb>=lv)) {
+          const tt=(lv-ha)/(hb-ha);
+          const pts=[[x,y],[x+step,y],[x+step,y+step],[x,y+step]];
+          const pa=pts[i],pb=pts[(i+1)%4];
+          g.moveTo(pa[0]+tt*(pb[0]-pa[0]),pa[1]+tt*(pb[1]-pa[1]));
+          g.arc(pa[0]+tt*(pb[0]-pa[0]),pa[1]+tt*(pb[1]-pa[1]),0.6,0,Math.PI*2);
+        }
+      }
+    }
+    g.fillStyle=`rgba(111,110,105,${0.25+li*0.08})`;
+    g.fill();
+  });
+
+  // flow vectors, downhill
+  const vstep=52, eps=6;
+  for (let y=vstep/2;y<CH;y+=vstep) for (let x=vstep/2;x<CW;x+=vstep) {
+    const h=fieldVal(x,y,sources,CW,CH);
+    if (h<0.05) continue;
+    const ddx=(fieldVal(x+eps,y,sources,CW,CH)-fieldVal(x-eps,y,sources,CW,CH))/(2*eps);
+    const ddy=(fieldVal(x,y+eps,sources,CW,CH)-fieldVal(x,y-eps,sources,CW,CH))/(2*eps);
+    const mag=Math.sqrt(ddx*ddx+ddy*ddy);
+    if (mag<0.0003) continue;
+    const sc=Math.min(18,mag*260);
+    const ndx=-ddx/mag, ndy=-ddy/mag;
+    const wb=Math.sin(t*0.002+x*0.05+y*0.04)*0.5;
+    const ex=x+ndx*(sc+wb), ey=y+ndy*(sc+wb);
+    const al=Math.min(0.75,0.25+h*0.6);
+    g.strokeStyle=`rgba(20,20,20,${al})`; g.lineWidth=0.9;
+    g.beginPath();g.moveTo(x,y);g.lineTo(ex,ey);g.stroke();
+    const ang=Math.atan2(ndy,ndx);
+    g.beginPath();
+    g.moveTo(ex,ey);g.lineTo(ex-4.5*Math.cos(ang-0.5),ey-4.5*Math.sin(ang-0.5));
+    g.moveTo(ex,ey);g.lineTo(ex-4.5*Math.cos(ang+0.5),ey-4.5*Math.sin(ang+0.5));
+    g.stroke();
+  }
+}
+
+// channel zones: dashed rings with a label and a stippled level bar
+function drawZones(ctx, zones, t) {
+  const g = ctx.zones;
+  g.clearRect(0,0,CW,CH);
+  Object.entries(zones).forEach(([key,act])=>{
+    if (act<0.04) return;
+    const home=ZONE_HOME[key];
+    const cx=lerp(home.cx,0.50,act*0.25)*CW;
+    const cy=lerp(home.cy,0.48,act*0.20)*CH;
+    const r =lerp(home.r, 0.32,act*0.28)*CW;
+    const la=clamp(0.35+act*0.8,0,1);
+
+    g.beginPath();g.arc(cx,cy,r*0.70,0,Math.PI*2);
+    g.strokeStyle=`rgba(20,20,20,${0.2+act*0.45})`;
+    g.lineWidth=1;g.setLineDash([3,4]);g.stroke();g.setLineDash([]);
+
+    g.font=`10px ${FONT}`;g.textAlign='center';
+    const ly=cy-r*0.78;
+    const tw=g.measureText(key).width;
+    g.fillStyle='rgba(251,251,248,.85)';g.fillRect(cx-tw/2-3,ly-9,tw+6,19);
+    g.fillStyle=`rgba(20,20,20,${la})`;
+    g.fillText(key,cx,ly);
+    const bw=Math.min(46,r*0.7), bh=4, bx=cx-bw/2, by=ly+4;
+    g.strokeStyle=`rgba(20,20,20,${la})`;g.lineWidth=0.8;g.strokeRect(bx,by,bw,bh);
+    g.fillStyle=`rgba(20,20,20,${la})`;
+    for (let x=bx+1;x<bx+bw*act;x+=2) { g.fillRect(x,by+1,0.9,0.9); g.fillRect(x+1,by+2.6,0.9,0.9); }
+    g.textAlign='left';
+  });
+}
+
+// loss attractor: dashed rings in the panel colour, tightening with depth
+function drawAttractor(ctx, attr, lambda, t) {
+  const g = ctx.attr, col = ctx.accent;
+  g.clearRect(0,0,CW,CH);
+  if (lambda<0.10) return;
+  const cx=attr.x*CW, cy=attr.y*CH, depth=attr.depth;
+  const pulse=0.5+0.5*Math.sin(t*0.0018);
+  g.strokeStyle=col;
+  for (let i=6;i>=1;i--) {
+    const rFrac=i/6;
+    const r=80*rFrac*(1-depth*0.45)+depth*7;
+    g.globalAlpha=clamp(depth*(0.25+(1-rFrac)*0.5)*(0.75+pulse*0.25),0,1);
+    g.lineWidth=0.8+depth*0.6;
+    g.setLineDash([i%2===0?5:3,i%2===0?4:6]);
+    g.beginPath();g.arc(cx,cy,r,0,Math.PI*2);g.stroke();
+  }
+  g.setLineDash([]);
+  g.globalAlpha=1;
+  const la=clamp((lambda-0.10)/0.5,0,1);
+  if (la>0.2) {
+    g.textAlign='center';
+    g.globalAlpha=la;
+    g.font=`10px ${FONT}`;
+    const l2=`λ ${lambda.toFixed(2)} · depth ${depth.toFixed(2)}`;
+    const tw=Math.max(g.measureText('loss attractor').width,g.measureText(l2).width);
+    g.fillStyle='rgba(251,251,248,.88)';g.fillRect(cx-tw/2-3,cy-94,tw+6,26);
+    g.fillStyle=col;
+    g.fillText('loss attractor',cx,cy-84);
+    g.fillStyle=MUTED;
+    g.fillText(l2,cx,cy-72);
+    g.globalAlpha=1;
+    g.textAlign='left';
+  }
+}
+
+// coupling between channels: thin ink curves with a travelling dot
+function drawCoupling(ctx, couplings, zones, t) {
+  const g = ctx.coup;
+  g.clearRect(0,0,CW,CH);
+  couplings.forEach(({a,b,strength})=>{
+    if (strength<0.08) return;
+    const za=ZONE_HOME[a], zb=ZONE_HOME[b];
+    const zav=zones[a], zbv=zones[b];
+    const ax=lerp(za.cx,0.50,zav*0.25)*CW, ay=lerp(za.cy,0.48,zav*0.20)*CH;
+    const bx=lerp(zb.cx,0.50,zbv*0.25)*CW, by=lerp(zb.cy,0.48,zbv*0.20)*CH;
+    const mx=(ax+bx)*0.5, my=(ay+by)*0.5;
+    const dx=bx-ax,dy=by-ay;
+    const cpx=mx-dy*0.20, cpy=my+dx*0.20;
+    const phase=t*0.003+(a.charCodeAt(0)+b.charCodeAt(0))*0.1;
+    const pulse=0.5+0.5*Math.sin(phase);
+    const al=strength*(0.45+pulse*0.40);
+
+    g.beginPath();g.moveTo(ax,ay);g.quadraticCurveTo(cpx,cpy,bx,by);
+    g.strokeStyle=`rgba(20,20,20,${al*0.7})`;g.lineWidth=0.6+strength*1.2;g.stroke();
+
+    const dt=Math.sin(phase*1.3)*0.5+0.5;
+    const dtx=(1-dt)*(1-dt)*ax+2*(1-dt)*dt*cpx+dt*dt*bx;
+    const dty=(1-dt)*(1-dt)*ay+2*(1-dt)*dt*cpy+dt*dt*by;
+    g.beginPath();g.arc(dtx,dty,2.4,0,Math.PI*2);
+    g.fillStyle=PAPER;g.fill();g.strokeStyle=INK;g.lineWidth=1;g.stroke();
+  });
+}
+
+function updateProbe(state, targetX, targetY, sources) {
+  const tx=targetX*CW, ty=targetY*CH;
+  const px=state.probe.x*CW, py=state.probe.y*CH;
+  const spring=0.0016, damp=0.88;
+  state.pvx += (tx-px)*spring;
+  state.pvy += (ty-py)*spring;
+  const eps=7;
+  const gx=(fieldVal(px+eps,py,sources,CW,CH)-fieldVal(px-eps,py,sources,CW,CH))/(2*eps);
+  const gy=(fieldVal(px,py+eps,sources,CW,CH)-fieldVal(px,py-eps,sources,CW,CH))/(2*eps);
+  state.pvx -= gx*0.7; state.pvy -= gy*0.7;
+  state.pvx *= damp; state.pvy *= damp;
+  state.probe.x = clamp((px+state.pvx)/CW,0.02,0.98);
+  state.probe.y = clamp((py+state.pvy)/CH,0.02,0.98);
+}
+
+// the probe: where "you" are in the field, in the panel colour
+function drawProbe(ctx, state, t, params) {
+  const g = ctx.probe;
+  g.clearRect(0,0,CW,CH);
+  const px=state.probe.x*CW, py=state.probe.y*CH;
+  const pulse=0.5+0.5*Math.sin(t*0.005);
+  g.strokeStyle=ctx.accent;g.lineWidth=1;
+  g.globalAlpha=0.35+0.4*params.lambda*pulse;
+  g.beginPath();g.arc(px,py,10+pulse*3,0,Math.PI*2);g.stroke();
+  g.globalAlpha=1;
+  g.beginPath();g.arc(px,py,4.2,0,Math.PI*2);
+  g.fillStyle=ctx.accent;g.fill();g.strokeStyle=INK;g.lineWidth=1.2;g.stroke();
+}
+
+// activation history: paper, dashed guides; λ solid over a stippled fill
+function updateTL(ctx, history, params, accentColor) {
+  const g = ctx.tl;
+  history.push({ lambda:params.lambda, sigma:params.sigma, gamma:params.gamma });
+  if (history.length>TL_MAX) history.shift();
+  const n=history.length;
+  g.fillStyle=PAPER;g.fillRect(0,0,CW,TLH);
+  g.strokeStyle=FAINT;g.lineWidth=1;g.setLineDash([3,4]);
+  [0.25,0.5,0.75].forEach(y=>{ g.beginPath();g.moveTo(0,y*TLH);g.lineTo(CW,y*TLH);g.stroke(); });
+  g.setLineDash([]);
+  if (n<2) return;
+  const X=i=>(i/(TL_MAX-1))*CW, Y=v=>TLH-3-v*(TLH-6);
+  // stipple under λ
+  g.fillStyle=accentColor;g.globalAlpha=0.55;
+  history.forEach((h,i)=>{ if (i%2) return; const x=X(i); for (let y=Y(h.lambda)+2;y<TLH;y+=3) g.fillRect(x,y,1,1); });
+  g.globalAlpha=1;
+  const line=(key,dash,w,col,inv)=>{
+    g.beginPath();
+    history.forEach((h,i)=>{ const v=inv?1-h[key]:h[key]; i===0?g.moveTo(X(i),Y(v)):g.lineTo(X(i),Y(v)); });
+    g.setLineDash(dash);g.strokeStyle=col;g.lineWidth=w;g.stroke();g.setLineDash([]);
+  };
+  line('gamma',[1,3],1,MUTED,true);
+  line('sigma',[4,3],1,INK,false);
+  line('lambda',[],1.6,accentColor,false);
+}
+
+function buildParams(parentId, params, accentColor) {
+  const el = document.getElementById(parentId);
+  el.innerHTML = '';
+  const defs = [
+    { k:'lambda', sym:'λ', name:'attractor',  col:accentColor },
+    { k:'sigma',  sym:'σ', name:'volatility', col:INK },
+    { k:'gamma',  sym:'γ', name:'damping',    col:INK },
+    { k:'kappa',  sym:'κ', name:'diffusion',  col:INK },
+    { k:'drift',  sym:'G', name:'drift',      col:INK },
+  ];
+  defs.forEach(({k,sym,name,col})=>{
+    const row=document.createElement('div'); row.className='param-row';
+    row.innerHTML=`<span class="p-sym">${sym}</span>
+      <span class="p-name">${name}</span>
+      <div class="p-track"><div class="p-fill" id="pf-${parentId}-${k}" style="color:${col};width:${params[k]*100}%"></div></div>
+      <span class="p-val" id="pv-${parentId}-${k}">${params[k].toFixed(2)}</span>`;
+    el.appendChild(row);
+  });
+}
+
+function updateParamUI(parentId, params) {
+  ['lambda','sigma','gamma','kappa','drift'].forEach(k=>{
+    const f=document.getElementById('pf-'+parentId+'-'+k);
+    const v=document.getElementById('pv-'+parentId+'-'+k);
+    if(f) f.style.width=(params[k]*100).toFixed(0)+'%';
+    if(v) v.textContent=params[k].toFixed(2);
+  });
+}
+
+function updateTriangle(svgId, notesId, reg, notes) {
+  const D={x:45,y:6}, C={x:8,y:78}, Df={x:82,y:78};
+  function bary(d,c,df){return{x:d*D.x+c*C.x+df*Df.x, y:d*D.y+c*C.y+df*Df.y};}
+  const dW=reg.direct*0.82+0.05, cW=reg.contain*0.82+0.05, dfW=reg.diffuse*0.82+0.05;
+  const sT=bary(dW,(1-dW)*0.5,(1-dW)*0.5);
+  const sL=bary((1-cW)*0.5,cW,(1-cW)*0.5);
+  const sR=bary((1-dfW)*0.5,(1-dfW)*0.5,dfW);
+  document.getElementById('triState'+svgId).setAttribute('points',`${sT.x},${sT.y} ${sL.x},${sL.y} ${sR.x},${sR.y}`);
+  const dx=(sT.x+sL.x+sR.x)/3, dy=(sT.y+sL.y+sR.y)/3;
+  document.getElementById('triDot'+svgId).setAttribute('cx',dx.toFixed(1));
+  document.getElementById('triDot'+svgId).setAttribute('cy',dy.toFixed(1));
+  if (notes) {
+    const el=document.getElementById(notesId);
+    const children=el.querySelectorAll('.tri-note');
+    if(children[0]) children[0].textContent='Containment: '+notes[0];
+    if(children[1]) children[1].textContent='Diffusion: '+notes[1];
+    if(children[2]) children[2].textContent='Direction: '+notes[2];
+  }
+}
+
+// ── Tick both panels ───────────────────────────────────────────
+function tickPanel(stages, state, ctx, off, stateEl, notesId, svgSuffix, accentColor) {
+  const sv = getStateAt(stages, Math.min(elapsed, stages.reduce((s,st)=>s+st.dur,0)));
+  const { stage, next, t } = sv;
+
+  const tParams  = lerpObj(stage.params, next.params, t*0.32);
+  const tZones   = lerpObj(stage.zones,  next.zones,  t*0.32);
+  const tAttr    = lerpObj(stage.attractor, next.attractor, t*0.30);
+  const tReg     = lerpObj(stage.reg,    next.reg,    t*0.32);
+  const tSrcs    = lerpSources(stage.sources, next.sources, t*0.28);
+
+  const sf = 0.050;
+  state.params  = smoothLerp(state.params,  tParams,  sf);
+  state.zones   = smoothLerp(state.zones,   tZones,   sf*0.7);
+  state.attr    = smoothLerp(state.attr,    tAttr,    sf*0.5);
+  state.reg     = smoothLerp(state.reg,     tReg,     sf*0.5);
+
+  state.sources = lerpSources(state.sources, tSrcs, 0.038);
+  state.sources.forEach(s=>{
+    s.x=clamp(s.x+s.vx*16,0.05,0.95); s.y=clamp(s.y+s.vy*16,0.05,0.95);
+    if(s.x<0.08||s.x>0.92) s.vx*=-1;
+    if(s.y<0.08||s.y>0.92) s.vy*=-1;
+  });
+
+  state.coupling = stage.coupling.map((c,i)=>{
+    const nc=next.coupling[i]||{...c,strength:c.strength*0.3};
+    return {a:c.a,b:c.b,strength:lerp(c.strength,nc.strength,t*0.3)};
+  });
+
+  const tProbe = {
+    x:lerp(stage.probe.x,next.probe.x,t),
+    y:lerp(stage.probe.y,next.probe.y,t),
+  };
+  updateProbe(state, tProbe.x, tProbe.y, state.sources);
+
+  renderBase(off, ctx, state.sources, state.params.sigma, globalT);
+  drawZones(ctx, state.zones, globalT);
+  drawAttractor(ctx, state.attr, state.params.lambda, globalT);
+  drawCoupling(ctx, state.coupling, state.zones, globalT);
+  drawProbe(ctx, state, globalT, state.params);
+
+  updateParamUI(stateEl, state.params);
+  updateTL(ctx, state.tlHistory, state.params, accentColor);
+  updateTriangle(svgSuffix, notesId, state.reg, stage.triNotes);
+
+  document.getElementById('sname'+svgSuffix).textContent = stage.name;
+  document.getElementById('sdesc'+svgSuffix).textContent = stage.desc;
+}
+
+// ── Animation loop ─────────────────────────────────────────────
+function frame(ts) {
+  if (!playing) return;
+  const dt = lastTS ? Math.min(ts-lastTS,60) : 16;
+  lastTS = ts; globalT = ts;
+  elapsed = Math.min(elapsed+dt, TOTAL_DUR);
+
+  tickPanel(STAGES_A, stA, ctxA, offA, 'paramsA', 'triNotesA', 'A', '#2433a3');
+  tickPanel(STAGES_B, stB, ctxB, offB, 'paramsB', 'triNotesB', 'B', '#b3342a');
+
+  const pct = elapsed/TOTAL_DUR*100;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progHead').style.left=pct+'%';
+  document.getElementById('progTrack').setAttribute('aria-valuenow',Math.round(pct));
+
+  if (elapsed>=TOTAL_DUR) {
+    playing=false;
+    document.getElementById('playBtn').textContent='play';
+    document.getElementById('playBtn').classList.remove('active');
+    return;
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+function resetAll() {
+  stA = makeState(STAGES_A);
+  stB = makeState(STAGES_B);
+  elapsed=0; lastTS=null;
+  buildParams('paramsA', STAGES_A[0].params, '#2433a3');
+  buildParams('paramsB', STAGES_B[0].params, '#b3342a');
+  tickPanel(STAGES_A, stA, ctxA, offA, 'paramsA', 'triNotesA', 'A', '#2433a3');
+  tickPanel(STAGES_B, stB, ctxB, offB, 'paramsB', 'triNotesB', 'B', '#b3342a');
+}
+
+document.getElementById('playBtn').addEventListener('click',()=>{
+  if (elapsed>=TOTAL_DUR) resetAll();
+  playing=!playing;
+  if (playing) {
+    lastTS=null;
+    document.getElementById('playBtn').textContent='pause';
+    document.getElementById('playBtn').classList.add('active');
+    rafId=requestAnimationFrame(frame);
+  } else {
+    document.getElementById('playBtn').textContent='play';
+    document.getElementById('playBtn').classList.remove('active');
+    cancelAnimationFrame(rafId);
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  playing=false; cancelAnimationFrame(rafId);
+  document.getElementById('playBtn').textContent='play';
+  document.getElementById('playBtn').classList.remove('active');
+  document.getElementById('progFill').style.width='0%';
+  document.getElementById('progHead').style.left='0%';
+  resetAll();
+});
+
+document.getElementById('progTrack').addEventListener('click',e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  elapsed=(e.clientX-r.left)/r.width*TOTAL_DUR;
+  stA=makeState(STAGES_A); stB=makeState(STAGES_B);
+  buildParams('paramsA',STAGES_A[0].params,'#2433a3');
+  buildParams('paramsB',STAGES_B[0].params,'#b3342a');
+  tickPanel(STAGES_A,stA,ctxA,offA,'paramsA','triNotesA','A','#2433a3');
+  tickPanel(STAGES_B,stB,ctxB,offB,'paramsB','triNotesB','B','#b3342a');
+  const pct=elapsed/TOTAL_DUR*100;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progHead').style.left=pct+'%';
+});
+
+resetAll();
+</script>
+
+</body>
+</html>
