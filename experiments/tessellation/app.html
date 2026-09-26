@@ -919,10 +919,15 @@ function movePinch(){
 canvas.addEventListener('pointerdown',e=>{
   const r=canvas.getBoundingClientRect();
   if(e.pointerType!=='mouse') S.mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
-  canvas.setPointerCapture(e.pointerId);
+  // safari can refuse capture (e.g. with the page zoomed); a refusal must
+  // not stop the tap from being handled
+  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
   const{wx,wy}=worldCoords(e);
 
   if(e.pointerType==='touch'){
+    // the first finger of any new touch starts clean, so a lift the browser
+    // never reported can't leave a phantom finger behind
+    if(e.isPrimary){ touches.clear(); gesture=null; pinch=null; }
     touches.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY});
     if(touches.size===1){
       gesture={t0:performance.now(),twoFinger:false,quick:false,moved:false};
@@ -1018,6 +1023,27 @@ window.addEventListener('keydown',e=>{
   else if((e.key==='z')&&(e.ctrlKey||e.metaKey)){e.preventDefault();document.getElementById('btn-undo').click();}
   else if(e.key===' '){e.preventDefault();document.querySelector('[data-tool="pan"]').click();}
 });
+
+// ?debug in the address: a live log of canvas pointer events, for tracking
+// down device-specific touch problems
+if(/[?&]debug\b/.test(location.search)){
+  const log=document.createElement('pre');
+  log.style.cssText='position:fixed;left:6px;right:6px;bottom:6px;max-height:40vh;overflow:auto;margin:0;padding:6px 8px;background:rgba(251,251,248,.95);border:1px solid #141414;font:11px/1.35 ui-monospace,Menlo,monospace;z-index:99;pointer-events:none;white-space:pre-wrap';
+  document.body.appendChild(log);
+  const lines=[];
+  const add=t=>{lines.push(t); if(lines.length>28) lines.shift(); log.textContent=lines.join('\n');};
+  add(navigator.userAgent.replace(/\(KHTML.*$/,''));
+  ['pointerdown','pointermove','pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(type=>{
+    canvas.addEventListener(type,e=>{
+      if(type==='pointermove' && e.pointerType==='touch' && !(gesture&&gesture.moved)) return;
+      const vv=window.visualViewport;
+      add(`${(performance.now()/1000).toFixed(2)} ${type} ${e.pointerType}#${e.pointerId}${e.isPrimary?'*':''} `+
+          `touches=${touches.size} g=${gesture?(gesture.twoFinger?'2f':'1f')+(gesture.moved?'m':''):'-'} `+
+          `tool=${S.tool} shapes=${S.shapes.length} page=${vv?vv.scale.toFixed(2):'?'} zoom=${S.zoom.toFixed(2)}`);
+    },true);
+  });
+  add('tap the canvas; this log shows what the browser reports');
+}
 
 // ─────────────────────────────
 // INIT
