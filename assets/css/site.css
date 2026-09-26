@@ -222,6 +222,14 @@ h2 {
 
 p { margin: 0 0 1.1rem; }
 
+/* multi-paragraph intro: lede styling, normal paragraph rhythm */
+.intro {
+  font-size: 1.05rem;
+  color: var(--muted);
+  max-width: 62ch;
+  margin: 0 0 2rem;
+}
+
 /* =========================================================
    HOME
 ========================================================= */
