@@ -1,0 +1,328 @@
+{
+  "name": "art web",
+  "description": "Directed map of the art practice: feeling becomes material, material is cut and recombined, and the result loops back into feeling.",
+  "viewBox": [
+    0,
+    0,
+    1000,
+    650
+  ],
+  "register": {
+    "id": "feeling",
+    "label": "feeling",
+    "drivenBy": "system",
+    "selfSustaining": false,
+    "render": "field computed from the nodes; no node, no edges; fades when drive stops"
+  },
+  "groups": {
+    "inner": {
+      "label": "inner life",
+      "color": "#141414"
+    },
+    "action": {
+      "label": "action",
+      "color": "#b3342a"
+    },
+    "image-sound": {
+      "label": "image, sound",
+      "color": "#2433a3"
+    },
+    "noise": {
+      "label": "noise",
+      "color": "#6f6e69",
+      "fill": "stipple"
+    },
+    "world": {
+      "label": "environment",
+      "color": "#6f6e69"
+    }
+  },
+  "nodes": [
+    {
+      "id": "thematic",
+      "label": "thematic",
+      "group": "inner",
+      "x": 560,
+      "y": 46
+    },
+    {
+      "id": "thoughts",
+      "label": "thoughts",
+      "group": "inner",
+      "x": 300,
+      "y": 100
+    },
+    {
+      "id": "meaning",
+      "label": "meaning",
+      "group": "inner",
+      "x": 880,
+      "y": 110
+    },
+    {
+      "id": "intuition",
+      "label": "intuition",
+      "group": "inner",
+      "x": 470,
+      "y": 150
+    },
+    {
+      "id": "inspiration",
+      "label": "inspiration",
+      "group": "inner",
+      "x": 130,
+      "y": 240
+    },
+    {
+      "id": "memories",
+      "label": "memories",
+      "group": "inner",
+      "x": 300,
+      "y": 270
+    },
+    {
+      "id": "potential",
+      "label": "potential",
+      "group": "inner",
+      "x": 470,
+      "y": 255
+    },
+    {
+      "id": "combine",
+      "label": "combine",
+      "group": "action",
+      "x": 660,
+      "y": 175
+    },
+    {
+      "id": "fragment",
+      "label": "fragment",
+      "group": "action",
+      "x": 660,
+      "y": 345
+    },
+    {
+      "id": "collage",
+      "label": "collage",
+      "group": "action",
+      "x": 780,
+      "y": 260
+    },
+    {
+      "id": "synthesis",
+      "label": "synthesis",
+      "group": "action",
+      "x": 890,
+      "y": 250
+    },
+    {
+      "id": "body",
+      "label": "body / gesture",
+      "group": "action",
+      "x": 200,
+      "y": 380
+    },
+    {
+      "id": "conceptual-noise",
+      "label": "conceptual noise",
+      "group": "noise",
+      "x": 420,
+      "y": 335
+    },
+    {
+      "id": "physical-noise",
+      "label": "physical noise",
+      "group": "noise",
+      "x": 760,
+      "y": 425
+    },
+    {
+      "id": "environment",
+      "label": "environment",
+      "group": "world",
+      "x": 70,
+      "y": 470
+    },
+    {
+      "id": "movement",
+      "label": "movement (video)",
+      "group": "image-sound",
+      "x": 450,
+      "y": 545
+    },
+    {
+      "id": "static",
+      "label": "static (prints)",
+      "group": "image-sound",
+      "x": 620,
+      "y": 565
+    },
+    {
+      "id": "audio-synthesis",
+      "label": "audio synthesis",
+      "group": "image-sound",
+      "x": 250,
+      "y": 580
+    },
+    {
+      "id": "sampling",
+      "label": "sampling",
+      "group": "image-sound",
+      "x": 860,
+      "y": 520
+    },
+    {
+      "id": "field-recording",
+      "label": "field recording",
+      "group": "image-sound",
+      "x": 900,
+      "y": 610
+    }
+  ],
+  "edges": [
+    {
+      "from": "thoughts",
+      "to": "memories",
+      "relation": "shapes"
+    },
+    {
+      "from": "thoughts",
+      "to": "intuition"
+    },
+    {
+      "from": "memories",
+      "to": "intuition"
+    },
+    {
+      "from": "memories",
+      "to": "potential"
+    },
+    {
+      "from": "intuition",
+      "to": "potential"
+    },
+    {
+      "from": "potential",
+      "to": "fragment"
+    },
+    {
+      "from": "potential",
+      "to": "combine"
+    },
+    {
+      "from": "potential",
+      "to": "synthesis"
+    },
+    {
+      "from": "memories",
+      "to": "conceptual-noise"
+    },
+    {
+      "from": "synthesis",
+      "to": "meaning"
+    },
+    {
+      "from": "meaning",
+      "to": "thematic"
+    },
+    {
+      "from": "thematic",
+      "to": "thoughts"
+    },
+    {
+      "from": "fragment",
+      "to": "collage"
+    },
+    {
+      "from": "combine",
+      "to": "collage"
+    },
+    {
+      "from": "collage",
+      "to": "synthesis"
+    },
+    {
+      "from": "collage",
+      "to": "fragment",
+      "kind": "return"
+    },
+    {
+      "from": "synthesis",
+      "to": "fragment",
+      "kind": "return"
+    },
+    {
+      "from": "environment",
+      "to": "inspiration",
+      "relation": "outer"
+    },
+    {
+      "from": null,
+      "to": "inspiration",
+      "relation": "inner",
+      "status": "untraced"
+    },
+    {
+      "from": "inspiration",
+      "to": "group:action"
+    },
+    {
+      "from": "body",
+      "to": "movement"
+    },
+    {
+      "from": "body",
+      "to": "audio-synthesis"
+    },
+    {
+      "from": "movement",
+      "to": "static",
+      "relation": "freezes into"
+    },
+    {
+      "from": "movement",
+      "to": "fragment"
+    },
+    {
+      "from": "static",
+      "to": "fragment",
+      "relation": "breaks into"
+    },
+    {
+      "from": "audio-synthesis",
+      "to": "sampling"
+    },
+    {
+      "from": "field-recording",
+      "to": "sampling"
+    },
+    {
+      "from": "sampling",
+      "to": "fragment"
+    },
+    {
+      "from": "environment",
+      "to": "physical-noise"
+    },
+    {
+      "from": "physical-noise",
+      "to": "sampling"
+    },
+    {
+      "from": "physical-noise",
+      "to": "fragment"
+    },
+    {
+      "from": "conceptual-noise",
+      "to": "fragment"
+    },
+    {
+      "from": "conceptual-noise",
+      "to": "combine"
+    },
+    {
+      "from": "conceptual-noise",
+      "to": "synthesis"
+    }
+  ]
+}
