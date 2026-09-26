@@ -1,0 +1,100 @@
+{
+  "name": "art web",
+  "description": "Directed map of the art practice: feeling becomes material, material is cut and recombined, and the result loops back into feeling.",
+  "viewBox": [
+    0,
+    0,
+    1000,
+    650
+  ],
+  "groups": {
+    "inner": {
+      "label": "inner life",
+      "color": "#141414"
+    },
+    "making": {
+      "label": "making",
+      "color": "#b3342a"
+    },
+    "body-image-sound": {
+      "label": "body, image, sound",
+      "color": "#2433a3"
+    },
+    "noise": {
+      "label": "noise",
+      "color": "#6f6e69",
+      "fill": "stipple"
+    }
+  },
+  "nodes": [
+    {"id": "thematic", "label": "thematic", "group": "inner", "x": 560, "y": 46},
+    {"id": "thoughts", "label": "thoughts", "group": "inner", "x": 300, "y": 100},
+    {"id": "meaning", "label": "meaning", "group": "inner", "x": 880, "y": 110},
+    {"id": "intuition", "label": "intuition", "group": "inner", "x": 470, "y": 150},
+    {"id": "feelings", "label": "feelings", "group": "inner", "x": 150, "y": 205},
+    {"id": "memories", "label": "memories", "group": "inner", "x": 300, "y": 270},
+    {"id": "potential", "label": "potential", "group": "inner", "x": 470, "y": 255},
+    {"id": "combine", "label": "combine", "group": "making", "x": 660, "y": 175},
+    {"id": "fragment", "label": "fragment", "group": "making", "x": 660, "y": 345},
+    {"id": "collage", "label": "collage", "group": "making", "x": 780, "y": 260},
+    {"id": "synthesis", "label": "synthesis", "group": "making", "x": 890, "y": 250},
+    {"id": "recursion", "label": "recursion", "group": "making", "x": 490, "y": 420},
+    {"id": "conceptual-noise", "label": "conceptual noise", "group": "noise", "x": 420, "y": 335},
+    {"id": "physical-noise", "label": "physical noise", "group": "noise", "x": 760, "y": 425},
+    {"id": "environment", "label": "environment", "group": "body-image-sound", "x": 70, "y": 470},
+    {"id": "body", "label": "body / gesture", "group": "body-image-sound", "x": 170, "y": 370},
+    {"id": "sensor-noise", "label": "sensor noise", "group": "body-image-sound", "x": 310, "y": 470},
+    {"id": "movement", "label": "movement (video)", "group": "body-image-sound", "x": 450, "y": 545},
+    {"id": "static", "label": "static (prints)", "group": "body-image-sound", "x": 620, "y": 565},
+    {"id": "audio-synthesis", "label": "audio synthesis", "group": "body-image-sound", "x": 250, "y": 580},
+    {"id": "sampling", "label": "sampling", "group": "body-image-sound", "x": 860, "y": 520},
+    {"id": "field-recording", "label": "field recording", "group": "body-image-sound", "x": 900, "y": 610}
+  ],
+  "edges": [
+    {"from": "thoughts", "to": "memories", "relation": "shapes"},
+    {"from": "memories", "to": "feelings", "relation": "feeds"},
+    {"from": "feelings", "to": "thoughts", "relation": "biases"},
+    {"from": "feelings", "to": "intuition"},
+    {"from": "memories", "to": "intuition"},
+    {"from": "intuition", "to": "fragment"},
+    {"from": "intuition", "to": "combine"},
+    {"from": "intuition", "to": "synthesis"},
+    {"from": "feelings", "to": "potential"},
+    {"from": "memories", "to": "potential"},
+    {"from": "potential", "to": "fragment"},
+    {"from": "potential", "to": "combine"},
+    {"from": "potential", "to": "synthesis"},
+    {"from": "potential", "to": "recursion"},
+    {"from": "fragment", "to": "collage"},
+    {"from": "combine", "to": "collage"},
+    {"from": "collage", "to": "synthesis"},
+    {"from": "synthesis", "to": "meaning"},
+    {"from": "meaning", "to": "thematic"},
+    {"from": "meaning", "to": "feelings"},
+    {"from": "thematic", "to": "thoughts"},
+    {"from": "thematic", "to": "feelings"},
+    {"from": "environment", "to": "sensor-noise"},
+    {"from": "environment", "to": "feelings"},
+    {"from": "environment", "to": "physical-noise"},
+    {"from": "feelings", "to": "body"},
+    {"from": "body", "to": "movement"},
+    {"from": "body", "to": "audio-synthesis"},
+    {"from": "sensor-noise", "to": "movement"},
+    {"from": "movement", "to": "static", "relation": "freezes into"},
+    {"from": "movement", "to": "fragment"},
+    {"from": "static", "to": "fragment", "relation": "breaks into"},
+    {"from": "fragment", "to": "recursion", "relation": "enters"},
+    {"from": "collage", "to": "recursion"},
+    {"from": "recursion", "to": "sensor-noise"},
+    {"from": "audio-synthesis", "to": "sampling"},
+    {"from": "field-recording", "to": "sampling"},
+    {"from": "sampling", "to": "fragment"},
+    {"from": "feelings", "to": "physical-noise"},
+    {"from": "memories", "to": "conceptual-noise"},
+    {"from": "physical-noise", "to": "sampling"},
+    {"from": "physical-noise", "to": "fragment"},
+    {"from": "conceptual-noise", "to": "fragment"},
+    {"from": "conceptual-noise", "to": "combine"},
+    {"from": "conceptual-noise", "to": "synthesis"}
+  ]
+}

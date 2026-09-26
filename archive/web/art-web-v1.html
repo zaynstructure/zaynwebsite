@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>art web v1 (archived)</title>
+<style>
+:root { --ink: #141414; --muted: #6f6e69; }
+body { margin: 0; padding: 2rem 1.5rem; background: #fbfbf8; color: #141414; font: 15px/1.6 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+h2 { font-size: .8rem; font-weight: 500; color: #6f6e69; letter-spacing: .06em; }
+/* art web: a map of the practice, wider than the text column */
+.art-web {
+  max-width: 1040px;
+  margin: 2.4rem 0 2rem;
+}
+.art-web h2 { margin-top: 0; }
+.art-web-frame {
+  overflow-x: auto;
+  border: 1px solid var(--ink);
+  background-color: #fbfbf8;
+  background-image: radial-gradient(rgba(20,20,20,.08) .6px, transparent .9px);
+  background-size: 8px 8px;
+}
+.art-web-svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.aw-edge { fill: none; stroke: rgba(20,20,20,.32); stroke-width: 1; transition: stroke .15s, opacity .15s; }
+.aw-rel { font-size: 13px; font-style: italic; fill: #6f6e69; paint-order: stroke; stroke: #fbfbf8; stroke-width: 4px; }
+.aw-node { cursor: pointer; outline: none; }
+.aw-node text { font-size: 15px; paint-order: stroke; stroke: #fbfbf8; stroke-width: 4px; stroke-linejoin: round; }
+.aw-node:focus-visible circle:first-child { stroke-width: 3; }
+.art-web-svg.is-tracing .aw-edge { opacity: .12; }
+.art-web-svg.is-tracing .aw-rel { opacity: .2; }
+.art-web-svg.is-tracing .aw-node { opacity: .3; }
+.art-web-svg.is-tracing .aw-edge.on { opacity: 1; stroke: #b3342a; stroke-width: 1.6; marker-end: url(#aw-arrow-on); }
+.art-web-svg.is-tracing .aw-rel.on, .art-web-svg.is-tracing .aw-node.on { opacity: 1; }
+.art-web figcaption { max-width: 62ch; margin-top: .7rem; font-size: .9rem; color: var(--muted); }
+.aw-key { display: block; margin-top: .4rem; }
+.aw-scroll { display: none; }
+@media (max-width: 800px) { .aw-scroll { display: inline; } }
+.aw-key i { display: inline-block; width: 9px; height: 9px; margin: 0 .3em 0 .9em; border-radius: 50%; vertical-align: 0; }
+.aw-key .k-inner { margin-left: 0; background: #141414; }
+.aw-key .k-make { background: #b3342a; }
+.aw-key .k-engine { background: #2433a3; }
+.aw-key .k-noise { background: radial-gradient(#6f6e69 .7px, transparent 1px) 0 0 / 3px 3px; box-shadow: inset 0 0 0 1px #6f6e69; }
+
+</style>
+</head>
+<body>
+<!-- archived: the art web as first shown on /about/ (22 nodes, 45 edges,
+     with feelings as a node). data in art-web-v1.json. superseded by the
+     version in /about/art-web.json -->
+<figure class="art-web" id="art-web">
+<h2>art web</h2>
+<div class="art-web-frame">
+<svg class="art-web-svg" viewBox="0 0 1000 650" role="img" aria-labelledby="aw-title aw-desc">
+<title id="aw-title">art web</title>
+<desc id="aw-desc">A map of the practice. Feelings, memories and thoughts feed each other and feed intuition and potential; these select fragment and combine, which become collage, then synthesis, then meaning, which returns through thematic back to feelings and thoughts. Environment and body feed sensor noise, video and audio; video freezes into prints, and prints, sampling and noise break into fragments, which enter a recursion loop back into sensor noise.</desc>
+<defs><marker id="aw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9" fill="none" stroke="#141414" stroke-opacity=".45" stroke-width="1.4"/></marker><marker id="aw-arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9" fill="none" stroke="#b3342a" stroke-width="1.6"/></marker><pattern id="aw-dots" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r=".75" fill="#6f6e69"/></pattern></defs>
+<g class="aw-edges">
+<path class="aw-edge" data-a="thoughts" data-b="memories" data-label="1" d="M297.9,108.8 Q279.6,185.0 297.7,260.3" marker-end="url(#aw-arrow)"/>
+<text class="aw-rel" data-a="thoughts" data-b="memories" x="288.7" y="188.8" text-anchor="middle">shapes</text>
+<path class="aw-edge" data-a="memories" data-b="feelings" data-label="1" d="M292.8,264.6 Q232.8,219.5 159.9,206.7" marker-end="url(#aw-arrow)"/>
+<text class="aw-rel" data-a="memories" data-b="feelings" x="229.6" y="231.6" text-anchor="middle">feeds</text>
+<path class="aw-edge" data-a="feelings" data-b="thoughts" data-label="1" d="M158.4,201.7 Q237.6,170.5 293.4,107.5" marker-end="url(#aw-arrow)"/>
+<text class="aw-rel" data-a="feelings" data-b="thoughts" x="231.7" y="166.5" text-anchor="middle">biases</text>
+<path class="aw-edge" data-a="feelings" data-b="intuition" d="M159.0,205.6 Q316.6,215.9 460.8,153.9" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="memories" data-b="intuition" d="M308.4,266.7 Q399.4,230.4 463.4,157.5" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="intuition" data-b="fragment" d="M474.6,157.7 Q541.6,270.3 651.5,339.7" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="intuition" data-b="combine" d="M478.4,153.2 Q562.0,185.3 650.1,176.0" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="intuition" data-b="synthesis" d="M478.0,154.1 Q668.0,250.4 880.0,250.0" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="feelings" data-b="potential" d="M158.3,208.4 Q304.0,268.4 460.0,255.8" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="memories" data-b="potential" d="M308.9,271.3 Q386.8,282.9 460.5,258.2" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="potential" data-b="fragment" d="M477.0,260.6 Q554.2,322.8 650.2,342.9" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="potential" data-b="combine" d="M478.9,253.5 Q574.6,237.8 651.9,180.9" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="potential" data-b="synthesis" d="M478.8,257.0 Q680.6,302.9 880.3,252.4" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="potential" data-b="recursion" d="M469.0,263.9 Q460.2,339.9 486.5,410.6" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="fragment" data-b="collage" d="M668.4,341.7 Q730.2,316.9 773.4,267.5" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="combine" data-b="collage" d="M665.9,181.8 Q709.8,231.9 770.7,256.3" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="collage" data-b="synthesis" d="M788.9,261.3 Q836.2,268.2 880.5,253.2" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="synthesis" data-b="meaning" d="M891.5,241.1 Q901.8,178.8 883.0,119.5" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="meaning" data-b="thematic" d="M871.8,106.2 Q727.7,39.6 570.0,45.6" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="meaning" data-b="feelings" d="M871.1,109.0 Q503.6,69.9 159.3,201.4" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="thematic" data-b="thoughts" d="M551.0,45.7 Q423.5,41.8 309.0,95.7" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="thematic" data-b="feelings" d="M551.1,47.2 Q335.9,76.3 158.2,199.3" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="env" data-b="sensor" d="M78.8,472.1 Q190.0,498.8 300.3,472.3" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="env" data-b="feelings" d="M74.5,462.2 Q141.8,347.1 149.4,215.0" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="env" data-b="nphys" d="M78.9,471.5 Q420.4,530.3 750.4,428.0" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="feelings" data-b="body" d="M149.0,213.9 Q140.2,289.9 166.5,360.6" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="body" data-b="movement" d="M176.3,376.4 Q289.0,491.1 440.5,541.8" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="body" data-b="audio" d="M171.2,378.9 Q184.8,484.6 244.4,571.7" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="sensor" data-b="movement" d="M316.7,476.0 Q371.0,524.3 440.3,542.5" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="movement" data-b="static" data-label="1" d="M458.4,548.1 Q532.6,575.4 610.1,566.2" marker-end="url(#aw-arrow)"/>
+<text class="aw-rel" data-a="movement" data-b="static" x="533.4" y="570.3" text-anchor="middle">freezes into</text>
+<path class="aw-edge" data-a="movement" data-b="fragment" d="M457.8,540.5 Q579.0,470.2 654.6,353.4" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="static" data-b="fragment" data-label="1" d="M623.6,556.8 Q666.4,459.8 660.6,355.0" marker-end="url(#aw-arrow)"/>
+<text class="aw-rel" data-a="static" data-b="fragment" x="654.2" y="461.8" text-anchor="middle">breaks into</text>
+<path class="aw-edge" data-a="fragment" data-b="recursion" data-label="1" d="M651.1,346.6 Q566.0,362.1 498.0,413.9" marker-end="url(#aw-arrow)"/>
+<text class="aw-rel" data-a="fragment" data-b="recursion" x="570.3" y="375.2" text-anchor="middle">enters</text>
+<path class="aw-edge" data-a="collage" data-b="recursion" d="M771.3,262.4 Q615.8,305.2 497.4,413.3" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="recursion" data-b="sensor" d="M481.0,420.3 Q394.0,423.4 318.7,465.1" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="audio" data-b="sampling" d="M258.9,581.2 Q562.2,623.2 850.6,523.3" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="fieldrec" data-b="sampling" d="M898.4,601.1 Q890.8,560.2 866.1,527.9" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="sampling" data-b="fragment" d="M854.8,512.7 Q781.0,408.5 668.9,349.6" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="feelings" data-b="nphys" d="M157.5,209.9 Q428.6,388.2 750.1,423.9" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="memories" data-b="nconc" d="M306.7,276.0 Q352.2,316.9 410.3,332.4" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="nphys" data-b="sampling" d="M764.9,432.6 Q798.6,484.5 851.3,515.0" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="nphys" data-b="fragment" d="M754.5,417.9 Q719.6,373.0 669.1,349.3" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="nconc" data-b="fragment" d="M428.7,337.5 Q538.8,368.8 650.2,346.9" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="nconc" data-b="combine" d="M428.4,331.9 Q559.2,283.8 653.2,182.3" marker-end="url(#aw-arrow)"/>
+<path class="aw-edge" data-a="nconc" data-b="synthesis" d="M429.0,335.5 Q665.2,348.9 880.8,254.0" marker-end="url(#aw-arrow)"/>
+</g><g class="aw-nodes">
+<g class="aw-node" data-id="thematic" tabindex="0"><circle cx="560" cy="46" r="6" fill="#141414" stroke="#141414" stroke-width="1.2"/><circle cx="560" cy="46" r="16" fill="transparent"/><text x="560" y="33" text-anchor="middle" fill="#141414">thematic</text></g>
+<g class="aw-node" data-id="thoughts" tabindex="0"><circle cx="300" cy="100" r="6" fill="#141414" stroke="#141414" stroke-width="1.2"/><circle cx="300" cy="100" r="16" fill="transparent"/><text x="300" y="87" text-anchor="middle" fill="#141414">thoughts</text></g>
+<g class="aw-node" data-id="meaning" tabindex="0"><circle cx="880" cy="110" r="6" fill="#141414" stroke="#141414" stroke-width="1.2"/><circle cx="880" cy="110" r="16" fill="transparent"/><text x="880" y="97" text-anchor="middle" fill="#141414">meaning</text></g>
+<g class="aw-node" data-id="intuition" tabindex="0"><circle cx="470" cy="150" r="6" fill="#141414" stroke="#141414" stroke-width="1.2"/><circle cx="470" cy="150" r="16" fill="transparent"/><text x="482" y="155" text-anchor="start" fill="#141414">intuition</text></g>
+<g class="aw-node" data-id="feelings" tabindex="0"><circle cx="150" cy="205" r="6" fill="#141414" stroke="#141414" stroke-width="1.2"/><circle cx="150" cy="205" r="16" fill="transparent"/><text x="138" y="210" text-anchor="end" fill="#141414">feelings</text></g>
+<g class="aw-node" data-id="memories" tabindex="0"><circle cx="300" cy="270" r="6" fill="#141414" stroke="#141414" stroke-width="1.2"/><circle cx="300" cy="270" r="16" fill="transparent"/><text x="300" y="292" text-anchor="middle" fill="#141414">memories</text></g>
+<g class="aw-node" data-id="potential" tabindex="0"><circle cx="470" cy="255" r="6" fill="#141414" stroke="#141414" stroke-width="1.2"/><circle cx="470" cy="255" r="16" fill="transparent"/><text x="482" y="260" text-anchor="start" fill="#141414">potential</text></g>
+<g class="aw-node" data-id="combine" tabindex="0"><circle cx="660" cy="175" r="6" fill="#b3342a" stroke="#b3342a" stroke-width="1.2"/><circle cx="660" cy="175" r="16" fill="transparent"/><text x="660" y="162" text-anchor="middle" fill="#b3342a">combine</text></g>
+<g class="aw-node" data-id="fragment" tabindex="0"><circle cx="660" cy="345" r="6" fill="#b3342a" stroke="#b3342a" stroke-width="1.2"/><circle cx="660" cy="345" r="16" fill="transparent"/><text x="672" y="350" text-anchor="start" fill="#b3342a">fragment</text></g>
+<g class="aw-node" data-id="collage" tabindex="0"><circle cx="780" cy="260" r="6" fill="#b3342a" stroke="#b3342a" stroke-width="1.2"/><circle cx="780" cy="260" r="16" fill="transparent"/><text x="792" y="265" text-anchor="start" fill="#b3342a">collage</text></g>
+<g class="aw-node" data-id="synthesis" tabindex="0"><circle cx="890" cy="250" r="6" fill="#b3342a" stroke="#b3342a" stroke-width="1.2"/><circle cx="890" cy="250" r="16" fill="transparent"/><text x="902" y="255" text-anchor="start" fill="#b3342a">synthesis</text></g>
+<g class="aw-node" data-id="recursion" tabindex="0"><circle cx="490" cy="420" r="6" fill="#b3342a" stroke="#b3342a" stroke-width="1.2"/><circle cx="490" cy="420" r="16" fill="transparent"/><text x="502" y="425" text-anchor="start" fill="#b3342a">recursion</text></g>
+<g class="aw-node" data-id="nconc" tabindex="0"><circle cx="420" cy="335" r="6" fill="url(#aw-dots)" stroke="#6f6e69" stroke-width="1.2"/><circle cx="420" cy="335" r="16" fill="transparent"/><text x="408" y="340" text-anchor="end" fill="#6f6e69">conceptual noise</text></g>
+<g class="aw-node" data-id="nphys" tabindex="0"><circle cx="760" cy="425" r="6" fill="url(#aw-dots)" stroke="#6f6e69" stroke-width="1.2"/><circle cx="760" cy="425" r="16" fill="transparent"/><text x="772" y="430" text-anchor="start" fill="#6f6e69">physical noise</text></g>
+<g class="aw-node" data-id="env" tabindex="0"><circle cx="70" cy="470" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="70" cy="470" r="16" fill="transparent"/><text x="70" y="492" text-anchor="middle" fill="#2433a3">environment</text></g>
+<g class="aw-node" data-id="body" tabindex="0"><circle cx="170" cy="370" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="170" cy="370" r="16" fill="transparent"/><text x="158" y="375" text-anchor="end" fill="#2433a3">body / gesture</text></g>
+<g class="aw-node" data-id="sensor" tabindex="0"><circle cx="310" cy="470" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="310" cy="470" r="16" fill="transparent"/><text x="310" y="492" text-anchor="middle" fill="#2433a3">sensor noise</text></g>
+<g class="aw-node" data-id="movement" tabindex="0"><circle cx="450" cy="545" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="450" cy="545" r="16" fill="transparent"/><text x="438" y="550" text-anchor="end" fill="#2433a3">movement (video)</text></g>
+<g class="aw-node" data-id="static" tabindex="0"><circle cx="620" cy="565" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="620" cy="565" r="16" fill="transparent"/><text x="620" y="587" text-anchor="middle" fill="#2433a3">static (prints)</text></g>
+<g class="aw-node" data-id="audio" tabindex="0"><circle cx="250" cy="580" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="250" cy="580" r="16" fill="transparent"/><text x="250" y="602" text-anchor="middle" fill="#2433a3">audio synthesis</text></g>
+<g class="aw-node" data-id="sampling" tabindex="0"><circle cx="860" cy="520" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="860" cy="520" r="16" fill="transparent"/><text x="872" y="525" text-anchor="start" fill="#2433a3">sampling</text></g>
+<g class="aw-node" data-id="fieldrec" tabindex="0"><circle cx="900" cy="610" r="6" fill="#2433a3" stroke="#2433a3" stroke-width="1.2"/><circle cx="900" cy="610" r="16" fill="transparent"/><text x="900" y="632" text-anchor="middle" fill="#2433a3">field recording</text></g>
+</g></svg>
+</div>
+<figcaption>A map of how the work moves. Feeling, memory and thought feed each other and select what to make; material is fragmented and combined, collaged, synthesized into meaning, and meaning returns as feeling. Alongside it, body and environment feed image and sound, and recursion keeps passing the output back in. Hover or tap a node to trace its connections.<span class="aw-scroll"> On a small screen, scroll the map sideways.</span>
+<span class="aw-key"><i class="k-inner"></i>inner life <i class="k-make"></i>making <i class="k-engine"></i>body, image, sound <i class="k-noise"></i>noise</span></figcaption>
+</figure>
+<script>
+// art web: hover, focus or tap a node to light up its links
+(() => {
+  const svg = document.querySelector('.art-web-svg');
+  if (!svg) return;
+  let pinned = null;
+  const show = id => {
+    svg.classList.toggle('is-tracing', !!id);
+    const near = new Set([id]);
+    svg.querySelectorAll('.aw-edge, .aw-rel').forEach(e => {
+      const on = !!id && (e.dataset.a === id || e.dataset.b === id);
+      e.classList.toggle('on', on);
+      if (on) { near.add(e.dataset.a); near.add(e.dataset.b); }
+    });
+    svg.querySelectorAll('.aw-node').forEach(n => n.classList.toggle('on', !!id && near.has(n.dataset.id)));
+  };
+  svg.querySelectorAll('.aw-node').forEach(n => {
+    n.addEventListener('mouseenter', () => { if (!pinned) show(n.dataset.id); });
+    n.addEventListener('mouseleave', () => { if (!pinned) show(null); });
+    n.addEventListener('focus', () => show(n.dataset.id));
+    n.addEventListener('blur', () => { if (!pinned) show(null); });
+    n.addEventListener('click', e => { e.stopPropagation(); pinned = pinned === n.dataset.id ? null : n.dataset.id; show(pinned); });
+  });
+  document.addEventListener('click', () => { if (pinned) { pinned = null; show(null); } });
+})();
+</script>
+</body>
+</html>
