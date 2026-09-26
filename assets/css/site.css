@@ -503,6 +503,43 @@ section.step h2 { margin: 0 0 .6rem; }
 ul.plain { padding-left: 1.1rem; margin: 0 0 1rem; }
 ul.plain li { margin: 0 0 .35rem; }
 
+/* art web: a map of the practice, wider than the text column */
+.art-web {
+  position: relative;
+  left: 50%;
+  width: min(100vw - 3rem, 1040px);
+  transform: translateX(-50%);
+  margin: 2.4rem 0 2rem;
+}
+.art-web h2 { margin-top: 0; }
+.art-web-frame {
+  overflow-x: auto;
+  border: 1px solid var(--ink);
+  background-color: #fbfbf8;
+  background-image: radial-gradient(rgba(20,20,20,.08) .6px, transparent .9px);
+  background-size: 8px 8px;
+}
+.art-web-svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.aw-edge { fill: none; stroke: rgba(20,20,20,.32); stroke-width: 1; transition: stroke .15s, opacity .15s; }
+.aw-rel { font-size: 13px; font-style: italic; fill: #6f6e69; paint-order: stroke; stroke: #fbfbf8; stroke-width: 4px; }
+.aw-node { cursor: pointer; outline: none; }
+.aw-node text { font-size: 15px; paint-order: stroke; stroke: #fbfbf8; stroke-width: 4px; stroke-linejoin: round; }
+.aw-node:focus-visible circle:first-child { stroke-width: 3; }
+.art-web-svg.is-tracing .aw-edge { opacity: .12; }
+.art-web-svg.is-tracing .aw-rel { opacity: .2; }
+.art-web-svg.is-tracing .aw-node { opacity: .3; }
+.art-web-svg.is-tracing .aw-edge.on { opacity: 1; stroke: #b3342a; stroke-width: 1.6; marker-end: url(#aw-arrow-on); }
+.art-web-svg.is-tracing .aw-rel.on, .art-web-svg.is-tracing .aw-node.on { opacity: 1; }
+.art-web figcaption { max-width: 62ch; margin-top: .7rem; font-size: .9rem; color: var(--muted); }
+.aw-key { display: block; margin-top: .4rem; }
+.aw-scroll { display: none; }
+@media (max-width: 800px) { .aw-scroll { display: inline; } }
+.aw-key i { display: inline-block; width: 9px; height: 9px; margin: 0 .3em 0 .9em; border-radius: 50%; vertical-align: 0; }
+.aw-key .k-inner { margin-left: 0; background: #141414; }
+.aw-key .k-make { background: #b3342a; }
+.aw-key .k-engine { background: #2433a3; }
+.aw-key .k-noise { background: radial-gradient(#6f6e69 .7px, transparent 1px) 0 0 / 3px 3px; box-shadow: inset 0 0 0 1px #6f6e69; }
+
 .cv-block { margin: 1.6rem 0; }
 .cv-block h2 { margin: 0 0 .8rem; }
 .cv-row {
