@@ -97,6 +97,11 @@
   #canvas-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
   .cc-btn { width: 30px; height: 28px; display: grid; place-items: center; border: 1px solid var(--ink); background: #ecebe6; cursor: pointer; user-select: none; }
   .cc-btn:hover { background: var(--ink); color: var(--paper); }
+  .cc-clear { width: auto; margin-left: 8px; padding: 0 9px; font: inherit; font-size: .88rem; color: var(--ink); background: #ecebe6; border-radius: 0; -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent; }
+  .cc-clear:hover { background: var(--red); border-color: var(--red); }
+  .cc-clear:focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
+  #clear-note { top: 46px; right: 10px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #clear-note.show { opacity: 1; }
   #statusbar { left: 50%; bottom: 10px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; color: var(--muted); }
   #canvas-drop-overlay { position: absolute; inset: 0; z-index: 20; display: none; place-items: center; border: 2px dashed var(--ink); background: rgba(251,251,248,.85); pointer-events: none; }
   #canvas-drop-overlay.visible { display: grid; }
@@ -173,7 +178,9 @@
     <div class="cc-btn" id="btn-zoom-in">+</div>
     <div class="cc-btn" id="btn-zoom-out">−</div>
     <div class="cc-btn" id="btn-zoom-reset" title="reset view">○</div>
+    <button type="button" class="cc-btn cc-clear" id="btn-clear-corner" aria-label="clear the canvas (undo restores it)" title="clear (undo restores)">clear</button>
   </div>
+  <div id="clear-note" class="chip" role="status" aria-live="polite"></div>
   <div id="statusbar" class="chip">
     Tool: <span id="sb-tool">Place</span> &nbsp;·&nbsp;
     Shape: <span id="sb-shape">6-Star</span> &nbsp;·&nbsp;
@@ -337,7 +344,7 @@ const S = {
   size:60, rotation:0, strokeWidth:1.5, opacity:0.9, color:'#141414',
   showGrid:true, showConstruction:false, showSymmetry:false, fillShapes:true, snap:false,
   zoom:1, panX:0, panY:0,
-  shapes:[], history:[],
+  shapes:[], history:[], cleared:[],
   isPanning:false, panStart:null,
   mousePos:{x:-9999,y:-9999},
   // image
@@ -717,12 +724,27 @@ document.getElementById('btn-zoom-reset').addEventListener('click',()=>{S.zoom=1
 function updateZoom(){document.getElementById('zoom-val').textContent=Math.round(S.zoom*100)+'%';}
 
 // Actions
+// undo takes back the last shape; with nothing left on the canvas it
+// brings back the most recent clear, so clearing is never final
 document.getElementById('btn-undo').addEventListener('click',()=>{
-  if(S.shapes.length){S.history.push(S.shapes.pop());updateStatus();render();}
+  if(S.shapes.length){S.history.push(S.shapes.pop());}
+  else if(S.cleared.length){S.shapes=S.cleared.pop();note('restored');}
+  updateStatus();render();
 });
-document.getElementById('btn-clear').addEventListener('click',()=>{
-  S.history.push(...S.shapes.splice(0));updateStatus();render();
-});
+function clearCanvas(){
+  if(!S.shapes.length) return;
+  S.cleared.push(S.shapes.splice(0));
+  note('cleared · undo restores');
+  updateStatus();render();
+}
+let noteTimer=0;
+function note(msg){
+  const el=document.getElementById('clear-note');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(noteTimer); noteTimer=setTimeout(()=>el.classList.remove('show'),2400);
+}
+document.getElementById('btn-clear').addEventListener('click',clearCanvas);
+document.getElementById('btn-clear-corner').addEventListener('click',clearCanvas);
 document.getElementById('btn-fill-all').addEventListener('click',()=>{
   S.fillShapes=!S.fillShapes;
   document.getElementById('toggle-fill').classList.toggle('on',S.fillShapes);
