@@ -82,6 +82,9 @@
   .note { color: var(--muted); font-size: .88rem; line-height: 1.5; }
 
   html, body { height: 100%; }
+  /* stop double-tap zoom (pinch still works) so taps on the controls can't
+     leave the page zoomed in; the canvas handles its own gestures */
+  html, body { touch-action: manipulation; }
   body { display: flex; flex-direction: column; }
   .wrap { width: 100%; max-width: none; flex: 1; min-height: 0; display: flex; flex-direction: column; padding-bottom: 16px; }
   .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; margin-top: 12px; }
@@ -159,6 +162,8 @@
     #sidebar { overflow: visible; }
     #statusbar { font-size: .72rem; }
   }
+  /* 16px or larger, or iOS zooms the page when a select is focused */
+  @media (pointer: coarse) { select { font-size: 16px; } }
 </style>
 </head>
 <body>
@@ -979,10 +984,20 @@ canvas.addEventListener('pointerup',e=>{
   S.isPanning=false;
   if(S.tool==='pan')canvas.style.cursor='grab';
 });
+// if the browser cancels a one-finger tap that hadn't moved (it can when the
+// page is zoomed), still act at that spot rather than silently doing nothing
 canvas.addEventListener('pointercancel',e=>{
+  const t=touches.get(e.pointerId);
   touches.delete(e.pointerId);
   if(touches.size<2) pinch=null;
-  if(touches.size===0) gesture=null;
+  if(touches.size===0 && gesture){
+    const g=gesture; gesture=null;
+    if(t && !g.twoFinger && !g.moved && (S.tool==='place'||S.tool==='erase')){
+      const{wx,wy}=worldCoords({clientX:t.x,clientY:t.y});
+      if(S.tool==='place') placeAt(wx,wy); else eraseAt(wx,wy);
+    }
+    S.mousePos={x:-9999,y:-9999}; render();
+  }
   S.isPanning=false;
 });
 canvas.addEventListener('pointerleave',e=>{
