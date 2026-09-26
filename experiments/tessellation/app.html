@@ -160,7 +160,7 @@
 <div class="wrap">
   <header class="top">
     <h1>tessellation sandbox <span class="dim">· islamic geometry, symmetry, image cut</span></h1>
-    <span class="note">click to place · scroll to zoom · space to pan</span>
+    <span class="note">click to place · scroll to zoom · space to pan · S snaps · two-finger tap undoes</span>
   </header>
 
   <div class="main">
@@ -188,6 +188,7 @@
   <div class="section">
     <div class="section-label">Display</div>
     <div class="toggle-row"><div class="toggle on" id="toggle-grid" role="checkbox" tabindex="0" aria-checked="false"></div><span class="toggle-label">Grid</span></div>
+    <div class="toggle-row"><div class="toggle" id="toggle-snap" role="checkbox" tabindex="0" aria-checked="false"></div><span class="toggle-label">Snap to grid</span></div>
     <div class="toggle-row"><div class="toggle" id="toggle-construction" role="checkbox" tabindex="0" aria-checked="false"></div><span class="toggle-label">Construction lines</span></div>
     <div class="toggle-row"><div class="toggle" id="toggle-symmetry" role="checkbox" tabindex="0" aria-checked="false"></div><span class="toggle-label">Symmetry overlay</span></div>
     <div class="toggle-row"><div class="toggle on" id="toggle-fill" role="checkbox" tabindex="0" aria-checked="false"></div><span class="toggle-label">Fill shapes</span></div>
@@ -334,7 +335,7 @@
 const S = {
   tool:'place', shapeKey:'star6', symmetry:1,
   size:60, rotation:0, strokeWidth:1.5, opacity:0.9, color:'#141414',
-  showGrid:true, showConstruction:false, showSymmetry:false, fillShapes:true,
+  showGrid:true, showConstruction:false, showSymmetry:false, fillShapes:true, snap:false,
   zoom:1, panX:0, panY:0,
   shapes:[], history:[],
   isPanning:false, panStart:null,
@@ -440,6 +441,8 @@ const PALETTE=['#141414','#b3342a','#2433a3','#c9a84c','#e8c97a','#b07d2a','#4ec
                '#e07070','#a03030','#f0a0a0','#8b7dd8','#5548a0','#c4bee8',
                '#80b060','#3d6b20','#b0d890','#e8e0c8','#ffffff','#2a2a2a'];
 const GS=60;
+// snap a world coordinate to the nearest grid line when snapping is on
+const snapW=v=>S.snap?Math.round(v/GS)*GS:v;
 
 function render(){
   const W=canvas.width,H=canvas.height;
@@ -470,8 +473,8 @@ function render(){
 
   // Ghost preview
   if(S.tool==='place'){
-    const mx=(S.mousePos.x-W/2-S.panX)/S.zoom;
-    const my=(S.mousePos.y-H/2-S.panY)/S.zoom;
+    const mx=snapW((S.mousePos.x-W/2-S.panX)/S.zoom);
+    const my=snapW((S.mousePos.y-H/2-S.panY)/S.zoom);
     ctx.save(); ctx.globalAlpha=0.3;
     renderShape({x:mx,y:my,shapeKey:S.shapeKey,size:S.size,rotation:S.rotation*Math.PI/180,
       color:S.color,fillShapes:S.fillShapes,strokeWidth:S.strokeWidth,opacity:1,symmetry:S.symmetry,cutMode:'color'});
@@ -636,6 +639,7 @@ function mkToggle(id,key){
   });
 }
 mkToggle('toggle-grid','showGrid');
+mkToggle('toggle-snap','snap');
 mkToggle('toggle-construction','showConstruction');
 mkToggle('toggle-symmetry','showSymmetry');
 mkToggle('toggle-fill','fillShapes');
@@ -826,30 +830,59 @@ function worldCoords(e){
   };
 }
 
+function placeAt(wx,wy){
+  S.shapes.push({x:snapW(wx),y:snapW(wy),shapeKey:S.shapeKey,size:S.size,
+    rotation:S.rotation*Math.PI/180,color:S.color,fillShapes:S.fillShapes,
+    strokeWidth:S.strokeWidth,opacity:S.opacity,symmetry:S.symmetry,cutMode:S.cutMode});
+  S.history=[];updateStatus();render();
+}
+function eraseAt(wx,wy){
+  let md=Infinity,mi=-1;
+  S.shapes.forEach((s,i)=>{const d=Math.hypot(s.x-wx,s.y-wy);if(d<s.size*1.2&&d<md){md=d;mi=i;}});
+  if(mi!==-1){S.history.push(S.shapes.splice(mi,1)[0]);updateStatus();render();}
+}
+
+// touch: a one-finger tap acts when the finger lifts (drag first to line up
+// the preview); a quick two-finger tap undoes instead of placing
+const touches=new Map();
+let gesture=null;
+const TAP_MS=350, TAP_MOVE=12;
+
 canvas.addEventListener('pointerdown',e=>{
-  if(e.pointerType!=='mouse'){const r=canvas.getBoundingClientRect();S.mousePos={x:e.clientX-r.left,y:e.clientY-r.top};}
+  const r=canvas.getBoundingClientRect();
+  if(e.pointerType!=='mouse') S.mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
   canvas.setPointerCapture(e.pointerId);
   const{wx,wy}=worldCoords(e);
+
+  if(e.pointerType==='touch'){
+    touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(touches.size===1){
+      gesture={t0:performance.now(),twoFinger:false,moved:false};
+    } else if(gesture && touches.size===2 && performance.now()-gesture.t0<TAP_MS){
+      gesture.twoFinger=true;
+      S.isPanning=false; S.mousePos={x:-9999,y:-9999}; render();
+      return;
+    }
+    if(gesture && gesture.twoFinger) return;
+  }
+
   if(S.tool==='pan'){
     S.isPanning=true;
     S.panStart={mx:e.clientX,my:e.clientY,px:S.panX,py:S.panY};
     canvas.style.cursor='grabbing'; return;
   }
-  if(S.tool==='place'){
-    S.shapes.push({x:wx,y:wy,shapeKey:S.shapeKey,size:S.size,
-      rotation:S.rotation*Math.PI/180,color:S.color,fillShapes:S.fillShapes,
-      strokeWidth:S.strokeWidth,opacity:S.opacity,symmetry:S.symmetry,cutMode:S.cutMode});
-    S.history=[];updateStatus();render();
-  }
-  if(S.tool==='erase'){
-    let md=Infinity,mi=-1;
-    S.shapes.forEach((s,i)=>{const d=Math.hypot(s.x-wx,s.y-wy);if(d<s.size*1.2&&d<md){md=d;mi=i;}});
-    if(mi!==-1){S.history.push(S.shapes.splice(mi,1)[0]);updateStatus();render();}
-  }
+  if(e.pointerType==='touch'){ render(); return; }   // place / erase wait for the lift
+  if(S.tool==='place') placeAt(wx,wy);
+  if(S.tool==='erase') eraseAt(wx,wy);
 });
 
 canvas.addEventListener('pointermove',e=>{
   const r=canvas.getBoundingClientRect();
+  if(e.pointerType==='touch'){
+    const t=touches.get(e.pointerId);
+    if(t && gesture && Math.hypot(e.clientX-t.x,e.clientY-t.y)>TAP_MOVE) gesture.moved=true;
+    if(gesture && gesture.twoFinger) return;
+  }
   S.mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
   if(S.isPanning&&S.panStart){
     S.panX=S.panStart.px+(e.clientX-S.panStart.mx);
@@ -858,11 +891,30 @@ canvas.addEventListener('pointermove',e=>{
   render();
 });
 
-canvas.addEventListener('pointerup',()=>{
+canvas.addEventListener('pointerup',e=>{
+  if(e.pointerType==='touch' && touches.has(e.pointerId)){
+    touches.delete(e.pointerId);
+    if(touches.size===0 && gesture){
+      const g=gesture; gesture=null;
+      if(g.twoFinger){
+        if(!g.moved && performance.now()-g.t0<TAP_MS*2) document.getElementById('btn-undo').click();
+      } else if(S.tool==='place' || S.tool==='erase'){
+        const{wx,wy}=worldCoords(e);
+        if(S.tool==='place') placeAt(wx,wy); else eraseAt(wx,wy);
+      }
+      S.mousePos={x:-9999,y:-9999}; render();
+    }
+  }
   S.isPanning=false;
   if(S.tool==='pan')canvas.style.cursor='grab';
 });
-canvas.addEventListener('pointerleave',()=>{
+canvas.addEventListener('pointercancel',e=>{
+  touches.delete(e.pointerId);
+  if(touches.size===0) gesture=null;
+  S.isPanning=false;
+});
+canvas.addEventListener('pointerleave',e=>{
+  if(e.pointerType==='touch' && touches.size) return;
   S.isPanning=false;S.mousePos={x:-9999,y:-9999};render();
 });
 canvas.addEventListener('wheel',e=>{
@@ -875,6 +927,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='p'||e.key==='P') document.querySelector('[data-tool="place"]').click();
   else if(e.key==='e'||e.key==='E') document.querySelector('[data-tool="erase"]').click();
   else if(e.key==='g'||e.key==='G') document.getElementById('toggle-grid').click();
+  else if(e.key==='s'||e.key==='S') document.getElementById('toggle-snap').click();
   else if((e.key==='z')&&(e.ctrlKey||e.metaKey)){e.preventDefault();document.getElementById('btn-undo').click();}
   else if(e.key===' '){e.preventDefault();document.querySelector('[data-tool="pan"]').click();}
 });
