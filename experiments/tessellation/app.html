@@ -97,6 +97,11 @@
   #canvas-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
   .cc-btn { width: 30px; height: 28px; display: grid; place-items: center; border: 1px solid var(--ink); background: #ecebe6; cursor: pointer; user-select: none; }
   .cc-btn:hover { background: var(--ink); color: var(--paper); }
+  .cc-clear { width: auto; margin-left: 8px; padding: 0 9px; font: inherit; font-size: .88rem; color: var(--ink); background: #ecebe6; border-radius: 0; -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent; }
+  .cc-clear:hover { background: var(--red); border-color: var(--red); }
+  .cc-clear:focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
+  #clear-note { top: 46px; right: 10px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #clear-note.show { opacity: 1; }
   #statusbar { left: 50%; bottom: 10px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; color: var(--muted); }
   #canvas-drop-overlay { position: absolute; inset: 0; z-index: 20; display: none; place-items: center; border: 2px dashed var(--ink); background: rgba(251,251,248,.85); pointer-events: none; }
   #canvas-drop-overlay.visible { display: grid; }
@@ -160,7 +165,7 @@
 <div class="wrap">
   <header class="top">
     <h1>tessellation sandbox <span class="dim">· islamic geometry, symmetry, image cut</span></h1>
-    <span class="note">click to place · scroll to zoom · space to pan · S snaps · two-finger tap undoes</span>
+    <span class="note">click to place · scroll or pinch to zoom · space to pan · S snaps · twist two fingers to rotate · two-finger tap undoes</span>
   </header>
 
   <div class="main">
@@ -173,7 +178,9 @@
     <div class="cc-btn" id="btn-zoom-in">+</div>
     <div class="cc-btn" id="btn-zoom-out">−</div>
     <div class="cc-btn" id="btn-zoom-reset" title="reset view">○</div>
+    <button type="button" class="cc-btn cc-clear" id="btn-clear-corner" aria-label="clear the canvas (undo restores it)" title="clear (undo restores)">clear</button>
   </div>
+  <div id="clear-note" class="chip" role="status" aria-live="polite"></div>
   <div id="statusbar" class="chip">
     Tool: <span id="sb-tool">Place</span> &nbsp;·&nbsp;
     Shape: <span id="sb-shape">6-Star</span> &nbsp;·&nbsp;
@@ -337,7 +344,7 @@ const S = {
   size:60, rotation:0, strokeWidth:1.5, opacity:0.9, color:'#141414',
   showGrid:true, showConstruction:false, showSymmetry:false, fillShapes:true, snap:false,
   zoom:1, panX:0, panY:0,
-  shapes:[], history:[],
+  shapes:[], history:[], cleared:[],
   isPanning:false, panStart:null,
   mousePos:{x:-9999,y:-9999},
   // image
@@ -717,12 +724,27 @@ document.getElementById('btn-zoom-reset').addEventListener('click',()=>{S.zoom=1
 function updateZoom(){document.getElementById('zoom-val').textContent=Math.round(S.zoom*100)+'%';}
 
 // Actions
+// undo takes back the last shape; with nothing left on the canvas it
+// brings back the most recent clear, so clearing is never final
 document.getElementById('btn-undo').addEventListener('click',()=>{
-  if(S.shapes.length){S.history.push(S.shapes.pop());updateStatus();render();}
+  if(S.shapes.length){S.history.push(S.shapes.pop());}
+  else if(S.cleared.length){S.shapes=S.cleared.pop();note('restored');}
+  updateStatus();render();
 });
-document.getElementById('btn-clear').addEventListener('click',()=>{
-  S.history.push(...S.shapes.splice(0));updateStatus();render();
-});
+function clearCanvas(){
+  if(!S.shapes.length) return;
+  S.cleared.push(S.shapes.splice(0));
+  note('cleared · undo restores');
+  updateStatus();render();
+}
+let noteTimer=0;
+function note(msg){
+  const el=document.getElementById('clear-note');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(noteTimer); noteTimer=setTimeout(()=>el.classList.remove('show'),2400);
+}
+document.getElementById('btn-clear').addEventListener('click',clearCanvas);
+document.getElementById('btn-clear-corner').addEventListener('click',clearCanvas);
 document.getElementById('btn-fill-all').addEventListener('click',()=>{
   S.fillShapes=!S.fillShapes;
   document.getElementById('toggle-fill').classList.toggle('on',S.fillShapes);
@@ -843,10 +865,51 @@ function eraseAt(wx,wy){
 }
 
 // touch: a one-finger tap acts when the finger lifts (drag first to line up
-// the preview); a quick two-finger tap undoes instead of placing
+// the preview). two fingers: pinch zooms around the point between them and
+// moving both pans; twisting turns the shape to be placed (the rotation
+// slider). a quick two-finger tap with no movement undoes instead.
 const touches=new Map();
-let gesture=null;
-const TAP_MS=350, TAP_MOVE=12;
+let gesture=null, pinch=null;
+const TAP_MS=350, TAP_MOVE=12, TWIST_START=10;   // twist must pass 10° before it rotates
+const rotSlider=document.getElementById('sl-rot');
+
+function pinchFrame(){
+  const [p1,p2]=[...touches.values()];
+  const r=canvas.getBoundingClientRect();
+  return {
+    mx:(p1.x+p2.x)/2-r.left, my:(p1.y+p2.y)/2-r.top,
+    d:Math.max(1,Math.hypot(p2.x-p1.x,p2.y-p1.y)),
+    ang:Math.atan2(p2.y-p1.y,p2.x-p1.x),
+  };
+}
+function startPinch(){
+  const f=pinchFrame();
+  pinch={...f, zoom:S.zoom, panX:S.panX, panY:S.panY, rot:S.rotation, twisting:false,
+         wx:(f.mx-canvas.width/2-S.panX)/S.zoom, wy:(f.my-canvas.height/2-S.panY)/S.zoom};
+  S.isPanning=false;
+}
+function movePinch(){
+  const f=pinchFrame();
+  // zoom about the start point, and keep that world point under the fingers
+  const z=Math.min(Math.max(pinch.zoom*f.d/pinch.d,0.1),8);
+  S.zoom=z;
+  S.panX=f.mx-canvas.width/2-z*pinch.wx;
+  S.panY=f.my-canvas.height/2-z*pinch.wy;
+  updateZoom();
+  // twist: turn the shape once past the dead zone
+  let da=(f.ang-pinch.ang)*180/Math.PI;
+  da=((da+540)%360)-180;
+  if(!pinch.twisting && Math.abs(da)>TWIST_START) pinch.twisting=true;
+  if(pinch.twisting){
+    let deg=pinch.rot+da;
+    if(S.snap) deg=Math.round(deg/15)*15;
+    deg=((Math.round(deg)%360)+360)%360;
+    if(+rotSlider.value!==deg){ rotSlider.value=deg; rotSlider.dispatchEvent(new Event('input',{bubbles:true})); }
+  }
+  // show the shape being turned between the fingers
+  S.mousePos={x:f.mx,y:f.my};
+  render();
+}
 
 canvas.addEventListener('pointerdown',e=>{
   const r=canvas.getBoundingClientRect();
@@ -855,12 +918,13 @@ canvas.addEventListener('pointerdown',e=>{
   const{wx,wy}=worldCoords(e);
 
   if(e.pointerType==='touch'){
-    touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    touches.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY});
     if(touches.size===1){
-      gesture={t0:performance.now(),twoFinger:false,moved:false};
-    } else if(gesture && touches.size===2 && performance.now()-gesture.t0<TAP_MS){
+      gesture={t0:performance.now(),twoFinger:false,quick:false,moved:false};
+    } else if(touches.size===2 && gesture){
       gesture.twoFinger=true;
-      S.isPanning=false; S.mousePos={x:-9999,y:-9999}; render();
+      gesture.quick=performance.now()-gesture.t0<TAP_MS;
+      startPinch();
       return;
     }
     if(gesture && gesture.twoFinger) return;
@@ -880,8 +944,14 @@ canvas.addEventListener('pointermove',e=>{
   const r=canvas.getBoundingClientRect();
   if(e.pointerType==='touch'){
     const t=touches.get(e.pointerId);
-    if(t && gesture && Math.hypot(e.clientX-t.x,e.clientY-t.y)>TAP_MOVE) gesture.moved=true;
-    if(gesture && gesture.twoFinger) return;
+    if(t){
+      t.x=e.clientX; t.y=e.clientY;
+      if(gesture && Math.hypot(t.x-t.x0,t.y-t.y0)>TAP_MOVE) gesture.moved=true;
+    }
+    if(gesture && gesture.twoFinger){
+      if(pinch && touches.size===2) movePinch();
+      return;
+    }
   }
   S.mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
   if(S.isPanning&&S.panStart){
@@ -894,10 +964,11 @@ canvas.addEventListener('pointermove',e=>{
 canvas.addEventListener('pointerup',e=>{
   if(e.pointerType==='touch' && touches.has(e.pointerId)){
     touches.delete(e.pointerId);
+    if(touches.size<2) pinch=null;
     if(touches.size===0 && gesture){
       const g=gesture; gesture=null;
       if(g.twoFinger){
-        if(!g.moved && performance.now()-g.t0<TAP_MS*2) document.getElementById('btn-undo').click();
+        if(g.quick && !g.moved && performance.now()-g.t0<TAP_MS*2) document.getElementById('btn-undo').click();
       } else if(S.tool==='place' || S.tool==='erase'){
         const{wx,wy}=worldCoords(e);
         if(S.tool==='place') placeAt(wx,wy); else eraseAt(wx,wy);
@@ -910,6 +981,7 @@ canvas.addEventListener('pointerup',e=>{
 });
 canvas.addEventListener('pointercancel',e=>{
   touches.delete(e.pointerId);
+  if(touches.size<2) pinch=null;
   if(touches.size===0) gesture=null;
   S.isPanning=false;
 });
