@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>register / node · zayn wiwchar</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+  /* plain lab-instrument look: paper, 1px ink boxes, dashed guides,
+     red/blue marks; each voice is drawn as a stippled profile */
+  :root {
+    --paper: #fbfbf8;
+    --ink: #141414;
+    --muted: #6f6e69;
+    --faint: #b9b8b2;
+    --red: #b3342a;
+    --blue: #2433a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background-color: var(--paper);
+    background-image: radial-gradient(rgba(20,20,20,.07) .6px, transparent .9px);
+    background-size: 7px 7px;
+    color: var(--ink);
+    font: 15px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column;
+    padding: 16px 20px 14px;
+  }
+  .top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; padding-bottom: 10px; border-bottom: 1px solid var(--ink); }
+  .top h1 { margin: 0; font-size: 1.05rem; font-weight: 500; }
+  .top h1 .dim { color: var(--muted); font-weight: 400; }
+  #hint { color: var(--muted); font-size: .85rem; }
+
+  #split { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 12px; }
+  .col { display: flex; flex-direction: column; min-height: 0; }
+  .plabel { margin-bottom: 6px; font-size: .95rem; }
+  .plabel .law { color: var(--muted); }
+  .reg .nm { color: var(--blue); }
+  .nod .nm { color: var(--red); }
+  .panel { position: relative; flex: 1; min-height: 0; border: 1px solid var(--ink); background: var(--paper); touch-action: none; cursor: crosshair; }
+  .panel canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .rorow { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 2.9em; margin-top: 6px; }
+  .ro { font-size: .9rem; line-height: 1.45; font-variant-numeric: tabular-nums; }
+  .ro .w { color: var(--ink); }
+  .ro .commit { color: var(--red); }
+  .ro .sub { color: var(--muted); }
+
+  button {
+    font: inherit; font-size: .92rem; color: var(--ink);
+    background: #ecebe6; border: 1px solid var(--ink); border-radius: 0;
+    padding: 3px 10px; cursor: pointer;
+  }
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
+  #contain { visibility: hidden; flex-shrink: 0; }
+  #contain.on { visibility: visible; }
+
+  /* intro card */
+  #veil { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(251,251,248,.94); transition: opacity 1s; }
+  #veil.gone { opacity: 0; pointer-events: none; }
+  #veil .card { max-width: 34em; padding: 20px 22px; border: 1px solid var(--ink); background: var(--paper); }
+  #veil h2 { margin: 0 0 10px; font-size: 1.05rem; font-weight: 500; }
+  #veil p { margin: 0 0 16px; color: var(--muted); font-size: .95rem; line-height: 1.55; }
+
+  #audiowarn { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20; padding: 4px 10px; border: 1px solid var(--red); background: var(--paper); color: var(--red); font-size: .9rem; pointer-events: none; }
+
+  @media (max-width: 560px) {
+    body { padding: 12px 12px 10px; }
+    #split { gap: 10px; }
+    .plabel .law { display: block; font-size: .8rem; }
+    .ro { font-size: .8rem; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>register / node <span class="dim">· the same gesture, two kinds of object</span></h1>
+  <span id="hint">press &amp; hold to drive · higher = stronger · release to let go</span>
+</header>
+
+<div id="split">
+  <div class="col reg">
+    <div class="plabel"><span class="nm">register</span> <span class="law">λ = 0 · cannot commit</span></div>
+    <div class="panel" id="pL"><canvas></canvas></div>
+    <div class="rorow"><div class="ro" id="roL"></div></div>
+  </div>
+  <div class="col nod">
+    <div class="plabel"><span class="nm">node</span> <span class="law">λ &gt; 0 · can commit</span></div>
+    <div class="panel" id="pR"><canvas></canvas></div>
+    <div class="rorow"><div class="ro" id="roR"></div><button id="contain">contain (γ)</button></div>
+  </div>
+</div>
+
+<div id="veil">
+  <div class="card">
+    <h2>register / node</h2>
+    <p>Two voices, one physics, one difference: the self-term. Press and hold either side to
+       drive it — higher is stronger. The register only ever gets louder: its width never moves,
+       and when you let go it always falls silent. The node thickens as it loudens — and driven
+       hard enough, it keeps sounding after you release. It has committed. Only damping brings
+       it back.</p>
+    <button id="begin">begin</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   PRELUDE — Law II made audible.
+   Both voices:  u_t = K u_dd − γ_eff u + SELF(u) + drive·L(d) + σξ
+   Register: SELF = 0                       (λ_feel = 0 — §9.9)
+   Node:     SELF = λ[tanh(β(u−u*)) − tanh(−βu*)]   (bistable per point;
+             rest at u=0 stable, high branch reachable, basin real)
+   Derived: louder-never-wider (register), width-moves-with-amplitude
+     (node = the §9.9 positive control), no-basin vs commitment,
+     containment-as-γ knocking the node back (γ as dominant lever —
+     consistent with the elasticity ranking, staged not re-derived).
+   Chosen: all timbre, timescales, gesture design. Drift G = 0 here —
+     one mechanism per scene; this scene isolates the self-term.
+   ===================================================================== */
+
+const N=160, h=1/(N-1);
+const K_diff=0.00035, GAMMA=0.9, SIG=0.005, dtSim=0.006;
+const LAM=0.9, BETA=3.0, USTAR=0.5, TANH0=Math.tanh(BETA*USTAR);
+const D0=0.5, WLOAD=0.06, AMAX=6.5;
+const F_TOP=1000, F_TONIC=110;
+const f_of_d=d=>F_TOP*Math.pow(F_TONIC/F_TOP,d);
+const SEMISPAN=12*Math.log2(F_TOP/F_TONIC);
+
+function gauss(){let a=Math.random(),b=Math.random();
+  return Math.sqrt(-2*Math.log(a+1e-12))*Math.cos(2*Math.PI*b);}
+
+class Voice{
+  constructor(isNode){
+    this.isNode=isNode;
+    this.u=new Float64Array(N); this.un=new Float64Array(N);
+    this.drive=0; this.gBoost=1; this.committed=false; this.quietDriveT=0;
+  }
+  step(dt){
+    const u=this.u,un=this.un,sn=SIG*Math.sqrt(dt),g=GAMMA*this.gBoost;
+    for(let i=1;i<N-1;i++){
+      const udd=(u[i+1]-2*u[i]+u[i-1])/(h*h);
+      let f=K_diff*udd-g*u[i];
+      if(this.isNode) f+=LAM*(Math.tanh(BETA*(u[i]-USTAR))+TANH0);
+      if(this.drive>0){
+        const x=(i*h-D0)/WLOAD; f+=this.drive*Math.exp(-0.5*x*x);
+      }
+      un[i]=u[i]+dt*f+sn*gauss();
+    }
+    un[0]=0; un[N-1]=0; u.set(un);
+    // commitment detection: mass persists with no drive
+    if(this.isNode){
+      if(this.drive<=0 && this.mass()>0.05){ this.quietDriveT+=dt;
+        if(this.quietDriveT>0.5) this.committed=true;
+      } else { this.quietDriveT=0; if(this.drive>0||this.mass()<=0.05) this.committed=false; }
+    }
+  }
+  mass(){let m=0;for(let i=0;i<N;i++)m+=Math.max(0,this.u[i]);return m*h;}
+  peak(){let p=0;for(let i=0;i<N;i++)if(this.u[i]>p)p=this.u[i];return p;}
+  fwhmSemis(){
+    const p=this.peak(); if(p<0.03) return 0;
+    const half=p/2; let lo=-1,hi=-1;
+    for(let i=0;i<N;i++){if(this.u[i]>=half){if(lo<0)lo=i;hi=i;}}
+    return lo<0?0:(hi-lo)*h*SEMISPAN;
+  }
+}
+const reg=new Voice(false), node=new Voice(true);
+
+// ---------- audio ----------
+let ac=null,master=null;
+function makeBank(voice,pan){
+  const p=ac.createStereoPanner(); p.pan.value=pan; p.connect(master);
+  voice.bank=[];
+  const NP=40;
+  for(let k=0;k<NP;k++){
+    const d=k/(NP-1);
+    const o=ac.createOscillator(); o.type='sine'; o.frequency.value=f_of_d(d);
+    const g=ac.createGain(); g.gain.value=0;
+    o.connect(g); g.connect(p); o.start();
+    voice.bank.push({g,d});
+  }
+}
+let _silentEl=null;
+function iosMediaSession(){
+  if(_silentEl) return;
+  try{
+    _silentEl=document.createElement('audio');
+    _silentEl.setAttribute('playsinline','');
+    _silentEl.loop=true;
+    _silentEl.src='data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    _silentEl.play().catch(()=>{});
+  }catch(e){}
+}
+function unlockAudio(){
+  if(!ac) return;
+  if(ac.state!=='running'){ ac.resume(); }
+  iosMediaSession();
+  try{ const b=ac.createBuffer(1,1,22050); const s=ac.createBufferSource();
+    s.buffer=b; s.connect(ac.destination); s.start(0);}catch(e){}
+}
+function initAudio(){
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  const comp=ac.createDynamicsCompressor();
+  comp.threshold.value=-24; comp.ratio.value=6; comp.knee.value=18;
+  master=ac.createGain(); master.gain.value=0;
+  master.connect(comp); comp.connect(ac.destination);
+  makeBank(reg,-0.55); makeBank(node,0.55);
+  unlockAudio();
+  master.gain.setTargetAtTime(0.85,ac.currentTime,1.8);
+}
+function updateAudio(){
+  if(!ac)return; const t=ac.currentTime;
+  for(const v of [reg,node]){
+    for(const b of v.bank){
+      const i=Math.min(N-1,Math.max(0,Math.round(b.d/h)));
+      const val=Math.max(0,v.u[i]);
+      const gv=Math.min(0.10,Math.pow(val,1.25)*0.085);
+      b.g.gain.setTargetAtTime(gv,t,0.06);
+    }
+  }
+}
+
+// ---------- visuals: stippled profile per panel, on paper ----------
+// each row is a pitch (top = high); the profile's spread is that pitch's level.
+// dots come from a fixed threshold table, so the stipple grows and shrinks in place.
+const DOT=4, THR=(()=>{const t=new Float32Array(256*256);
+  let s=0x2545f491;for(let i=0;i<t.length;i++){s^=s<<13;s^=s>>>17;s^=s<<5;t[i]=(s>>>0)/4294967296;}return t;})();
+const INK={reg:'#2433a3',node:'#b3342a'};
+function setupPanel(el,voice){
+  const cv=el.querySelector('canvas'),cx=cv.getContext('2d');
+  const st={el,cv,cx,voice,W:0,H:0,dpr:1};
+  const rs=()=>{st.dpr=Math.min(devicePixelRatio||1,2);
+    st.W=Math.floor(el.clientWidth*st.dpr); st.H=Math.floor(el.clientHeight*st.dpr);
+    cv.width=st.W; cv.height=st.H;};
+  rs(); window.addEventListener('resize',rs);
+  return st;
+}
+function drawPanel(st){
+  const {cx,W,H,voice,dpr}=st;
+  cx.fillStyle='#fbfbf8'; cx.fillRect(0,0,W,H);
+  const mid=W/2, maxHalf=W*0.42;
+  // octave guides, dashed, labelled like a y-axis
+  cx.strokeStyle='#b9b8b2'; cx.lineWidth=dpr; cx.setLineDash([4*dpr,5*dpr]);
+  cx.fillStyle='#6f6e69'; cx.font=`${11*dpr}px "Helvetica Neue", Helvetica, Arial, sans-serif`; cx.textBaseline='middle';
+  [880,440,220,110].forEach(f=>{
+    const y=Math.log(f/F_TOP)/Math.log(F_TONIC/F_TOP)*H;
+    cx.beginPath(); cx.moveTo(34*dpr,y); cx.lineTo(W,y); cx.stroke();
+    cx.fillText(f, 5*dpr, Math.min(H-7*dpr,y));
+  });
+  cx.beginPath(); cx.moveTo(mid,0); cx.lineTo(mid,H); cx.stroke();
+  cx.setLineDash([]);
+  // the voice: stipple rows, density rising with level
+  cx.fillStyle=voice.isNode?INK.node:INK.reg;
+  const step=DOT*dpr, sz=1.7*dpr;
+  for(let y=0,ry=0;y<H;y+=step,ry++){
+    const i=Math.min(N-1,Math.round((y/H)/h));
+    const v=Math.max(0,voice.u[i]);
+    if(v<0.012) continue;
+    const half=Math.min(maxHalf,Math.pow(v,0.8)*maxHalf*0.55);
+    const dens=Math.min(0.95,0.2+v*0.55);
+    const x0=Math.ceil((mid-half)/step), x1=Math.floor((mid+half)/step);
+    for(let xi=x0;xi<=x1;xi++){
+      if(THR[((ry&255)<<8)|((xi+4096)&255)]<dens) cx.fillRect(xi*step,y,sz,sz);
+    }
+  }
+  // committed: a dashed red frame inside the box
+  if(voice.committed){
+    cx.strokeStyle='#b3342a'; cx.lineWidth=1.5*dpr; cx.setLineDash([6*dpr,4*dpr]);
+    cx.strokeRect(6*dpr,6*dpr,W-12*dpr,H-12*dpr); cx.setLineDash([]);
+  }
+}
+
+// ---------- readouts ----------
+const roL=document.getElementById('roL'), roR=document.getElementById('roR');
+const containBtn=document.getElementById('contain');
+function fmtRo(v){
+  const p=v.peak(), w=v.fwhmSemis();
+  let line1=`level ${p.toFixed(2)} · width <span class="w">${w.toFixed(1)} st</span>`;
+  let line2='';
+  if(v.isNode){ line2=v.committed?'<span class="commit">committed</span>'
+      :'<span class="sub">'+(v.drive>0?'driven':(v.mass()>0.02?'relaxing':'quiet'))+'</span>'; }
+  else line2='<span class="sub">'+(v.drive>0?'driven — louder, never wider':(v.mass()>0.02?'relaxing — always':'quiet'))+'</span>';
+  return line1+'<br>'+line2;
+}
+
+// ---------- interaction ----------
+function bindDrive(st){
+  const el=st.el; let pid=null;
+  const setDrive=e=>{
+    const r=el.getBoundingClientRect();
+    const frac=1-Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+    st.voice.drive=AMAX*Math.pow(frac,1.4);
+  };
+  el.addEventListener('pointerdown',e=>{
+    if(e.target===containBtn)return;
+    pid=e.pointerId; el.setPointerCapture(pid); setDrive(e);});
+  el.addEventListener('pointermove',e=>{if(e.pointerId===pid)setDrive(e);});
+  const off=e=>{if(e.pointerId===pid){pid=null;st.voice.drive=0;}};
+  el.addEventListener('pointerup',off); el.addEventListener('pointercancel',off);
+}
+let containing=false;
+containBtn.addEventListener('pointerdown',e=>{e.stopPropagation();containing=true;});
+window.addEventListener('pointerup',()=>{containing=false;});
+
+// ---------- loop ----------
+let stL,stR,running=false,lastT=0,acc=0,roT=0;
+function loop(tms){
+  if(!running)return;
+  requestAnimationFrame(loop);
+  const t=tms/1000; let dt=Math.min(0.05,t-lastT); lastT=t; acc+=dt;
+  node.gBoost=containing?4.5:1;
+  while(acc>dtSim){ reg.step(dtSim); node.step(dtSim); acc-=dtSim; }
+  drawPanel(stL); drawPanel(stR); updateAudio();
+  roT+=dt;
+  if(roT>0.12){ roT=0;
+    roL.innerHTML=fmtRo(reg); roR.innerHTML=fmtRo(node);
+    containBtn.classList.toggle('on',node.committed||containing);
+  }
+}
+
+document.getElementById('begin').addEventListener('click',()=>{
+  initAudio();
+  document.getElementById('veil').classList.add('gone');
+  stL=setupPanel(document.getElementById('pL'),reg);
+  stR=setupPanel(document.getElementById('pR'),node);
+  bindDrive(stL); bindDrive(stR);
+  running=true; lastT=performance.now()/1000;
+  requestAnimationFrame(loop);
+});
+
+window.addEventListener('pointerdown',()=>{ if(ac && ac.state!=='running'){ unlockAudio(); } },true);
+setInterval(()=>{
+  if(!ac) return;
+  let el=document.getElementById('audiowarn');
+  if(ac.state!=='running'){
+    if(!el){ el=document.createElement('div'); el.id='audiowarn';
+      el.textContent='audio suspended — tap anywhere · check silent switch';
+      document.body.appendChild(el); }
+  } else if(el) el.remove();
+},800);
+</script>
+</body>
+</html>
