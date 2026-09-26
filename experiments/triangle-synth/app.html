@@ -6,180 +6,239 @@
 <title>triangle synth · zayn wiwchar</title>
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <style>
+  /* plain lab-instrument look: paper, 1px ink boxes, dashed guides,
+     red/blue data, with stippled fills where a gradient would normally go */
   :root {
-    --bg: #ffffff;
-    --panel: #ffffff;
-    --ink: #16181d;
-    --muted: #667085;
-    --line: #d9dee7;
-    --accent: #5b8def;
-    --accent2: #69d0b2;
-    --accent3: #f2a65a;
+    --paper: #fbfbf8;
+    --ink: #141414;
+    --muted: #6f6e69;
+    --faint: #b9b8b2;
+    --red: #b3342a;
+    --blue: #2433a3;
+    --stipple: 3px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, sans-serif; }
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
-  h1 { margin: 0 0 6px; font-size: 1.35rem; }
-  .sub { color: var(--muted); margin-bottom: 18px; }
-  .grid { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(0,0.95fr); gap: 18px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: 0 8px 22px rgba(15,23,42,.06); min-width: 0; }
-  .panel h2 { margin: 0 0 12px; font-size: .92rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
-  .control-grid { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-  .control-grid .full { grid-column: 1 / -1; }
-  .control { border: 1px solid var(--line); border-radius: 14px; padding: 11px 12px; }
-  .labelrow { display:flex; justify-content:space-between; gap: 8px; margin-bottom: 8px; font-size:.92rem; }
-  .labelrow .name { font-weight:600; }
-  .labelrow .value { color: var(--muted); font-variant-numeric: tabular-nums; }
-  input[type="range"], select { width:100%; accent-color: var(--accent); }
-  select { padding: 8px; border:1px solid var(--line); border-radius:10px; background:#fff; }
-  .toprow { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; }
-  .audio-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  button { background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:8px 11px; cursor:pointer; }
-  button:hover { background:#f5f8fc; }
-  .status { padding:6px 10px; border:1px solid var(--line); border-radius:999px; font-size:.84rem; color:var(--muted); }
-  .status.on { color:#167d5a; border-color:#8fd8c0; background:#effbf6; }
-  #triangleWrap { position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:#f8fafc; }
-  canvas { width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
-  .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:12px; }
-  .stat { border:1px solid var(--line); border-radius:14px; padding:12px; }
-  .stat .k { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
-  .stat .v { font-size:1.15rem; font-variant-numeric: tabular-nums; }
-  .meter { margin-top:8px; height:8px; background:#eef2f7; border-radius:999px; overflow:hidden; }
-  .fill { height:100%; width:0%; }
-  .contain { background:linear-gradient(90deg,#6ba0ff,#8eb6ff); }
-  .diffuse { background:linear-gradient(90deg,#7fe0c8,#a7f7dd); }
-  .direct { background:linear-gradient(90deg,#ffb36b,#ffd19b); }
-  .readout { border:1px solid var(--line); border-radius:14px; padding:14px; line-height:1.45; color:var(--muted); }
-  .readout strong { color: var(--ink); }
-  .quick { display:flex; flex-wrap:wrap; gap:8px; }
-  .footer { margin-top:10px; color:var(--muted); font-size:.84rem; }
-  @media (max-width: 940px) { .grid { grid-template-columns:minmax(0,1fr); } }
+  html, body { margin: 0; }
+  body {
+    background-color: var(--paper);
+    background-image: radial-gradient(rgba(20,20,20,.07) .6px, transparent .9px);
+    background-size: 7px 7px;
+    color: var(--ink);
+    font: 15px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 20px 36px; }
+
+  /* top line */
+  .top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 16px; padding-bottom: 10px; border-bottom: 1px solid var(--ink); }
+  .top h1 { margin: 0; font-size: 1.05rem; font-weight: 500; letter-spacing: .01em; }
+  .top h1 .dim { color: var(--muted); font-weight: 400; }
+  .transport { display: flex; align-items: center; gap: 8px; }
+  .status { font-size: .85rem; color: var(--muted); min-width: 5.5em; }
+  .status::before { content: "○ "; }
+  .status.on { color: var(--red); }
+  .status.on::before { content: "● "; }
+  .headline { margin: 10px 0 16px; font-size: .95rem; font-variant-numeric: tabular-nums; }
+  .headline b { font-weight: 500; }
+
+  /* plots */
+  .plots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  figure { margin: 0; min-width: 0; }
+  figcaption { margin-bottom: 6px; font-size: .95rem; }
+  figcaption .k1 { color: var(--red); }
+  figcaption .k2 { color: var(--blue); }
+  .box { position: relative; aspect-ratio: 1 / 1; border: 1px solid var(--ink); background: var(--paper); }
+  canvas { width: 100%; height: 100%; display: block; }
+  #triCanvas { touch-action: none; cursor: crosshair; }
+
+  /* stippled meters */
+  .meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 16px; }
+  .meter-name { font-size: .95rem; font-variant-numeric: tabular-nums; }
+  .bar { margin-top: 6px; height: 12px; border: 1px solid var(--ink); background: var(--paper); }
+  .fill {
+    height: 100%; width: 0%;
+    background-image: radial-gradient(currentColor .95px, transparent 1.25px);
+    background-size: var(--stipple) var(--stipple);
+  }
+  .contain { color: var(--red); }
+  .diffuse { color: var(--blue); }
+  .direct { color: var(--ink); }
+
+  .quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 18px; }
+  .quick .lab { margin-right: 6px; font-size: .95rem; }
+
+  /* controls */
+  .sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; margin-top: 24px; }
+  section { padding-top: 14px; border-top: 1px dashed var(--faint); margin-bottom: 8px; }
+  section h2 { margin: 0 0 10px; font-size: .78rem; font-weight: 500; color: var(--muted); text-transform: lowercase; letter-spacing: .06em; }
+  .ctl { display: block; margin-bottom: 14px; }
+  .ctl .name { display: block; margin-bottom: 4px; font-size: .95rem; font-variant-numeric: tabular-nums; }
+  .ctl .value { margin-left: .25em; }
+
+  input[type="range"] {
+    --p: 50%;
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 18px; margin: 0; background: transparent; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px;
+    background:
+      linear-gradient(to right, var(--red) 0 var(--p), transparent var(--p)),
+      radial-gradient(var(--ink) .95px, transparent 1.25px) 0 0 / var(--stipple) var(--stipple);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; margin-top: -4px;
+    border-radius: 50%; border: 1.5px solid var(--ink); background: var(--red);
+  }
+  input[type="range"]::-moz-range-track {
+    height: 8px;
+    background: radial-gradient(var(--ink) .95px, transparent 1.25px) 0 0 / var(--stipple) var(--stipple);
+  }
+  input[type="range"]::-moz-range-progress { height: 8px; background: var(--red); }
+  input[type="range"]::-moz-range-thumb {
+    width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--red);
+  }
+  input[type="range"]:focus-visible { outline: 1px dashed var(--ink); outline-offset: 3px; }
+
+  select {
+    width: 100%; padding: 4px 6px; font: inherit; color: var(--ink);
+    background: var(--paper); border: 1px solid var(--ink); border-radius: 0;
+  }
+  button {
+    font: inherit; font-size: .92rem; color: var(--ink);
+    background: #ecebe6; border: 1px solid var(--ink); border-radius: 0;
+    padding: 3px 10px; cursor: pointer;
+  }
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
+
+  /* readout */
+  .readout-wrap { margin-top: 8px; padding-top: 14px; border-top: 1px dashed var(--faint); }
+  .readout { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 16px; margin: 0; padding: 12px 14px; border: 1px solid var(--ink); background: var(--paper); font-size: .92rem; }
+  .readout dt { color: var(--muted); }
+  .readout dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .footer { margin-top: 10px; color: var(--muted); font-size: .84rem; }
+
+  @media (max-width: 720px) {
+    .plots, .sections { grid-template-columns: minmax(0, 1fr); }
+    .meters { gap: 12px; }
+    .wrap { padding: 16px 16px 28px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="toprow">
-    <div>
-      <h1>Triangle Regulation Module — Musical Scale Version</h1>
-      <div class="sub">Source 1 steps through a selectable scale over about an octave. Source 2 can mirror, match, or offset that choice while staying embedded as a quieter strand.</div>
+  <header class="top">
+    <h1>triangle synth <span class="dim">· two voices, one scale</span></h1>
+    <div class="transport">
+      <button id="startAudio">start audio</button>
+      <button id="stopAudio">stop</button>
+      <span class="status" id="audioStatus">idle</span>
     </div>
-    <div class="audio-row">
-      <button id="startAudio">Start Audio</button>
-      <button id="stopAudio">Stop Audio</button>
-      <div class="status" id="audioStatus">audio idle</div>
+  </header>
+
+  <div class="headline" id="headline"></div>
+
+  <div class="plots">
+    <figure>
+      <figcaption>Triangle pad. Drag the point; lines show its distance to each side.</figcaption>
+      <div class="box"><canvas id="triCanvas" width="720" height="720"></canvas></div>
+    </figure>
+    <figure>
+      <figcaption>Note log (<span class="k1">source 1</span>, <span class="k2">source 2</span>). Height is pitch.</figcaption>
+      <div class="box"><canvas id="logCanvas" width="720" height="720"></canvas></div>
+    </figure>
+  </div>
+
+  <div class="meters">
+    <div><div class="meter-name">containment <span id="cVal">0.33</span></div><div class="bar"><div class="fill contain" id="cFill"></div></div></div>
+    <div><div class="meter-name">diffusion <span id="dVal">0.33</span></div><div class="bar"><div class="fill diffuse" id="dFill"></div></div></div>
+    <div><div class="meter-name">direction <span id="rVal">0.34</span></div><div class="bar"><div class="fill direct" id="rFill"></div></div></div>
+  </div>
+
+  <div class="quick">
+    <span class="lab">positions</span>
+    <button data-preset="center">center</button>
+    <button data-preset="containment">containment</button>
+    <button data-preset="diffusion">diffusion</button>
+    <button data-preset="direction">direction</button>
+    <button data-preset="cdEdge">contain + diffuse</button>
+    <button data-preset="drEdge">diffuse + direct</button>
+    <button data-preset="rcEdge">direct + contain</button>
+  </div>
+
+  <div class="sections">
+    <div>
+      <section>
+        <h2>sources</h2>
+        <label class="ctl"><span class="name">Source 1 wave</span>
+          <select id="oscType"><option>sine</option><option selected>triangle</option><option>sawtooth</option><option>square</option></select></label>
+        <label class="ctl"><span class="name">Source 1 root <span class="value" id="freqValue">220 Hz</span></span>
+          <input id="baseFreq" type="range" min="110" max="330" step="1" value="220" /></label>
+        <label class="ctl"><span class="name">Source 2 wave</span>
+          <select id="oscType2"><option selected>sine</option><option>triangle</option><option>sawtooth</option><option>square</option></select></label>
+        <label class="ctl"><span class="name">Source 2 root <span class="value" id="freq2Value">220 Hz</span></span>
+          <input id="baseFreq2" type="range" min="110" max="330" step="1" value="220" /></label>
+        <label class="ctl"><span class="name">Source 2 mix <span class="value" id="src2MixValue">0.24</span></span>
+          <input id="src2Mix" type="range" min="0" max="0.8" step="0.01" value="0.24" /></label>
+        <label class="ctl"><span class="name">Scale</span>
+          <select id="scaleMode">
+            <option value="aminor_sparse" selected>A minor sparse</option>
+            <option value="aminor_full">A minor fuller</option>
+            <option value="aminor_penta">A minor pentatonic</option>
+            <option value="aharmonic">A harmonic minor</option>
+            <option value="adorian">A dorian</option>
+            <option value="aphrygian">A phrygian</option>
+          </select></label>
+        <label class="ctl"><span class="name">Source 2 mapping</span>
+          <select id="invertMode">
+            <option value="mirror" selected>mirror inversion</option>
+            <option value="same">same note set</option>
+            <option value="fifth">fifth above</option>
+            <option value="octave_down">octave down mirror</option>
+          </select></label>
+        <label class="ctl"><span class="name">Master <span class="value" id="masterValue">0.24</span></span>
+          <input id="master" type="range" min="0" max="0.5" step="0.01" value="0.24" /></label>
+      </section>
+    </div>
+
+    <div>
+      <section>
+        <h2>external cycle</h2>
+        <label class="ctl"><span class="name">Pulse rate <span class="value" id="rateValue">1.40 Hz</span></span>
+          <input id="pulseRate" type="range" min="0.2" max="6" step="0.01" value="1.4" /></label>
+        <label class="ctl"><span class="name">Irregularity <span class="value" id="irregValue">0.12</span></span>
+          <input id="irregularity" type="range" min="0" max="1" step="0.01" value="0.12" /></label>
+      </section>
+      <section>
+        <h2>internal cycle (adsr)</h2>
+        <label class="ctl"><span class="name">Attack <span class="value" id="attackValue">0.06 s</span></span>
+          <input id="attack" type="range" min="0.005" max="1.5" step="0.005" value="0.06" /></label>
+        <label class="ctl"><span class="name">Decay <span class="value" id="decayValue">0.18 s</span></span>
+          <input id="decay" type="range" min="0.01" max="2" step="0.01" value="0.18" /></label>
+        <label class="ctl"><span class="name">Sustain <span class="value" id="sustainValue">0.32</span></span>
+          <input id="sustain" type="range" min="0" max="1" step="0.01" value="0.32" /></label>
+        <label class="ctl"><span class="name">Release <span class="value" id="releaseValue">0.50 s</span></span>
+          <input id="release" type="range" min="0.02" max="3" step="0.01" value="0.50" /></label>
+        <label class="ctl"><span class="name">Overlap <span class="value" id="overlapValue">0.18</span></span>
+          <input id="overlap" type="range" min="0" max="1" step="0.01" value="0.18" /></label>
+      </section>
+      <section>
+        <h2>global</h2>
+        <label class="ctl"><span class="name">Activation <span class="value" id="actValue">0.62</span></span>
+          <input id="activation" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
+        <label class="ctl"><span class="name">Timing / resonance <span class="value" id="timeValue">0.48</span></span>
+          <input id="timing" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
+        <label class="ctl"><span class="name">Dry / wet <span class="value" id="wetValue">0.48</span></span>
+          <input id="drywet" type="range" min="0" max="1" step="0.01" value="0.48" /></label>
+      </section>
     </div>
   </div>
 
-  <div class="grid">
-    <div>
-      <div class="panel">
-        <h2>Triangle Pad</h2>
-        <div id="triangleWrap"><canvas id="triCanvas" width="720" height="720"></canvas></div>
-        <div class="stats">
-          <div class="stat"><div class="k">Containment</div><div class="v" id="cVal">0.33</div><div class="meter"><div class="fill contain" id="cFill"></div></div></div>
-          <div class="stat"><div class="k">Diffusion</div><div class="v" id="dVal">0.33</div><div class="meter"><div class="fill diffuse" id="dFill"></div></div></div>
-          <div class="stat"><div class="k">Direction</div><div class="v" id="rVal">0.34</div><div class="meter"><div class="fill direct" id="rFill"></div></div></div>
-        </div>
-      </div>
-      <div class="panel">
-        <h2>Quick Positions</h2>
-        <div class="quick">
-          <button data-preset="center">Center</button>
-          <button data-preset="containment">Containment</button>
-          <button data-preset="diffusion">Diffusion</button>
-          <button data-preset="direction">Direction</button>
-          <button data-preset="cdEdge">Containment + Diffusion</button>
-          <button data-preset="drEdge">Diffusion + Direction</button>
-          <button data-preset="rcEdge">Direction + Containment</button>
-        </div>
-      </div>
-    </div>
-
-    <div>
-      <div class="panel">
-        <h2>Sources</h2>
-        <div class="control-grid">
-          <div class="control">
-            <div class="labelrow"><span class="name">Source 1 Wave</span></div>
-            <select id="oscType"><option>sine</option><option selected>triangle</option><option>sawtooth</option><option>square</option></select>
-          </div>
-          <div class="control">
-            <div class="labelrow"><span class="name">Source 1 Root</span><span class="value" id="freqValue">220 Hz</span></div>
-            <input id="baseFreq" type="range" min="110" max="330" step="1" value="220" />
-          </div>
-          <div class="control">
-            <div class="labelrow"><span class="name">Source 2 Wave</span></div>
-            <select id="oscType2"><option selected>sine</option><option>triangle</option><option>sawtooth</option><option>square</option></select>
-          </div>
-          <div class="control">
-            <div class="labelrow"><span class="name">Source 2 Root</span><span class="value" id="freq2Value">220 Hz</span></div>
-            <input id="baseFreq2" type="range" min="110" max="330" step="1" value="220" />
-          </div>
-          <div class="control full">
-            <div class="labelrow"><span class="name">Source 2 Mix</span><span class="value" id="src2MixValue">0.24</span></div>
-            <input id="src2Mix" type="range" min="0" max="0.8" step="0.01" value="0.24" />
-          </div>
-          <div class="control">
-            <div class="labelrow"><span class="name">Scale</span></div>
-            <select id="scaleMode">
-              <option value="aminor_sparse" selected>A minor sparse</option>
-              <option value="aminor_full">A minor fuller</option>
-              <option value="aminor_penta">A minor pentatonic</option>
-              <option value="aharmonic">A harmonic minor</option>
-              <option value="adorian">A dorian</option>
-              <option value="aphrygian">A phrygian</option>
-            </select>
-          </div>
-          <div class="control">
-            <div class="labelrow"><span class="name">Source 2 Mapping</span></div>
-            <select id="invertMode">
-              <option value="mirror" selected>Mirror inversion</option>
-              <option value="same">Same note set</option>
-              <option value="fifth">Fifth above</option>
-              <option value="octave_down">Octave down mirror</option>
-            </select>
-          </div>
-          <div class="control full">
-            <div class="labelrow"><span class="name">Master</span><span class="value" id="masterValue">0.24</span></div>
-            <input id="master" type="range" min="0" max="0.5" step="0.01" value="0.24" />
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>External Cycle</h2>
-        <div class="control-grid">
-          <div class="control"><div class="labelrow"><span class="name">Pulse Rate</span><span class="value" id="rateValue">1.40 Hz</span></div><input id="pulseRate" type="range" min="0.2" max="6" step="0.01" value="1.4" /></div>
-          <div class="control"><div class="labelrow"><span class="name">Irregularity</span><span class="value" id="irregValue">0.12</span></div><input id="irregularity" type="range" min="0" max="1" step="0.01" value="0.12" /></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Internal Cycle (ADSR)</h2>
-        <div class="control-grid">
-          <div class="control"><div class="labelrow"><span class="name">Attack</span><span class="value" id="attackValue">0.06 s</span></div><input id="attack" type="range" min="0.005" max="1.5" step="0.005" value="0.06" /></div>
-          <div class="control"><div class="labelrow"><span class="name">Decay</span><span class="value" id="decayValue">0.18 s</span></div><input id="decay" type="range" min="0.01" max="2" step="0.01" value="0.18" /></div>
-          <div class="control"><div class="labelrow"><span class="name">Sustain</span><span class="value" id="sustainValue">0.32</span></div><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.32" /></div>
-          <div class="control"><div class="labelrow"><span class="name">Release</span><span class="value" id="releaseValue">0.50 s</span></div><input id="release" type="range" min="0.02" max="3" step="0.01" value="0.50" /></div>
-          <div class="control full"><div class="labelrow"><span class="name">Overlap</span><span class="value" id="overlapValue">0.18</span></div><input id="overlap" type="range" min="0" max="1" step="0.01" value="0.18" /></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Global Controls</h2>
-        <div class="control-grid">
-          <div class="control"><div class="labelrow"><span class="name">Activation</span><span class="value" id="actValue">0.62</span></div><input id="activation" type="range" min="0" max="1" step="0.01" value="0.62" /></div>
-          <div class="control"><div class="labelrow"><span class="name">Timing / Resonance</span><span class="value" id="timeValue">0.48</span></div><input id="timing" type="range" min="0" max="1" step="0.01" value="0.48" /></div>
-          <div class="control full"><div class="labelrow"><span class="name">Dry / Wet</span><span class="value" id="wetValue">0.48</span></div><input id="drywet" type="range" min="0" max="1" step="0.01" value="0.48" /></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Interpretive Readout</h2>
-        <div class="readout" id="readout"></div>
-        <div class="footer">Safe default volume is intentionally low. If you hear nothing after a reload, tap Start Audio again.</div>
-      </div>
-    </div>
+  <div class="readout-wrap">
+    <dl class="readout" id="readout"></dl>
+    <div class="footer">Default volume is deliberately low. If nothing plays after a reload, press start audio again.</div>
   </div>
 </div>
 
@@ -199,14 +258,33 @@
     attackValue: el('attackValue'), decayValue: el('decayValue'), sustainValue: el('sustainValue'), releaseValue: el('releaseValue'),
     overlapValue: el('overlapValue'), actValue: el('actValue'), timeValue: el('timeValue'), wetValue: el('wetValue'), src2MixValue: el('src2MixValue'), masterValue: el('masterValue'),
     audioStatus: el('audioStatus'), readout: el('readout'), cVal: el('cVal'), dVal: el('dVal'), rVal: el('rVal'),
-    cFill: el('cFill'), dFill: el('dFill'), rFill: el('rFill')
+    cFill: el('cFill'), dFill: el('dFill'), rFill: el('rFill'), headline: el('headline')
   };
+  const logCanvas = el('logCanvas');
+  const lctx = logCanvas.getContext('2d');
+  const INK = '#141414', MUTED = '#6f6e69', FAINT = '#b9b8b2', RED = '#b3342a', BLUE = '#2433a3', PAPER = '#fbfbf8';
+  const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 
   const pad = 60;
   const Vd = { x: canvas.width / 2, y: pad + 10 };
   const Vc = { x: pad + 24, y: canvas.height - pad };
   const Vdiff = { x: canvas.width - pad - 24, y: canvas.height - pad };
   let point = baryToPoint(0.33, 0.33, 0.34), dragging = false;
+
+  // fixed stipple field inside the triangle: each dot carries its own
+  // threshold, so density can rise around the handle without the dots jumping
+  const stipple = (() => {
+    let seed = 0x9e3779b9;
+    const rand = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const dots = [];
+    for (let i = 0; i < 14000; i++) {
+      let a = rand(), b = rand();
+      if (a + b > 1) { a = 1 - a; b = 1 - b; }
+      const p = baryToPoint(a, b, 1 - a - b);
+      dots.push({ x: p.x, y: p.y, u: rand() });
+    }
+    return dots;
+  })();
 
   let audioCtx = null, masterGain = null, dryGain = null, wetGain = null, delayNode = null, feedbackGain = null, hpWet = null;
   let schedulerId = null, nextPulseTime = 0, pulseIndex = 0;
@@ -271,6 +349,10 @@
     values.masterValue.textContent = fmt(s.master);
     values.cVal.textContent = fmt(s.C); values.dVal.textContent = fmt(s.D); values.rVal.textContent = fmt(s.R);
     values.cFill.style.width = `${s.C*100}%`; values.dFill.style.width = `${s.D*100}%`; values.rFill.style.width = `${s.R*100}%`;
+    document.querySelectorAll('input[type="range"]').forEach(r => {
+      const p = (r.value - r.min) / (r.max - r.min) * 100;
+      r.style.setProperty('--p', `${p}%`);
+    });
   }
   function characterText(s) {
     if (s.C > s.D && s.C > s.R) return 'Held, damped, more restrained.';
@@ -284,37 +366,110 @@
   function updateReadout() {
     const s = getState();
     updateLabels();
-    values.readout.innerHTML = `<strong>Region:</strong> ${regionName(s.C,s.D,s.R)}<br>
-      <strong>Character:</strong> ${characterText(s)}<br>
-      <strong>External cycle:</strong> ${fmt(s.rate)} Hz pulse rate, irregularity ${fmt(s.irr)}<br>
-      <strong>Internal cycle:</strong> A ${fmt(s.attack)} / D ${fmt(s.decay)} / S ${fmt(s.sustain)} / R ${fmt(s.release)} / overlap ${fmt(s.overlap)}<br>
-      <strong>Timing:</strong> ${fmt(s.T)} — ${phaseFeel(s.T)}<br>
-      <strong>Pitch mode:</strong> source 1 picks from a small A minor set over ~1 octave, source 2 mirrors that pick as an inversion.<br>
-      <strong>Source 2 mix:</strong> ${fmt(s.src2Mix)}<br>
-      <strong>Scale:</strong> ${controls.scaleMode.options[controls.scaleMode.selectedIndex].text}<br>
-      <strong>Source 2 mapping:</strong> ${controls.invertMode.options[controls.invertMode.selectedIndex].text}<br>
-      <strong>Mapping:</strong> containment → darker/shorter, diffusion → wider/wetter, direction → more pan/filter motion.`;
+    const region = regionName(s.C,s.D,s.R).toLowerCase();
+    values.headline.innerHTML = `${Math.round(s.F)} + ${Math.round(s.F2)} Hz · ${controls.scaleMode.options[controls.scaleMode.selectedIndex].text} · <b>${region}</b> · ${characterText(s).toLowerCase()}`;
+    values.readout.innerHTML = `<dt>region</dt><dd>${region}</dd>
+      <dt>character</dt><dd>${characterText(s)}</dd>
+      <dt>external cycle</dt><dd>${fmt(s.rate)} Hz pulse rate, irregularity ${fmt(s.irr)}</dd>
+      <dt>internal cycle</dt><dd>A ${fmt(s.attack)} / D ${fmt(s.decay)} / S ${fmt(s.sustain)} / R ${fmt(s.release)} / overlap ${fmt(s.overlap)}</dd>
+      <dt>timing</dt><dd>${fmt(s.T)} — ${phaseFeel(s.T)}</dd>
+      <dt>pitch</dt><dd>source 1 picks from the scale over ~1 octave; source 2 follows by the mapping below.</dd>
+      <dt>source 2</dt><dd>${controls.invertMode.options[controls.invertMode.selectedIndex].text}, mix ${fmt(s.src2Mix)}</dd>
+      <dt>mapping</dt><dd>containment → darker/shorter, diffusion → wider/wetter, direction → more pan/filter motion</dd>`;
     draw();
+    if (!schedulerId) drawLog();
     updateGlobals();
   }
 
   function draw() {
     const W = canvas.width, H = canvas.height;
-    ctx.clearRect(0,0,W,H);
-    const grad = ctx.createLinearGradient(0,0,W,H);
-    grad.addColorStop(0,'#0f1319'); grad.addColorStop(1,'#141922');
-    ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
-    ctx.beginPath(); ctx.moveTo(Vd.x,Vd.y); ctx.lineTo(Vc.x,Vc.y); ctx.lineTo(Vdiff.x,Vdiff.y); ctx.closePath();
-    const triGrad = ctx.createLinearGradient(Vc.x,Vc.y,Vdiff.x,Vd.y);
-    triGrad.addColorStop(0,'rgba(110,165,255,.22)'); triGrad.addColorStop(.5,'rgba(159,240,208,.18)'); triGrad.addColorStop(1,'rgba(255,201,142,.18)');
-    ctx.fillStyle = triGrad; ctx.fill(); ctx.strokeStyle = '#516077'; ctx.lineWidth = 2.5; ctx.stroke();
-    ctx.font = '600 22px system-ui'; ctx.fillStyle = '#e8ecf3'; ctx.textAlign = 'center';
-    ctx.fillText('Direction', Vd.x, Vd.y - 18); ctx.fillText('Containment', Vc.x + 18, Vc.y + 34); ctx.fillText('Diffusion', Vdiff.x - 4, Vdiff.y + 34);
-    ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1;
+    ctx.fillStyle = PAPER; ctx.fillRect(0,0,W,H);
+
+    // stipple: a sparse even field, thickening around the handle
+    const sigma2 = 2 * 95 * 95;
+    ctx.fillStyle = INK;
+    for (const d of stipple) {
+      const dx = d.x - point.x, dy = d.y - point.y;
+      if (d.u < .05 + .8 * Math.exp(-(dx*dx + dy*dy) / sigma2)) ctx.fillRect(d.x - 1.1, d.y - 1.1, 2.2, 2.2);
+    }
+
+    // dashed medians
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = FAINT; ctx.lineWidth = 1.5;
     [[Vd, midpoint(Vc,Vdiff)],[Vc, midpoint(Vd,Vdiff)],[Vdiff, midpoint(Vd,Vc)]].forEach(([a,b]) => { ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); });
-    const glow = ctx.createRadialGradient(point.x,point.y,2,point.x,point.y,22); glow.addColorStop(0,'rgba(255,255,255,.9)'); glow.addColorStop(1,'rgba(142,182,255,0)');
-    ctx.beginPath(); ctx.arc(point.x,point.y,22,0,Math.PI*2); ctx.fillStyle = glow; ctx.fill();
-    ctx.beginPath(); ctx.arc(point.x,point.y,8.5,0,Math.PI*2); ctx.fillStyle = '#f6fbff'; ctx.fill(); ctx.strokeStyle = '#111722'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath(); ctx.moveTo(Vd.x,Vd.y); ctx.lineTo(Vc.x,Vc.y); ctx.lineTo(Vdiff.x,Vdiff.y); ctx.closePath();
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+
+    // distance from the handle to each side = that corner's weight
+    ctx.strokeStyle = BLUE; ctx.lineWidth = 1.5;
+    [[Vc,Vdiff],[Vdiff,Vd],[Vd,Vc]].forEach(([a,b]) => {
+      const f = foot(point, a, b);
+      ctx.beginPath(); ctx.moveTo(point.x, point.y); ctx.lineTo(f.x, f.y); ctx.stroke();
+      ctx.fillStyle = BLUE; ctx.fillRect(f.x - 2.5, f.y - 2.5, 5, 5);
+    });
+    ctx.beginPath(); ctx.arc(point.x, point.y, 7, 0, Math.PI*2); ctx.fillStyle = BLUE; ctx.fill();
+
+    const { C, D, R } = pointToBary(point);
+    ctx.font = `24px ${FONT}`; ctx.textAlign = 'center';
+    ctx.fillStyle = INK; ctx.fillText(`direction ${fmt(R)}`, Vd.x, Vd.y - 20);
+    ctx.fillStyle = RED; ctx.textAlign = 'left'; ctx.fillText(`containment ${fmt(C)}`, Vc.x - 40, Vc.y + 36);
+    ctx.fillStyle = BLUE; ctx.textAlign = 'right'; ctx.fillText(`diffusion ${fmt(D)}`, Vdiff.x + 40, Vdiff.y + 36);
+  }
+  function foot(p, a, b) {
+    const vx = b.x - a.x, vy = b.y - a.y;
+    const t = clamp(((p.x - a.x) * vx + (p.y - a.y) * vy) / (vx*vx + vy*vy), 0, 1);
+    return { x: a.x + vx * t, y: a.y + vy * t };
+  }
+
+  // note log: recent pulses as bars, time running left to right
+  const LOG_SECONDS = 8, F_LO = 50, F_HI = 800;
+  const noteLog = [];
+  let logRaf = null;
+  function freqY(f, top, bottom) {
+    const t = (Math.log2(f) - Math.log2(F_LO)) / (Math.log2(F_HI) - Math.log2(F_LO));
+    return bottom - clamp(t, 0, 1) * (bottom - top);
+  }
+  function drawLog() {
+    const W = logCanvas.width, H = logCanvas.height;
+    const L = 78, Rt = W - 24, T = 30, B = H - 70;
+    lctx.fillStyle = PAPER; lctx.fillRect(0,0,W,H);
+
+    lctx.font = `22px ${FONT}`; lctx.fillStyle = INK; lctx.textAlign = 'right'; lctx.textBaseline = 'middle';
+    lctx.setLineDash([6, 6]); lctx.strokeStyle = FAINT; lctx.lineWidth = 1.5;
+    [55, 110, 220, 440].forEach(f => {
+      const y = freqY(f, T, B);
+      lctx.beginPath(); lctx.moveTo(L, y); lctx.lineTo(Rt, y); lctx.stroke();
+      lctx.fillText(f, L - 10, y);
+    });
+    lctx.setLineDash([]);
+    lctx.strokeStyle = INK; lctx.lineWidth = 2;
+    lctx.beginPath(); lctx.moveTo(L, T); lctx.lineTo(L, B); lctx.lineTo(Rt, B); lctx.stroke();
+    lctx.textAlign = 'center'; lctx.textBaseline = 'alphabetic';
+    for (let s = 0; s <= LOG_SECONDS; s += 2) {
+      const x = Rt - (s / LOG_SECONDS) * (Rt - L);
+      lctx.fillText(s === 0 ? 'now' : `−${s}s`, x, B + 30);
+    }
+    lctx.textAlign = 'right'; lctx.fillStyle = MUTED; lctx.fillText('Hz', L - 10, T - 6);
+
+    if (!audioCtx || !noteLog.length) {
+      lctx.textAlign = 'center'; lctx.fillStyle = MUTED;
+      lctx.fillText(schedulerId ? 'listening…' : 'press start audio', (L + Rt) / 2, (T + B) / 2);
+      return;
+    }
+    const now = audioCtx.currentTime;
+    while (noteLog.length && noteLog[0].end < now - LOG_SECONDS) noteLog.shift();
+    const xOf = t => Rt - ((now - t) / LOG_SECONDS) * (Rt - L);
+    noteLog.forEach(n => {
+      if (n.start > now) return;
+      const x0 = Math.max(L + 1, xOf(n.start)), x1 = Math.max(x0 + 2, xOf(Math.min(n.end, now)));
+      lctx.fillStyle = n.voice === 1 ? RED : BLUE;
+      lctx.fillRect(x0, freqY(n.freq, T, B) - (n.voice === 1 ? 4 : 2), x1 - x0, n.voice === 1 ? 8 : 5);
+    });
+  }
+  function logLoop() {
+    drawLog();
+    logRaf = (schedulerId || noteLog.some(n => n.end > audioCtx.currentTime - LOG_SECONDS)) ? requestAnimationFrame(logLoop) : null;
   }
   function midpoint(a,b){ return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 }; }
 
@@ -415,6 +570,7 @@
     const peak = clamp((.015 + s.A * .075) * (1 + s.R * .1), .01, .12);
     const sustainAmp = peak * sustain;
     const sendAmt = clamp(.04 + s.D * s.W * .45, 0, .7);
+    noteLog.push({ voice: 1, freq: mainFreq, start: time, end: time + attack + decay + .02 + release * .5 });
     buildVoice(time, mainFreq, s.oscType, peak, attack, decay, sustainAmp, release, 'lowpass', cutoff, 1 + s.R * 5 + s.D * .5, pan, sendAmt);
 
     const overtoneFreq = notes.overtoneFreq * (1 + Math.sin(phase * 1.21 + .4) * .008);
@@ -426,6 +582,7 @@
     const overtonePan = clamp(pan * .55 + Math.sin(phase * 1.4) * .07, -1, 1);
     const overtoneCutoff = clamp(cutoff * (1.08 + s.R * .18), 350, 7500);
     const overtoneSend = clamp(sendAmt * (.7 + s.D * .2), 0, .75);
+    if (s.src2Mix > 0) noteLog.push({ voice: 2, freq: overtoneFreq, start: time + .012, end: time + .012 + overtoneAttack + overtoneDecay + .02 + overtoneRelease * .5 });
     buildVoice(time + .012, overtoneFreq, s.oscType2, overtonePeak, overtoneAttack, overtoneDecay, overtoneSustain, overtoneRelease, 'bandpass', overtoneCutoff, 2.2 + s.R * 3.5, overtonePan, overtoneSend);
   }
   async function startAudio() {
@@ -433,11 +590,12 @@
     if (schedulerId) return;
     nextPulseTime = audioCtx.currentTime + .02;
     schedulerId = setInterval(scheduler, 25);
-    values.audioStatus.textContent = 'audio running'; values.audioStatus.classList.add('on');
+    values.audioStatus.textContent = 'running'; values.audioStatus.classList.add('on');
+    if (!logRaf) logLoop();
   }
   function stopAudio() {
     if (schedulerId) { clearInterval(schedulerId); schedulerId = null; }
-    values.audioStatus.textContent = 'audio idle'; values.audioStatus.classList.remove('on');
+    values.audioStatus.textContent = 'idle'; values.audioStatus.classList.remove('on');
   }
 
   function setPreset(name) {
