@@ -381,9 +381,14 @@ p { margin: 0 0 1.1rem; }
 .essay { max-width: 62ch; }
 .essay p { margin: 0 0 1.2rem; }
 
-.field-figure { margin: 2.6rem 0 2rem; max-width: 600px; }
+.field-figure { max-width: 600px; }
 .field-figure iframe { display: block; width: 100%; height: 390px; border: 0; background: transparent; }
-.field-figure figcaption { max-width: 52ch; }
+.field-figure figcaption { max-width: 62ch; }
+.field-figure figcaption p { margin: 0 0 .55rem; }
+.field-figure { margin: 2.2rem 0 2.4rem; }
+
+.about-visual { margin-top: 2.4rem; }
+.about-visual .essay p { color: var(--muted); }
 
 .posts { margin: 0; padding-left: 1.4rem; }
 .posts li { padding: .45rem 0; border-top: 1px dashed var(--rule); }

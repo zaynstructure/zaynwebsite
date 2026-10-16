@@ -58,7 +58,8 @@ ctx.strokeStyle='rgba('+v('--ink2')+',0.45)';ctx.lineWidth=1;ctx.setLineDash([3,
 ctx.fillStyle=v('--ink');
 for(const d of dots){const x=d[0]*W,uu=uAt(u,d[0]),top=base-uu*sc,yy=base+(d[1]-0.5)*0.2*H;const lo=Math.min(base,top),hi=Math.max(base,top);const y=lo+d[1]*(hi-lo);if(hi-lo>1.5){const al=Math.max(0,Math.min(1,(Math.min(1,Math.abs(uu)*0.9+0.15)-d[2])*6));if(al>0){ctx.globalAlpha=al;ctx.fillRect(x,y,1.1,1.1);}}}ctx.globalAlpha=1;
 for(let j=0;j<ghosts.length;j++){ctx.strokeStyle='rgba('+v('--ink2')+','+(0.12+0.18*(j+1)/(GN+1)).toFixed(3)+')';ctx.lineWidth=1;path(ghosts[j],base,sc,W);ctx.stroke();}
-ctx.strokeStyle=v('--ink');ctx.lineWidth=1.3;ctx.lineJoin='round';path(u,base,sc,W);ctx.stroke();}
+ctx.strokeStyle=v('--ink');ctx.lineWidth=1.3;ctx.lineJoin='round';path(u,base,sc,W);ctx.stroke();
+ctx.font='10px "Helvetica Neue", Helvetica, Arial, sans-serif';ctx.fillStyle='rgba('+v('--ink2')+',0.85)';ctx.textAlign='right';ctx.textBaseline='top';let mu=0;for(let i=0;i<N;i++)mu+=u[i];mu/=N;ctx.fillText('live · level '+mu.toFixed(3),W-8,7);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
 
 const hv=document.getElementById('h'),hctx=hv.getContext('2d');const ROWS=150,ROWEVERY=4;const hist=[];
 const bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(b=>(b+0.5)/16);
@@ -67,7 +68,7 @@ hv.width=N;hv.height=ROWS;const img=hctx.createImageData(N,ROWS);
 function renderHist(){const P=hexrgb(v('--paper')),I=hexrgb(v('--ink'));const d=img.data;
 for(let r=0;r<ROWS;r++){const row=hist[hist.length-1-r];for(let i=0;i<N;i++){const o=(r*N+i)*4;let ink=false;if(row){const dens=Math.max(0,Math.min(1,row[i]));ink=dens>bayer[(r%4)*4+(i%4)];}const c=ink?I:P;d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=255;}}
 hctx.putImageData(img,0,0);}
-function tick(){for(let s=0;s<4;s++)step();t++;if(t%GEVERY===0){ghosts.push(u.slice());if(ghosts.length>GN)ghosts.shift();}if(t>=nextAt){pulse(seq[which%seq.length]);which++;nextAt=t+720;}if(t%ROWEVERY===0){hist.push(u.slice());if(hist.length>ROWS)hist.shift();renderHist();}}
+function tick(){for(let s=0;s<4;s++)step();t++;if(t%GEVERY===0){ghosts.push(u.slice());if(ghosts.length>GN)ghosts.shift();}if(t>=nextAt){pulse(1+8*Math.random(),1.0+0.6*Math.random());which++;nextAt=t+400+Math.floor(600*Math.random());}if(t%ROWEVERY===0){hist.push(u.slice());if(hist.length>ROWS)hist.shift();renderHist();}}
 if(reduce){for(let f=0;f<ROWS*ROWEVERY;f++)tick();pulse(2.0);for(let f=0;f<100;f++){for(let s=0;s<4;s++)step();if(f%25===0)ghosts.push(u.slice());}while(ghosts.length>GN)ghosts.shift();draw();renderHist();}
 else{for(let f=0;f<ROWS*ROWEVERY;f++)tick();(function loop(){tick();draw();requestAnimationFrame(loop);})();}
 </script>
