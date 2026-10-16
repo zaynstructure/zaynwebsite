@@ -16,7 +16,6 @@
     --faint: #b9b8b2;
     --red: #b3342a;
     --blue: #2433a3;
-    --rose: #b8506a;
     --stipple: 3px;
   }
   * { box-sizing: border-box; }
@@ -41,30 +40,28 @@
   #devout i { font-style: normal; }
   #devout .ca { color: var(--red); }
   #devout .cb { color: var(--blue); }
-  #devout .cattr { color: var(--rose); }
   #devout .cbroke { color: var(--red); text-decoration: underline dashed; text-underline-offset: 3px; }
 
   figure { margin: 0; }
   figcaption { margin-bottom: 6px; font-size: .95rem; }
   figcaption .k1 { color: var(--red); }
   figcaption .k2 { color: var(--blue); }
-  figcaption .k3 { color: var(--rose); }
 
   #screen {
     position: relative;
     height: clamp(260px, 56vh, 560px);
     border: 1px solid var(--ink);
-    background: #0c0b10;
+    background: var(--paper);
     overflow: hidden;
   }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  /* scope graticule: faint dot grid and dashed centre lines over the display */
+  /* the site's dot grid and dashed centre lines, faintly, over the display */
   #screen::after {
     content: ""; position: absolute; inset: 0; pointer-events: none;
     background:
-      repeating-linear-gradient(to right, rgba(255,255,255,.13) 0 4px, transparent 4px 9px) 0 46% / 100% 1px no-repeat,
-      repeating-linear-gradient(to bottom, rgba(255,255,255,.13) 0 4px, transparent 4px 9px) 50% 0 / 1px 100% no-repeat,
-      radial-gradient(rgba(255,255,255,.12) .7px, transparent 1px) 0 0 / 12px 12px;
+      repeating-linear-gradient(to right, rgba(20,20,20,.16) 0 4px, transparent 4px 9px) 0 46% / 100% 1px no-repeat,
+      repeating-linear-gradient(to bottom, rgba(20,20,20,.16) 0 4px, transparent 4px 9px) 50% 0 / 1px 100% no-repeat,
+      radial-gradient(rgba(20,20,20,.09) .6px, transparent .9px) 0 0 / 7px 7px;
   }
 
   .presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; }
@@ -111,20 +108,12 @@
   button:focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
   .pre.on { background: var(--ink); color: var(--paper); }
 
-  /* notes: marginalia, collapsed by default */
-  details { margin-top: 8px; border: 1px solid var(--ink); background: var(--paper); }
-  summary { padding: 8px 12px; cursor: pointer; font-size: .95rem; }
-  #notesBox { padding: 4px 14px 6px; columns: 2; column-gap: 36px; }
-  #notesBox p { margin: 0 0 10px; padding-left: 10px; border-left: 1px dashed var(--faint); font-size: .86rem; line-height: 1.5; color: var(--muted); break-inside: avoid; }
-  #notesBox em { font-style: normal; color: var(--red); }
-
   /* reduced motion: explicit begin */
-  #playhint { position: absolute; inset: 0; z-index: 2; display: none; place-items: center; background: rgba(12,11,16,.75); }
+  #playhint { position: absolute; inset: 0; z-index: 2; display: none; place-items: center; background: rgba(251,251,248,.85); }
   #playhint.show { display: grid; }
 
   @media (max-width: 720px) {
     .sections { grid-template-columns: minmax(0, 1fr); }
-    #notesBox { columns: 1; }
     .wrap { padding: 16px 16px 28px; }
   }
 </style>
@@ -132,26 +121,26 @@
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>the ghost dance <span class="dim">· love as a coupled two-body loop</span></h1>
+    <h1>the ghost dance <span class="dim">· a coupled two-body loop</span></h1>
     <div class="transport">
       <button id="pauseBtn" aria-label="pause or resume">pause</button>
       <button id="resetBtn" aria-label="reset states and trails">reset</button>
     </div>
   </header>
 
-  <div id="devout">w_dev · <i class="ca">A 0.00</i> · <i class="cb">B 0.00</i> · settled 0%</div>
+  <div id="devout"><i class="ca">A 0.00</i> · <i class="cb">B 0.00</i> · settled 0%</div>
 
   <figure>
-    <figcaption>Two bodies, <span class="k1">A</span> and <span class="k2">B</span>. Each answers only the other's delayed trace, u(t−τ), drawn as a faint ghost. The <span class="k3">rose thread</span> is attraction; rings are carved where they settle.</figcaption>
+    <figcaption><span class="k1">A</span> and <span class="k2">B</span>. each answers only the other's delayed trace, u(t−τ).</figcaption>
     <div id="screen"><canvas id="c"></canvas><div id="playhint"><button id="playBtn">begin</button></div></div>
   </figure>
 
   <div class="presets">
     <span class="lab">presets</span>
-    <button class="pre on" data-p="settle">settling</button>
-    <button class="pre" data-p="pursue">pursue–withdraw</button>
-    <button class="pre" data-p="fade">fading spark</button>
-    <button class="pre" data-p="coesc">co-escalation</button>
+    <button class="pre on" data-p="settle">a</button>
+    <button class="pre" data-p="pursue">b</button>
+    <button class="pre" data-p="fade">c</button>
+    <button class="pre" data-p="coesc">d</button>
   </div>
 
   <div class="sections">
@@ -168,32 +157,13 @@
     <div>
       <label class="ctl"><span class="name">Noise <span class="sym">σ</span> <output id="sigV">0.05</output></span>
         <input type="range" id="sig" min="0" max="0.3" step="0.005" value="0.05"></label>
-      <label class="ctl"><span class="name">Attraction erosion <span class="sym">a</span> <output id="adecV">0.00</output></span>
+      <label class="ctl"><span class="name">Erosion <span class="sym">a</span> <output id="adecV">0.00</output></span>
         <input type="range" id="adec" min="0" max="0.6" step="0.01" value="0.00"></label>
       <label class="ctl"><span class="name">Time <span class="sym">×</span> <output id="tscV">×1</output></span>
         <input type="range" id="tsc" min="1" max="24" step="1" value="1"></label>
     </div>
   </div>
 
-  <details>
-    <summary>notes on the model</summary>
-    <div id="notesBox">
-
-    <p>self-term — <em>open</em>, omitted; driven-node default</p>
-    <p>appetitive sign +ν — <em>asserted</em>, mirror of fear; ν&lt;0 = withdrawal-recruiting</p>
-    <p>mechanism — <em>[edge]</em> branch rendered; within one episode [gate] draws the identical dance</p>
-    <p>asymmetry → stability — <em>conjecture</em>, watched not asserted</p>
-    <p>devotion deposition — <em>asserted-by-analogy</em>; rings render w_dev's feedforward into u* and b — the attractor being moved; the well forms where the pair actually settles</p>
-    <p>settledness — a <em>readout</em>, not a model object, but now of the actual thing: convergence to a fixed point in state space (all four fast variables gone still), verified over a short window so a slow oscillation's turning point can't fake it. the halo and rings are driven off this. body drift-toward is display mapping (devotion narrows the residual gap beyond what u* raises)</p>
-    <p>time × — display compression only; ε ≪ fast rates in-model</p>
-    <p>threads point at what each body is actually answering: the partner's trace at t−τ</p>
-    <p>attraction edge (rose thread) — <em>forced-by-instance</em>, the one status above asserted here; a distinct load-bearing edge that romantic longevity requires and platonic does not. erode it and the bond breaks <em>as romantic</em> even while coregulation, devotion and the settling halo still hold — that non-substitutability is the whole claim</p>
-    <p>attraction's own decay law (ȧ) — <em>parked / not forced</em>; erosion here is a display knob to show the threshold, not a committed mechanism for how attraction fades</p>
-    <p>co-regulation / co-escalation — <em>derived</em>: settling and winding-up are one coupling, opposite sign. the ν sliders are that sign. positive = each answers the other toward calm; negative = each answers toward more. the same channel that lets two people settle each other lets them escalate each other — you don't get one without exposing yourself to the other</p>
-    <p>the joint <em>lock</em> (why a mutual-threat state is hard to leave) is <em>not built here</em> — that needs the mutual-appraisal bistability, genuine new machinery. this sim shows the sign-flip, not the hysteresis; the escalation here can still be steered back out, which the real lock would resist</p>
-    <p><em>corrected in build</em> — delay alone never destabilizes at these gains; pursue–withdraw and co-escalation both require the fear-mirror sign (ν&lt;0), not a longer delay</p>
-    </div>
-  </details>
 </div>
 
 <script>
@@ -207,19 +177,19 @@
 const P = { gm:1.8, gu:0.5, lam:0.3, q:0.5, b0:0.35,
             c:1.6, nuAB:1.0, nuBA:1.0, tau:0.45, sig:0.05,
             eps:0.004, ddev:0.6,
-            ka:0.9, adec:0.0, athr:0.35 };  // ka: fixed attraction-drive gain (not UI-exposed); adec: attraction erosion rate; athr: romantic-hold threshold
+            ka:0.9, adec:0.0, athr:0.35 };  // ka: fixed thread-drive gain (not UI-exposed); adec: thread erosion rate; athr: thread-hold threshold
 let TSC=1;                                   // display-time compression only
 let settle=0, wellX=0, wellY=0, wellInit=false;
 let pvUA=0, pvUB=0, pvMA=0, pvMB=0;          // previous fast-state values (u and m, both people)
 let vSmooth=-1;                              // EMA-smoothed state-space speed (the persistence window)
-let DEVV=0;                                  // devotion display value, set per frame
-let ATTR=0, romHeld=true;                    // attraction level (0..1) and romantic-bond-held flag, set per frame
-let wAvgPrev=0, depoPulse=0;                  // deposition heartbeat: flares when devotion is actively laid down
+let DEVV=0;                                  // slow-layer display value, set per frame
+let ATTR=0, romHeld=true;                    // thread level (0..1) and thread-held flag, set per frame
+let wAvgPrev=0, depoPulse=0;                  // deposition heartbeat: flares when the slow layer is actively laid down
 
 const DT = 1/120, HLEN = 4096;           // ring buffer ≈ 34 s of history
 const hist = new Float32Array(HLEN*4);   // uA, mA, uB, mB per step
 let step = 0;
-const S = { mA:0.60, uA:0.10, mB:-0.10, uB:0.05, wA:0, wB:0, a:1.0 };  // a = attraction edge; forced-by-instance as the edge platonic doesn't require
+const S = { mA:0.60, uA:0.10, mB:-0.10, uB:0.05, wA:0, wB:0, a:1.0 };  // a = the thread between the two bodies
 
 function gauss(){ return (Math.random()+Math.random()+Math.random()-1.5)*1.6329; }
 function clampv(x,a,b){ return x<a?a:(x>b?b:x); }
@@ -236,7 +206,7 @@ function simStep(){
   const lag = Math.round(P.tau/DT);
   const [uAd,mAd,uBd,mBd] = sampleHist(lag);
   const sq = P.sig*Math.sqrt(DT);
-  const aDrive = P.ka*S.a;                                   // attraction feeds the pull directly, its own edge
+  const aDrive = P.ka*S.a;                                   // the thread feeds the pull directly, its own edge
   const dmA = (-P.gm*S.mA + P.nuBA*uBd + P.b0*S.wA + aDrive)*DT + sq*gauss()*2.0;
   const dmB = (-P.gm*S.mB + P.nuAB*uAd + P.b0*S.wB + aDrive)*DT + sq*gauss()*2.0;
   const duA = (-P.gu*S.uA - P.lam*Math.tanh(S.uA - P.q*S.wA) + P.c*Math.tanh(S.mA))*DT + sq*gauss();
@@ -244,7 +214,7 @@ function simStep(){
   const recip = Math.max(0, Math.min(S.uA, S.uB));
   S.wA = clampv(S.wA + P.eps*(Math.tanh(recip) - P.ddev*S.wA)*DT*8, 0, 1.5);
   S.wB = clampv(S.wB + P.eps*(Math.tanh(recip) - P.ddev*S.wB)*DT*8, 0, 1.5);
-  // attraction: slow erosion when adec>0, lightly replenished by live mutual approach; not sustained by devotion
+  // thread: slow erosion when adec>0, lightly replenished by live mutual approach; not sustained by the slow layer
   S.a = clampv(S.a + (-P.adec*S.a + 0.15*P.adec*Math.tanh(recip))*DT, 0, 1.4);
   S.mA=clampv(S.mA+dmA,-4,4); S.mB=clampv(S.mB+dmB,-4,4);
   S.uA=clampv(S.uA+duA,-4,4); S.uB=clampv(S.uB+duB,-4,4);
@@ -276,28 +246,41 @@ const fadeFS=`precision mediump float;varying vec2 vUv;uniform sampler2D uT;
 void main(){vec3 c=texture2D(uT,vUv).rgb*0.965 - (1.2/255.0);
 gl_FragColor=vec4(max(c,0.0),1.0);}`;
 
+// room, in light terms: zero is bare paper. the slow layer's halo and
+// growth rings add faint light, which the ink pass prints as sparse dots
 const screenFS=`precision mediump float;varying vec2 vUv;
 uniform sampler2D uT;uniform vec2 uRes;uniform float uDev;
 uniform vec2 uWell;uniform float uSettle;
 void main(){
   vec2 p=(vUv-0.5)*vec2(uRes.x/uRes.y,1.0);
   float r=length(p);
-  vec3 cold=vec3(0.031,0.027,0.047);
-  vec3 warm=vec3(0.105,0.070,0.055);
-  vec3 bg=mix(cold,warm,uDev*smoothstep(0.9,0.0,r));
-  bg*= (1.0-0.55*smoothstep(0.35,1.05,r));            /* vignette */
-  bg+= vec3(0.05,0.032,0.02)*uDev*exp(-r*r*6.0);      /* devotion halo */
+  vec3 bg=vec3(0.06)*uDev*exp(-r*r*6.0);                /* halo */
   /* the slow layer carves the room: growth rings accrete outward from where they settle */
   vec2 q=vUv-uWell; q.x*=uRes.x/uRes.y;
   float rw=length(q);
   float basinR=uDev*0.40+0.02;
   float rings=exp(-pow(sin(rw*60.0),2.0)*26.0);
   float mask=smoothstep(basinR,basinR-0.05,rw)*smoothstep(0.012,0.04,rw)*step(0.02,uDev);
-  bg+=vec3(0.105,0.062,0.038)*rings*mask*(0.3+0.7*uDev);
-  bg-=vec3(0.014,0.012,0.010)*smoothstep(basinR,0.0,rw)*uDev;   /* depth: the well darkens as it deepens */
-  bg=max(bg,vec3(0.0));
+  bg+=vec3(0.24)*rings*mask*(0.3+0.7*uDev);
   vec3 trail=texture2D(uT,vUv).rgb;
   gl_FragColor=vec4(bg+trail,1.0);
+}`;
+
+// ink pass: light becomes ink on paper. coverage is the strongest channel,
+// printed as an ordered-dither stipple; the colour is paper minus the
+// light's hue, so light chosen as (paper - ink) prints as that ink
+const inkFS=`precision mediump float;varying vec2 vUv;
+uniform sampler2D uL;uniform float uDot;
+const vec3 PAPER=vec3(0.984,0.984,0.973);
+float b2(vec2 a){a=floor(a);return fract(a.x*0.5+a.y*a.y*0.75);}
+float bayer(vec2 a){return b2(0.5*a)*0.25+b2(a);}
+void main(){
+  vec3 L=texture2D(uL,vUv).rgb*0.8;   /* a lighter hand */
+  float m=clamp(max(L.r,max(L.g,L.b)),0.0,1.0);
+  vec3 hue=m>0.0005?L/max(L.r,max(L.g,L.b)):vec3(0.0);
+  float d=bayer(gl_FragCoord.xy/uDot);
+  float on=step(d+0.02,m);
+  gl_FragColor=vec4(mix(PAPER,PAPER-hue*0.86,on),1.0);
 }`;
 
 const spriteVS=`attribute vec2 aP;varying vec2 vUv;
@@ -319,6 +302,7 @@ void main(){gl_FragColor=vec4(uCol*uA,uA);}`;
 
 const progFade=mkProg(quadVS,fadeFS);
 const progScreen=mkProg(quadVS,screenFS);
+const progInk=mkProg(quadVS,inkFS);
 const progSprite=mkProg(spriteVS,spriteFS);
 const progLine=mkProg(lineVS,lineFS);
 
@@ -327,7 +311,7 @@ gl.bindBuffer(gl.ARRAY_BUFFER,quadBuf);
 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
 const lineBuf=gl.createBuffer();
 
-let tex=[null,null],fbo=[null,null],cur=0;
+let tex=[null,null,null],fbo=[null,null,null],cur=0;   // 0,1 trails ping-pong; 2 light, before inking
 function mkTarget(i){
   if(tex[i])gl.deleteTexture(tex[i]); if(fbo[i])gl.deleteFramebuffer(fbo[i]);
   tex[i]=gl.createTexture();
@@ -347,7 +331,7 @@ function resize(){
   const box=document.getElementById('screen').getBoundingClientRect();
   W=Math.max(1,Math.floor(box.width*DPR)); H=Math.max(1,Math.floor(box.height*DPR));
   cv.width=W; cv.height=H;
-  mkTarget(0); mkTarget(1);
+  mkTarget(0); mkTarget(1); mkTarget(2);
   wellInit=false;   // the well is kept in pixels; re-seat it for the new size
 }
 addEventListener('resize',resize);
@@ -385,11 +369,11 @@ function drawThread(x1,y1,x2,y2,col,alpha){
 }
 
 /* ============ mapping model → screen ============ */
-const COL_A=[1.0,0.60,0.40], COL_B=[0.46,0.70,1.0];
+const COL_A=[0.282,0.780,0.808], COL_B=[0.843,0.784,0.334];   // light that prints as red #b3342a and blue #2433a3
 function mapPos(u,m,side){ // side: -1 = A (left), +1 = B (right)
   const R=Math.min(W,H)*0.30, V=R*0.55;
   const cx=W*0.5, cy=H*0.46;
-  /* devotion narrows the residual gap: part model (u* rises), part display mapping — logged in notes */
+  /* the slow layer narrows the residual gap: part model (u* rises), part display mapping */
   const reach=0.90+0.075*DEVV;
   const x=cx + side*(R - R*reach*Math.tanh(Math.max(u,0)) + R*0.25*Math.tanh(Math.max(-u,0)));
   const y=cy - side*V*Math.tanh(m*0.7);
@@ -414,7 +398,7 @@ function frame(t){
 
   DEVV=clampv((S.wA+S.wB)/2/1.2,0,1);
   ATTR=clampv(S.a/1.0,0,1.2);
-  // romantic bond holds only while attraction stays above threshold — other tributaries can't substitute
+  // the thread holds only while it stays above threshold
   romHeld = S.a >= P.athr;
 
   const [xA,yA]=mapPos(S.uA,S.mA,-1);
@@ -426,7 +410,7 @@ function frame(t){
   /* settledness: convergence to a fixed point in STATE space, smoothed over time.
      — speed is how fast all four fast variables (u,m for both) are moving in the model, not screen distance
      — the EMA smoothing IS the persistence window: a fixed point holds low speed continuously (reads settled);
-       a pursue–withdraw cycle never stops moving, so its smoothed speed stays high and it never reads settled,
+       a chasing cycle never stops moving, so its smoothed speed stays high and it never reads settled,
        even though any single instant at a turning point looks slow. */
   const spd=(Math.abs(S.uA-pvUA)+Math.abs(S.uB-pvUB)
             +Math.abs(S.mA-pvMA)+Math.abs(S.mB-pvMB))/DT;   // per model-step, DT fixed (noise-consistent)
@@ -439,20 +423,20 @@ function frame(t){
   const wl=Math.min(1,dt*0.25*settle);
   wellX+=(midX-wellX)*wl; wellY+=(midY-wellY)*wl;
 
-  /* deposition heartbeat: a decaying pulse that spikes on w_dev's rate of rise (devotion being laid down now) */
+  /* deposition heartbeat: a decaying pulse that spikes on w_dev's rate of rise (the slow layer being laid down now) */
   const wAvg=(S.wA+S.wB)/2;
   const depoRate=Math.max(0,(wAvg-wAvgPrev))/Math.max(dt,1e-4);
   wAvgPrev=wAvg;
   depoPulse=Math.max(depoPulse*Math.exp(-dt*2.0), clampv(depoRate*10,0,1));
 
-  /* the more devotion has settled, the closer + bigger the pair reads — bodies drift toward the midpoint.
+  /* the more the slow layer has settled, the closer + bigger the pair reads — bodies drift toward the midpoint.
      ghosts are deliberately NOT pulled in: a ghost is the partner's past trace, it does not move to follow. */
   const closeness=clampv(wAvg/1.2,0,1);
   const pull=closeness*0.09;
   const rxA=xA+(midX-xA)*pull, ryA=yA+(midY-yA)*pull;
   const rxB=xB+(midX-xB)*pull, ryB=yB+(midY-yB)*pull;
 
-  /* embodiment: settled + devoted bodies swell, brighten, pulse in shared phase, and flare on deposit */
+  /* embodiment: settled bodies swell, darken, pulse in shared phase, and flare on deposit */
   const beat=0.5+0.5*Math.sin(t*0.0011);
   const scl=1+0.45*settle+0.35*DEVV+0.12*settle*beat+0.5*depoPulse;
   const glow=1+0.9*settle+0.5*DEVV;
@@ -477,8 +461,8 @@ function frame(t){
   drawSprite(rxB,ryB,sz*2.4*pB,COL_B,0.10*glow+0.10*depoPulse,5.0);
   drawSprite(rxB,ryB,sz*0.8*pB,COL_B,0.30*glow+0.15*depoPulse,7.0);
 
-  /* pass 3: composite room + trails to screen */
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  /* pass 3: composite room + trails into the light buffer */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo[2]);
   gl.viewport(0,0,W,H);
   gl.disable(gl.BLEND);
   gl.useProgram(progScreen);
@@ -500,11 +484,10 @@ function frame(t){
     drawSprite(midX,midY,hs*2.2,[0.73,0.65,0.70],0.11*hglow*breath,3.5);
     drawSprite(midX,midY,hs,[0.82,0.73,0.79],(0.08*settle*breath)+0.16*depoPulse,5.0);
   }
-  /* attraction edge — the load-bearing thread that romantic longevity requires and platonic does not.
-     it connects the two BODIES directly (not the ghosts); its brightness is the attraction level;
-     below threshold it visibly frays and the romantic bond reads as broken even while coregulation holds. */
+  /* the thread: connects the two BODIES directly (not the ghosts); its weight is the thread level;
+     below threshold it visibly frays, even while everything else holds. */
   (function(){
-    const col=[1.0,0.55,0.62];                 // warm rose, distinct from the two body hues
+    const col=[0.9,0.9,0.9];                   // prints as ink
     if(romHeld){
       const aA=0.30*ATTR+0.05;
       drawThread(rxA,ryA,rxB,ryB,col,aA);
@@ -533,13 +516,25 @@ function frame(t){
     drawSprite(rxB,ryB,sz*1.1*scl,coreB,0.22*depoPulse,6.0);
   }
 
+  /* pass 5: print the light buffer to the screen as ink on paper */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,W,H);
+  gl.disable(gl.BLEND);
+  gl.useProgram(progInk);
+  bindQuad(progInk);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,tex[2]);
+  gl.uniform1i(gl.getUniformLocation(progInk,'uL'),0);
+  gl.uniform1f(gl.getUniformLocation(progInk,'uDot'),Math.max(1,Math.floor(DPR*1.5)));
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+
   cur=nxt;
 
   if((t|0)%16===0){
-    devEl.innerHTML='w_dev · <i class="ca">A '+S.wA.toFixed(2)+'</i> · <i class="cb">B '
+    devEl.innerHTML='<i class="ca">A '+S.wA.toFixed(2)+'</i> · <i class="cb">B '
       +S.wB.toFixed(2)+'</i> · settled '+Math.round(settle*100)
-      +'% · <i class="cattr">attraction '+S.a.toFixed(2)+'</i> · bond '
-      +(romHeld?'holds as romantic':'<i class="cbroke">broken as romantic</i>');
+      +'% · thread '+S.a.toFixed(2)+' · '
+      +(romHeld?'held':'<i class="cbroke">frayed</i>');
   }
 }
 requestAnimationFrame(frame);
@@ -572,10 +567,9 @@ eTs.addEventListener('input',()=>{TSC=parseFloat(eTs.value);
 const PRESETS={
   settle:  {tau:0.45,c:1.6,nuAB:1.00,nuBA:1.00,sig:0.05,ka:0.90,adec:0.00},
   pursue:  {tau:0.90,c:2.2,nuAB:1.50,nuBA:-1.30,sig:0.06,ka:0.90,adec:0.00},
-  // fading spark: everything healthy (settles, devotion builds) EXCEPT attraction, which erodes —
-  // watch the rose thread fray and the bond flip to 'broken as romantic' while the halo still holds.
+  // c: everything settles and the slow layer builds, but the thread erodes and frays while the halo holds.
   fade:    {tau:0.45,c:1.6,nuAB:1.00,nuBA:1.00,sig:0.05,ka:0.90,adec:0.03},
-  // co-escalation: the SAME coupling as a settling pair, sign-flipped negative — one channel, opposite sign.
+  // d: the same coupling as a, sign-flipped negative — one channel, opposite sign.
   // the mechanism that lets two people settle each other is the mechanism that lets them wind each other up.
   coesc:   {tau:0.70,c:2.0,nuAB:-1.20,nuBA:-1.20,sig:0.06,ka:0.90,adec:0.00}
 };
@@ -590,7 +584,7 @@ document.querySelectorAll('.pre').forEach(ch=>{
     document.getElementById('nuBAV').textContent=fmtSg(P.nuBA);
     document.getElementById('sigV').textContent=fmt2(P.sig);
     document.getElementById('adecV').textContent=fmt2(P.adec);
-    S.a=1.0;  // relight attraction so 'fading spark' begins from a healthy bond
+    S.a=1.0;  // relight the thread so each preset begins whole
     document.querySelectorAll('.pre').forEach(c=>c.classList.remove('on'));
     ch.classList.add('on');
     paintRanges();
