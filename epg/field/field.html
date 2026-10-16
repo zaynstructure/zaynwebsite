@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>field, with its history</title>
+<style>
+/* presentation only, adapted to sit inside the epg page: light paper and
+   ink to match the site (locked light, no dark variant), transparent page
+   so the site's dot grid shows around it, full width of its frame.
+   the simulation below is unchanged from field_prototype.html */
+:root{--paper:#FBFBF8;--grid:rgba(0,0,0,0.10);--ink:#141414;--ink2:111,110,105;--frame:#141414;--red:#B3342A;--redsoft:rgba(179,52,42,0.35);color-scheme:light;}
+html,body{margin:0;background:transparent}
+main{display:flex;flex-direction:column;gap:0}
+canvas{width:100%;box-sizing:border-box;display:block;border:1px solid var(--frame);background:var(--paper)}
+#c{height:170px}
+#h{height:220px;border-top:0;image-rendering:pixelated}
+</style>
+</head>
+<body>
+<main><canvas id="c" aria-label="A stippled field along a line that never fully rests, drifting left to right, with a standing hump that holds its place"></canvas>
+<canvas id="h" aria-label="The same field over time: position runs across, time runs downward, darker means more activation"></canvas></main>
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+
+const N=220,X0=0,X1=10,dx=(X1-X0)/(N-1);
+const k=0.05,g=0.6,lam=1.0,us=1.0,dt=0.004,bx=7.0,bw=0.6;
+const xs=[],w=[];let u=new Float64Array(N);
+for(let i=0;i<N;i++){const x=X0+i*dx;xs.push(x);w.push(Math.exp(-Math.pow((x-bx)/bw,2)));}
+const sigC=0.15,tauC=1.5,sigE=1.2,evEvery=8.0,rho=0.15,om=0.8,drift=0.6;let T=0;
+const KR=15,ker=[];let ks=0;for(let j=-KR;j<=KR;j++){const e=Math.exp(-Math.pow(j*dx/0.3,2));ker.push(e);ks+=e*e;}for(let j=0;j<ker.length;j++)ker[j]/=Math.sqrt(ks);
+function gauss(){let a=0,b=0;while(a===0)a=Math.random();while(b===0)b=Math.random();return Math.sqrt(-2*Math.log(a))*Math.cos(2*Math.PI*b);}
+const raw=new Float64Array(N+2*KR);const eta=new Float64Array(N);
+function smoothNoise(out){for(let j=0;j<raw.length;j++)raw[j]=gauss();for(let i=0;i<N;i++){let s=0;for(let j=0;j<ker.length;j++)s+=ker[j]*raw[i+j];out[i]=s;}}
+const xiC=new Float64Array(N),xiE=new Float64Array(N);let evT0=-99,evC=5,evNext=6;
+function expo(m){return -m*Math.log(1-Math.random());}
+function step(){smoothNoise(xiC);const qa=dt/tauC,qb=Math.sqrt(2*dt/tauC);for(let i=0;i<N;i++)eta[i]+=-eta[i]*qa+qb*xiC[i];
+if(T>=evNext){evT0=T;evC=1+8*Math.random();evNext=T+expo(evEvery);}
+const age=T-evT0;let env=0;if(age<1.0){env=Math.min(age/0.05,1)*Math.exp(-Math.max(age-0.05,0)/0.25);smoothNoise(xiE);}
+const n=new Float64Array(N),f=rho*Math.sin(om*T),se=sigE*env*Math.sqrt(dt);
+for(let i=0;i<N;i++){const l=(i>0&&i<N-1)?(u[i-1]-2*u[i]+u[i+1])/(dx*dx):0;const adv=i>0?-(u[i]-u[i-1])/dx:0;
+let v=u[i]+dt*(k*l-g*u[i]-lam*w[i]*Math.tanh(u[i]-us)+f+drift*adv+sigC*eta[i]);if(env>0)v+=se*Math.exp(-Math.pow((xs[i]-evC)/0.8,2))*xiE[i];n[i]=v;}u=n;T+=dt;}
+for(let s=0;s<6000;s++)step();T=0;evT0=-99;evNext=6;
+function pulse(c,a=1.4){for(let i=0;i<N;i++)u[i]+=a*Math.exp(-Math.pow((xs[i]-c)/0.4,2));}
+
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const seq=[2.0,7.0];let which=0,t=0,nextAt=30;const ghosts=[];const GN=3,GEVERY=22;
+let seed=7;function rnd(){seed=(seed*16807)%2147483647;return seed/2147483647;}
+const dots=[];for(let j=0;j<2600;j++)dots.push([rnd(),rnd(),rnd()]);
+function v(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function size(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);ctx.setTransform(d,0,0,d,0,0);}
+size();window.addEventListener('resize',size);
+function uAt(arr,fx){const p=fx*(N-1),i=Math.min(N-2,Math.floor(p)),a=p-i;return arr[i]*(1-a)+arr[i+1]*a;}
+function path(arr,base,sc,W){ctx.beginPath();for(let i=0;i<N;i++){const y=base-arr[i]*sc,x=i/(N-1)*W;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}}
+function draw(){if(cv.width!==Math.round(cv.clientWidth*(window.devicePixelRatio||1)))size();
+const W=cv.clientWidth,H=cv.clientHeight,base=H*0.74,sc=H*0.42;ctx.clearRect(0,0,W,H);
+ctx.strokeStyle='rgba('+v('--ink2')+',0.45)';ctx.lineWidth=1;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(0,base);ctx.lineTo(W,base);ctx.stroke();ctx.setLineDash([]);
+ctx.fillStyle=v('--ink');
+for(const d of dots){const x=d[0]*W,uu=uAt(u,d[0]),top=base-uu*sc,yy=base+(d[1]-0.5)*0.2*H;const lo=Math.min(base,top),hi=Math.max(base,top);const y=lo+d[1]*(hi-lo);if(hi-lo>1.5){const al=Math.max(0,Math.min(1,(Math.min(1,Math.abs(uu)*0.9+0.15)-d[2])*6));if(al>0){ctx.globalAlpha=al;ctx.fillRect(x,y,1.1,1.1);}}}ctx.globalAlpha=1;
+for(let j=0;j<ghosts.length;j++){ctx.strokeStyle='rgba('+v('--ink2')+','+(0.12+0.18*(j+1)/(GN+1)).toFixed(3)+')';ctx.lineWidth=1;path(ghosts[j],base,sc,W);ctx.stroke();}
+ctx.strokeStyle=v('--ink');ctx.lineWidth=1.3;ctx.lineJoin='round';path(u,base,sc,W);ctx.stroke();}
+
+const hv=document.getElementById('h'),hctx=hv.getContext('2d');const ROWS=150,ROWEVERY=4;const hist=[];
+const bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(b=>(b+0.5)/16);
+function hexrgb(h){h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+hv.width=N;hv.height=ROWS;const img=hctx.createImageData(N,ROWS);
+function renderHist(){const P=hexrgb(v('--paper')),I=hexrgb(v('--ink'));const d=img.data;
+for(let r=0;r<ROWS;r++){const row=hist[hist.length-1-r];for(let i=0;i<N;i++){const o=(r*N+i)*4;let ink=false;if(row){const dens=Math.max(0,Math.min(1,row[i]));ink=dens>bayer[(r%4)*4+(i%4)];}const c=ink?I:P;d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=255;}}
+hctx.putImageData(img,0,0);}
+function tick(){for(let s=0;s<4;s++)step();t++;if(t%GEVERY===0){ghosts.push(u.slice());if(ghosts.length>GN)ghosts.shift();}if(t>=nextAt){pulse(seq[which%seq.length]);which++;nextAt=t+720;}if(t%ROWEVERY===0){hist.push(u.slice());if(hist.length>ROWS)hist.shift();renderHist();}}
+if(reduce){for(let f=0;f<ROWS*ROWEVERY;f++)tick();pulse(2.0);for(let f=0;f<100;f++){for(let s=0;s<4;s++)step();if(f%25===0)ghosts.push(u.slice());}while(ghosts.length>GN)ghosts.shift();draw();renderHist();}
+else{for(let f=0;f<ROWS*ROWEVERY;f++)tick();(function loop(){tick();draw();requestAnimationFrame(loop);})();}
+</script>
+</body>
+</html>
