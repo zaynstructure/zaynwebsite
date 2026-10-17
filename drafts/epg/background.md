@@ -1,0 +1,9 @@
+# epg: personal background (saved for a later post)
+
+These two paragraphs were part of the EPG intro until the shorter version
+replaced it. Kept here, as they last appeared on the page, for a later post.
+Not linked from the site.
+
+showing this motion has been the focus of my research and much of my creative work for the past couple of years, and i'm finally at a place where i want to share it.
+
+eight years of social work, much of it in an anxiety program, alongside my audiovisual performance practice, gave me the initial push and the tools to try to understand, map, and begin building a framework. things only really started to click, though, when i brought my spiritual and contemplative practice and my own personal experience into the work. much of this took shape during one of the most difficult periods of my life. i wanted to understand why i felt the things i felt, and on some level, i believed that if i could see the map, i could find my way out of the feelings. but one of the biggest lessons in all of this was realizing that this was a kind of false escape. understanding something in my head could never replace the knowing that comes from experiencing a feeling with the heart. the process as a whole has given me new tools and a deeper awareness for understanding my own pain and healing, as well as my happiness and joy, but i'm still just beginning to integrate these ideas into my own life. it's all very much a work in progress, and it exists as a living record of my own journey into the self. still, i've come to believe that if we start to see all the places this continuum of emotion touches, and try to connect the pieces that seem unrelated, a coherent structure comes into view, one that, like the river, is beautiful, changing in its movement but consistent in its patterns.
