@@ -8,3 +8,5 @@ Pages kept out of the live site: not linked from anywhere and marked
   grief comparison, expressive field and field shader. Those component pages
   still live at `/epg/<name>/`; only this index is held back. Meant to return
   later as a chapter in the EPG posts.
+- `epg/background.md` — the two personal background paragraphs taken out of
+  the EPG intro when the shorter version replaced it; saved for a later post.
