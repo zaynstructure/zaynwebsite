@@ -395,6 +395,23 @@ p { margin: 0 0 1.1rem; }
 .posts li:first-child { border-top: 0; }
 .posts-section:has(.posts:empty) { display: none; }
 
+/* epg posts */
+.back { margin: 0 0 1.6rem; font-size: .85rem; }
+.back a { color: var(--muted); text-decoration: none; }
+.back a:hover { color: var(--ink); }
+.post-sub { margin: -.4rem 0 2rem; color: var(--muted); }
+.forces { margin-top: 2.6rem; }
+.force { margin: 0 0 3.2rem; padding-top: 1.6rem; border-top: 1px dashed var(--rule); }
+.force-h { font-size: 1.05rem; color: var(--ink); letter-spacing: 0; margin: 0 0 .9rem; padding-top: 0; border-top: 0; }
+.posts .dim { color: var(--muted); }
+.force-h span { font-weight: 400; font-size: .85rem; color: var(--muted); }
+.force .lead { font-weight: 500; }
+.force-viz { max-width: 600px; margin: 1.4rem 0 0; }
+.force-viz canvas { width: 100%; display: block; box-sizing: border-box; border: 1px solid var(--ink); background: var(--bg); }
+.force-viz canvas.live { height: 140px; }
+.force-viz canvas.hist { height: 120px; border-top: 0; }
+.force-viz .legend { display: flex; justify-content: space-between; font-size: .7rem; color: var(--muted); margin-top: .4rem; }
+
 /* =========================================================
    PROJECT PAGES (figures)
 ========================================================= */
