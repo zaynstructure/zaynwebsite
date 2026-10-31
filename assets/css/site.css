@@ -511,38 +511,6 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
 
 .embed-launch:hover span { background: var(--ink); color: var(--bg); }
 
-/* full-view embed: fills the window once launched */
-.embed.is-full {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  max-width: none;
-  margin: 0;
-  border: 0;
-}
-.embed-open, .embed-open body { overflow: hidden; overscroll-behavior: none; }
-.embed.is-full { touch-action: none; overscroll-behavior: none; }
-.embed-full-toggle {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  z-index: 2;
-  font: inherit;
-  font-size: .8rem;
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--ink);
-  padding: 3px 9px;
-  cursor: pointer;
-}
-/* in full view the piece gets the whole window with nothing on top of it;
-   leave with the browser's back (or esc out of browser fullscreen) */
-.embed.is-full { background: var(--bg); }
-.embed.is-full .embed-full-toggle { display: none; }
-
 /* =========================================================
    PROCESS / TEXT PAGES
 ========================================================= */
