@@ -836,7 +836,23 @@ function intro(i){
   clearInterval(intro.tm); intro.tm=setInterval(()=>{ n+=2; el.textContent=full.slice(0,n); if(n%6===0) beep(560,0.02,0.012); if(n>=full.length) clearInterval(intro.tm); },45);
 }
 let G=null, paused=false, curCh=0;
-function show(html){ overlay.innerHTML='<div class="box">'+html+'</div>'; overlay.hidden=false; overlay.scrollTop=0; const b=overlay.querySelector('.primary'); if(b) b.focus({preventScroll:true}); }
+// shrink a menu or chapter screen to fit the window, measured with any
+// typewriter line already full so it doesn't shrink again while typing.
+// a shrunk screen is also let out wider, so it needs less shrinking
+function fitBox(){ const b=overlay.querySelector('.box'); if(!b||overlay.hidden) return;
+  b.style.zoom=''; b.style.width=''; b.style.maxWidth='';
+  const tw=b.querySelector('.tw'), cur=tw&&tw.textContent; if(tw) tw.textContent=tw.dataset.text;
+  const cs=getComputedStyle(overlay), availH=overlay.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),
+    availW=overlay.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight), base=b.offsetWidth;
+  const widthAt=z=>z<1?Math.min(Math.max(base,440),availW/z):base;
+  const fits=z=>{ b.style.maxWidth='none'; b.style.width=widthAt(z)+'px'; return b.offsetHeight*z<=availH-2; };
+  let z=1;
+  if(!fits(1)){ let lo=0.5, hi=1; for(let k=0;k<8;k++){ const m=(lo+hi)/2; if(fits(m)) lo=m; else hi=m; } z=lo; }
+  if(z<1) b.style.width=widthAt(z)+'px'; else { b.style.width=''; b.style.maxWidth=''; }
+  if(tw) tw.textContent=cur;
+  if(z<1) b.style.zoom=z; }
+new ResizeObserver(fitBox).observe(overlay); try{ document.fonts.ready.then(fitBox); }catch(e){}
+function show(html){ overlay.innerHTML='<div class="box">'+html+'</div>'; overlay.hidden=false; overlay.scrollTop=0; fitBox(); const b=overlay.querySelector('.primary'); if(b) b.focus({preventScroll:true}); }
 function start(i,cp){ curCh=i; for(const k in UIP) delete UIP[k]; G=CH[i].make(cp); overlay.hidden=true; paused=false; T.on=false; for(const k in keys) keys[k]=false; }
 function complete(i){ unlock(i+2); G=null; capReset(); intro(i+1); }
 let failCp=null;

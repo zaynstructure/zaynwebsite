@@ -540,11 +540,11 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
 }
 /* in full view the button sits in a thin bar above the piece, so it never
    covers the piece's own controls */
-.embed.is-full { padding-top: calc(36px + env(safe-area-inset-top, 0px)); background: var(--bg); }
-.embed.is-full iframe { top: calc(36px + env(safe-area-inset-top, 0px)); height: calc(100% - 36px - env(safe-area-inset-top, 0px)); border-top: 1px solid var(--ink); }
+.embed.is-full { padding-top: calc(30px + env(safe-area-inset-top, 0px)); background: var(--bg); }
+.embed.is-full iframe { top: calc(30px + env(safe-area-inset-top, 0px)); height: calc(100% - 30px - env(safe-area-inset-top, 0px)); border-top: 1px solid var(--ink); }
 .embed.is-full .embed-full-toggle {
   bottom: auto;
-  top: calc(6px + env(safe-area-inset-top, 0px));
+  top: calc(3px + env(safe-area-inset-top, 0px));
   right: calc(8px + env(safe-area-inset-right, 0px));
 }
 
