@@ -55,26 +55,62 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle.className = 'embed-full-toggle';
     embed.appendChild(toggle);
 
+    // pin the page behind while full so touches can't scroll it (iphone
+    // ignores overflow: hidden on its own), then put it back where it was
+    let scrollY = 0;
+    const lockPage = (on) => {
+      const b = document.body.style;
+      if (on) {
+        scrollY = window.scrollY;
+        b.position = 'fixed'; b.top = `-${scrollY}px`; b.left = '0'; b.right = '0';
+      } else if (b.position === 'fixed') {
+        b.position = b.top = b.left = b.right = '';
+        restoreScroll();
+      }
+    };
+    // a frame later, once the page can scroll again. leaving browser
+    // fullscreen resets the scroll too, so this runs again after that
+    const restoreScroll = () => {
+      const y = scrollY;
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    };
+
+    // and stop the piece's own page from bouncing under a drag
+    const calmFrame = () => {
+      try {
+        const d = iframe.contentDocument;
+        d.documentElement.style.overscrollBehavior = 'none';
+        d.body.style.overscrollBehavior = 'none';
+      } catch (e) {}
+    };
+
     const set = (on) => {
+      if (on === embed.classList.contains('is-full')) return;
+      // lock before the frame leaves the page's flow, or the page gets
+      // shorter and the remembered scroll position is already lost
+      if (on) lockPage(true);
       embed.classList.toggle('is-full', on);
       document.documentElement.classList.toggle('embed-open', on);
+      if (!on) lockPage(false);
       toggle.textContent = on ? 'close ×' : 'full screen ↗';
       if (on) {
         if (embed.requestFullscreen) embed.requestFullscreen().catch(() => {});
         iframe.focus();
       } else if (document.fullscreenElement === embed) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().then(restoreScroll, () => {});
       }
     };
 
     toggle.addEventListener('click', () => set(!embed.classList.contains('is-full')));
     document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement && embed.classList.contains('is-full')) set(false);
+      if (document.fullscreenElement) return;
+      if (embed.classList.contains('is-full')) set(false);
+      else restoreScroll();
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && embed.classList.contains('is-full')) set(false);
     });
-    iframe.addEventListener('load', () => { if (embed.classList.contains('is-full')) iframe.focus(); });
+    iframe.addEventListener('load', () => { calmFrame(); if (embed.classList.contains('is-full')) iframe.focus(); });
     set(true);
   }
 

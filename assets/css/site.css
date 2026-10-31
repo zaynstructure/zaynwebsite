@@ -523,7 +523,8 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
   margin: 0;
   border: 0;
 }
-.embed-open, .embed-open body { overflow: hidden; }
+.embed-open, .embed-open body { overflow: hidden; overscroll-behavior: none; }
+.embed.is-full { touch-action: none; overscroll-behavior: none; }
 .embed-full-toggle {
   position: absolute;
   right: 8px;
