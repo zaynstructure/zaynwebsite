@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Fold</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --fg:#000000; --dim:#a0a0a0;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#000000; --fg:#ffffff; --dim:#555555; color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --bg:#000000; --fg:#ffffff; --dim:#555555; color-scheme:dark; }
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:'VT323','Courier New',ui-monospace,monospace;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+#app{height:100%;display:flex;flex-direction:column;align-items:center}
+#hud{width:100%;max-width:440px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px 4px;font-size:20px;line-height:1}
+#hPips{letter-spacing:3px}
+#pauseBtn{font:inherit;font-size:18px;background:none;color:var(--fg);border:2px solid var(--fg);width:32px;height:28px;padding:0;cursor:pointer}
+#stage{flex:1;width:100%;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;touch-action:none}
+canvas{display:block;touch-action:none}
+#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:24px;background:var(--bg);overflow-y:auto;touch-action:pan-y}
+#overlay[hidden]{display:none}
+.box{max-width:340px;width:100%;margin:auto 0;text-align:center}
+.big{font-size:96px;line-height:.9;margin:0}
+h1{font-size:52px;font-weight:400;line-height:1;margin:0 0 18px}
+p{font-size:21px;line-height:1.2;margin:0 0 14px;text-align:left}
+p.c{text-align:center}
+p.small{font-size:18px;color:var(--dim)}
+.btns{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:18px}
+.primary{font:inherit;font-size:26px;background:var(--fg);color:var(--bg);border:0;padding:10px 20px;cursor:pointer}
+.secondary{font:inherit;font-size:22px;background:none;color:var(--fg);border:2px solid var(--fg);padding:6px 16px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--fg);outline-offset:3px}
+.secondary:disabled{border-style:dashed;border-color:var(--dim);color:var(--dim);cursor:default}
+.win{border:4px double var(--fg);padding:12px 14px 6px;margin:0 0 14px;text-align:left}
+.wt{font-size:18px;color:var(--dim);margin:0 0 4px}
+.entry{display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:start;margin:10px 0}
+.entry svg{width:32px;height:32px}
+.entry b{font-weight:400;font-size:23px;display:block;line-height:1}
+.entry span{font-size:19px;line-height:1.15}
+.tw{min-height:2.4em}
+.intro .big{font-size:80px}
+.intro h1{margin-bottom:10px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <span id="hName">The Fold</span>
+    <span id="hPips"></span>
+    <button id="pauseBtn" aria-label="Pause">II</button>
+  </div>
+  <div id="stage">
+    <canvas id="c" aria-label="Game area"></canvas>
+    <div id="overlay"></div>
+  </div>
+</div>
+<script>
+(function(){
+const W=400, H=650, MAPY=60, MAPH=540, CAPY=606, LY=330;
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const stage=document.getElementById('stage'), overlay=document.getElementById('overlay');
+const hName=document.getElementById('hName'), hPips=document.getElementById('hPips');
+let scale=1, dpr=1, C={};
+function readColors(){ const cs=getComputedStyle(document.documentElement); for(const k of ['bg','fg','dim']) C[k]=cs.getPropertyValue('--'+k).trim(); }
+readColors(); try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readColors); }catch(e){}
+function resize(){ const r=stage.getBoundingClientRect(); scale=Math.min(r.width/W,r.height/H); dpr=window.devicePixelRatio||1;
+  cv.style.width=(W*scale)+'px'; cv.style.height=(H*scale)+'px'; cv.width=Math.round(W*scale*dpr); cv.height=Math.round(H*scale*dpr); }
+new ResizeObserver(resize).observe(stage); resize();
+
+const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ease=k=>1-Math.pow(1-clamp(k,0,1),3);
+const angd=(a,b)=>{let d=a-b;return Math.atan2(Math.sin(d),Math.cos(d));};
+
+// ---------- progress ----------
+let unlocked=1;
+try{ unlocked=clamp(parseInt(localStorage.getItem('thefold-unlocked'))||1,1,5); }catch(e){}
+// players who reached Flatland in the first version get Spaceland opened for them
+try{ if(!localStorage.getItem('thefold-v2')){ if(unlocked>=3){ unlocked=Math.max(unlocked,4); localStorage.setItem('thefold-unlocked',String(unlocked)); } localStorage.setItem('thefold-v2','1'); } }catch(e){}
+function unlock(n){ if(n>unlocked){ unlocked=n; try{ localStorage.setItem('thefold-unlocked',String(n)); }catch(e){} } }
+
+// ---------- sound ----------
+let ac=null;
+function beep(f,d=0.07,v=0.05,type='square',slide){
+  try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(), g=ac.createGain(), t=ac.currentTime;
+    o.type=type; o.frequency.setValueAtTime(f,t); if(slide) o.frequency.exponentialRampToValueAtTime(slide,t+d);
+    g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+d); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+d); }catch(e){}
+}
+
+// ---------- input ----------
+const keys={}, inp={pulse:false,up:false};
+const KM={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',ArrowUp:'u',KeyW:'u',ArrowDown:'d',KeyS:'d'};
+addEventListener('keydown',e=>{
+  if((e.code==='Escape'||e.code==='KeyP')){ togglePause(); return; }
+  if(!overlay.hidden) return;
+  if(KM[e.code]){ if(KM[e.code]==='u' && !keys.u) inp.up=true; keys[KM[e.code]]=true; e.preventDefault(); }
+  if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); if(!e.repeat) inp.pulse=true; keys.sp=true; }
+  if(e.code==='KeyE') keys.e=true; if(e.code==='KeyQ') keys.q=true;
+});
+addEventListener('keyup',e=>{ if(KM[e.code]) keys[KM[e.code]]=false; if(e.code==='KeyE') keys.e=false; if(e.code==='KeyQ') keys.q=false; if(e.code==='Space'||e.code==='Enter') keys.sp=false; });
+const T={on:false,id:null,ox:0,oy:0,x:0,y:0,t0:0,moved:false,upSent:false};
+function toLogical(e){ const r=cv.getBoundingClientRect(); return [(e.clientX-r.left)/scale,(e.clientY-r.top)/scale]; }
+const UIP={};
+const uiHeld=id=>Object.values(UIP).includes(id);
+stage.addEventListener('pointerdown',e=>{
+  if(!overlay.hidden||paused||!G) return;
+  const [x,y]=toLogical(e);
+  if(G.ui && !dlgActive()){
+    const r=G.ui().find(r=>x>=r.x-6&&x<=r.x+r.w+6&&y>=r.y-6&&y<=r.y+r.h+6);
+    if(r){ UIP[e.pointerId]=r.id; if(r.id==='w' && G.setW) G.setW(y); try{ stage.setPointerCapture(e.pointerId); }catch(_){} return; }
+  }
+  if(T.on) return;
+  Object.assign(T,{on:true,id:e.pointerId,ox:x,oy:y,x,y,t0:performance.now(),moved:false,upSent:false});
+  try{ stage.setPointerCapture(e.pointerId); }catch(_){}
+});
+stage.addEventListener('pointermove',e=>{
+  if(UIP[e.pointerId]==='w'){ const [,y]=toLogical(e); if(G&&G.setW) G.setW(y); return; }
+  if(!T.on||e.pointerId!==T.id) return; const [x,y]=toLogical(e); T.x=x; T.y=y;
+  const dx=x-T.ox, dy=y-T.oy; if(Math.hypot(dx,dy)>12) T.moved=true;
+  if(T.moved && !T.upSent && -dy>30 && -dy>Math.abs(dx)*1.3){ inp.up=true; T.upSent=true; }
+});
+function endT(e){ delete UIP[e.pointerId]; if(e.pointerId!==T.id) return; if(T.on && !T.moved && performance.now()-T.t0<300) inp.pulse=true; T.on=false; }
+stage.addEventListener('pointerup',endT); stage.addEventListener('pointercancel',endT);
+function getMove(){
+  let ix=(keys.r?1:0)-(keys.l?1:0), iy=(keys.d?1:0)-(keys.u?1:0);
+  if(T.on && T.moved){ const dx=T.x-T.ox, dy=T.y-T.oy, d=Math.hypot(dx,dy); if(d>6){ const m=Math.min(d/40,1); ix=dx/d*m; iy=dy/d*m; } }
+  const m=Math.hypot(ix,iy); if(m>1){ ix/=m; iy/=m; } return [ix,iy];
+}
+const holding=()=>keys.sp || (T.on && !T.moved && performance.now()-T.t0>300);
+
+// ---------- dialog, toasts, goal ----------
+const cap={goal:'',shownGoal:'',gflash:0,toast:null,tt:0};
+const dlg={q:[],cur:null,shown:0,blip:0};
+function talk(text,who){ dlg.q.push({text,who:who===undefined?'Ethan':who}); }
+function toast(text){ cap.toast=text; cap.tt=0; }
+function capReset(){ dlg.q=[]; dlg.cur=null; cap.goal=''; cap.shownGoal=''; cap.toast=null; }
+const dlgActive=()=>!!(dlg.cur||dlg.q.length);
+function layout(text,maxW){
+  const words=text.split(' '), out=[]; let line='';
+  for(const w of words){ const t=line?line+' '+w:w; if(ctx.measureText(t).width>maxW && line){ out.push(line); line=w; } else line=t; }
+  out.push(line); return out;
+}
+function dlgUpdate(dt){
+  if(!dlg.cur){ dlg.cur=dlg.q.shift(); dlg.shown=0; dlg.blip=0; }
+  const n=dlg.cur.text.length;
+  if(dlg.shown<n){ dlg.shown=Math.min(n,dlg.shown+dt*30); if((dlg.blip+=dt)>0.07){ dlg.blip=0; beep(560,0.02,0.015,'square'); } }
+  if(inp.pulse){ if(dlg.shown<n) dlg.shown=n; else { dlg.cur=null; beep(760,0.04,0.03); } }
+}
+function capUpdate(dt){ if(cap.toast!=null){ cap.tt+=dt; if(cap.tt>2.8) cap.toast=null; } cap.gflash=Math.max(0,cap.gflash-dt); }
+function windowBox(x,y,w,h){
+  ctx.globalAlpha=0.95; ctx.fillStyle=C.bg; ctx.fillRect(x,y,w,h); ctx.globalAlpha=1;
+  ctx.strokeStyle=C.fg; ctx.lineWidth=2; ctx.strokeRect(x+1,y+1,w-2,h-2); ctx.lineWidth=1; ctx.strokeRect(x+5.5,y+5.5,w-11,h-11);
+}
+function drawCaptions(){
+  ctx.textBaseline='top'; ctx.textAlign='left';
+  // goal window
+  if(cap.goal && !dlgActive()){
+    if(cap.goal!==cap.shownGoal){ cap.shownGoal=cap.goal; cap.gflash=1.6; }
+    ctx.font='19px VT323, monospace'; const ls=layout('▶ '+cap.goal,352), h=20+ls.length*19, y=H-4-h;
+    windowBox(10,y,380,h);
+    const inv=cap.gflash>0 && Math.floor(cap.gflash*5)%2===0;
+    if(inv){ ctx.fillStyle=C.fg; ctx.fillRect(8+6,y+6,380-12,h-12); }
+    ctx.fillStyle=inv?C.bg:C.fg; ls.forEach((l,i)=>ctx.fillText(l,24,y+10+i*19));
+  }
+  // toast
+  if(cap.toast!=null){
+    ctx.font='19px VT323, monospace'; const tw=Math.min(360,ctx.measureText(cap.toast).width+30), a=Math.min(1,cap.tt*5,(2.8-cap.tt)*3);
+    ctx.globalAlpha=a; windowBox(200-tw/2,64,tw,32); ctx.fillStyle=C.fg; ctx.globalAlpha=a; ctx.textAlign='center'; ctx.fillText(cap.toast,200,72); ctx.globalAlpha=1; ctx.textAlign='left';
+  }
+  // dialog window
+  const c=dlg.cur; if(!c) return;
+  const x=10,y=484,w=380,h=158;
+  windowBox(x,y,w,h);
+  if(c.who){ ctx.font='20px VT323, monospace'; const tw=ctx.measureText(c.who).width+18; windowBox(x+14,y-16,tw,28); ctx.fillStyle=C.fg; ctx.fillText(c.who,x+23,y-10); }
+  ctx.font='23px VT323, monospace'; ctx.fillStyle=C.fg;
+  let budget=Math.floor(dlg.shown);
+  layout(c.text,w-40).slice(0,5).forEach((l,i)=>{ if(budget<=0) return; ctx.fillText(l.slice(0,budget),x+20,y+22+i*24); budget-=l.length+1; });
+  if(dlg.shown>=c.text.length && Math.floor(performance.now()/350)%2===0){
+    const ax=x+w-26, ay=y+h-24; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+12,ay); ctx.lineTo(ax+6,ay+8); ctx.closePath(); ctx.fill();
+  }
+}
+function base(strip){
+  ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+  if(strip!==false){ ctx.strokeStyle=C.dim; ctx.lineWidth=1; ctx.strokeRect(8.5,8.5,383,41); }
+}
+
+// ================= 0D POINTLAND =================
+function Point(){
+  const S={name:'0D Pointland',hp:null,t:0,flash:0,sflash:0,pulses:0,phase:'idle',rounds:[2,3],round:0,sg:null,resp:0,last:0,grow:0,wait:0};
+  capReset(); talk('Nothing. Only me.'); talk('I have always been here. A point. I can’t go anywhere.'); talk('But I can pulse.'); cap.goal='Tap the screen, or press Space, to pulse';
+  const startSign=()=>{ S.phase='sign'; S.sg={n:S.rounds[S.round],i:0,tt:-0.9}; cap.goal=''; };
+  S.update=dt=>{
+    S.t+=dt; S.flash=Math.max(0,S.flash-dt*3); S.sflash=Math.max(0,S.sflash-dt*2.5);
+    if(inp.pulse && S.phase!=='grow'){ S.flash=1; beep(440,0.08,0.05,'sine'); if(S.phase==='idle') S.pulses++; else if(S.phase==='listen'){ S.resp++; S.last=S.t; } }
+    if(S.phase==='idle'){ if(S.pulses>=3 && (S.wait+=dt)>1.6){ talk('…'); talk('Something pulsed back. Something that isn’t me.'); startSign(); } }
+    else if(S.phase==='sign'){
+      const g=S.sg; g.tt+=dt;
+      if(g.i<g.n && g.tt>=g.i*0.65){ S.sflash=1; beep(660,0.14,0.04,'sine'); g.i++; }
+      if(g.i>=g.n && g.tt>g.n*0.65+0.5){ S.phase='listen'; S.resp=0; S.last=S.t; cap.goal='Answer it. Pulse back'; }
+    }else if(S.phase==='listen'){
+      if(S.resp>0 && S.t-S.last>1.5){
+        if(S.resp===S.sg.n){
+          S.round++;
+          if(S.round>=S.rounds.length){ S.phase='grow'; cap.goal=''; talk('It knows me.'); talk('And then, for the first time ever, there was a direction.',''); beep(330,1.4,0.05,'sine',990); }
+          else { talk('It answered. It’s pulsing again. Longer this time.'); startSign(); }
+        }else{ talk(S.resp<S.sg.n?'Too few. It waits, then pulses again.':'Too many. It waits, then pulses again.'); startSign(); }
+      }else if(S.resp===0 && S.t-S.last>7){ toast('Pulse back the same number'); startSign(); }
+    }else if(S.phase==='grow'){ S.grow+=dt/4; if(S.grow>=2.4) complete(0); }
+  };
+  S.draw=()=>{
+    base();
+    if(S.sflash>0){ ctx.globalAlpha=S.sflash*0.35; ctx.fillStyle=C.dim; ctx.fillRect(0,MAPY,W,MAPH); ctx.globalAlpha=1; }
+    ctx.fillStyle=C.fg; const cx=200;
+    if(S.phase==='grow'){
+      const h=ease(S.grow/1.8)*12;
+      ctx.fillRect(cx-h,LY-1.5,h*2,3); ctx.fillRect(cx-h-3,LY-3,6,6); ctx.fillRect(cx+h-3,LY-3,6,6);
+      if(S.grow>1.9){ ctx.globalAlpha=Math.min(1,(S.grow-1.9)/0.5); ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+    }else{
+      const s=4+S.flash*8; ctx.fillRect(cx-s/2,LY-s/2,s,s);
+      if(S.flash>0){ ctx.globalAlpha=S.flash*0.4; const r=s+10; ctx.fillRect(cx-r/2,LY-r/2,r,r); ctx.globalAlpha=1; }
+    }
+  };
+  return S;
+}
+
+// ================= 1D LINELAND =================
+function Line(){
+  const S={name:'1D Lineland',t:0,e:{x:0,len:24},hp:3,inv:1,shake:0,bs:[],fL:-300,fR:300,folded:0,need:6,spawnT:1.2,phase:'fight',cd:0,fx:0,ws:null,sg:0,esc:0,curls:[],msgT:0,boxT:0,said:{}};
+  capReset(); talk('Left. Right. That is all there is now.'); talk('Others live on the line too. They slide toward me.'); talk('And the ends of the line are curling up.');
+  const goal=()=>{ cap.goal=`Pulse them into the Fold: ${S.folded}/${S.need}`; }; goal();
+  S.hurt=()=>{ if(S.inv>0) return; S.hp--; S.inv=1.3; S.shake=0.3; beep(110,0.25,0.06,'square',55); if(S.hp<=0) fail(1); };
+  const once=(k,at,fn)=>{ if(S.sg>=at && !S.said[k]){ S.said[k]=1; fn(); } };
+  S.update=dt=>{
+    S.t+=dt; S.inv=Math.max(0,S.inv-dt); S.shake=Math.max(0,S.shake-dt); S.cd=Math.max(0,S.cd-dt); S.fx=Math.max(0,S.fx-dt*2.5); S.msgT=Math.max(0,S.msgT-dt);
+    for(const c of S.curls) c.t+=dt; S.curls=S.curls.filter(c=>c.t<0.8);
+    const e=S.e, half=e.len/2, [ix]=getMove();
+    if(S.phase==='up'){ S.esc+=dt; if(S.esc>=3.4) complete(1); return; }
+    // movement
+    if(!(S.phase==='box' && S.boxT<1)){
+      let lo=S.fL+half, hi=S.fR-half;
+      if(S.ws){ lo=Math.max(lo,S.ws[0].x+35+half); hi=Math.min(hi,S.ws[1].x-35-half); }
+      e.x=clamp(e.x+ix*120*dt,lo,hi);
+    }
+    if(S.phase==='fight'){
+      S.fL=Math.min(-150,S.fL+5*dt); S.fR=Math.max(150,S.fR-5*dt);
+      if(e.x-half<=S.fL+1){ S.hurt(); e.x+=30; } if(e.x+half>=S.fR-1){ S.hurt(); e.x-=30; }
+      S.spawnT-=dt;
+      if(S.spawnT<=0 && S.bs.length<5){
+        S.spawnT=rand(1.4,2.4); const side=Math.random()<0.5?-1:1, len=Math.round(rand(10,28)), x=side<0?S.fL+len/2+4:S.fR-len/2-4;
+        if(!S.bs.some(b=>Math.abs(b.x-x)<(b.len+len)/2+4)) S.bs.push({x,len,sp:rand(22,45),k:0});
+      }
+      for(const b of S.bs){ const dir=Math.sign(e.x-b.x)||1; b.k*=Math.exp(-1.5*dt); b.x+=(dir*b.sp+b.k)*dt; }
+      S.bs.sort((a,b)=>a.x-b.x);
+      for(let i=0;i<S.bs.length-1;i++){ const a=S.bs[i], b=S.bs[i+1], ov=(a.len+b.len)/2-(b.x-a.x); if(ov>0){ a.x-=ov/2; b.x+=ov/2; const k=(a.k+b.k)/2; a.k=Math.min(a.k,k); b.k=Math.max(b.k,k); } }
+      for(let i=S.bs.length-1;i>=0;i--){
+        const b=S.bs[i];
+        if(b.x-b.len/2<=S.fL || b.x+b.len/2>=S.fR){ S.curls.push({x:b.x,t:0}); S.bs.splice(i,1); S.folded++; goal(); beep(520,0.18,0.05,'sine',130); }
+      }
+      for(const b of S.bs){ const ov=(b.len+e.len)/2-Math.abs(b.x-e.x); if(ov>0){ const s=Math.sign(b.x-e.x)||1; b.x+=s*ov; b.k=s*150; S.hurt(); } }
+      if(inp.pulse && S.cd<=0){
+        S.cd=0.45; S.fx=1; beep(300,0.1,0.05,'square',600);
+        for(const b of S.bs){ const d=Math.max(0,Math.abs(b.x-e.x)-(b.len+e.len)/2); if(d<110) b.k=Math.sign(b.x-e.x)*420*(1-d/140)*Math.sqrt(18/b.len); }
+        // the push travels down a queue of touching beings
+        const R=S.bs.filter(b=>b.x>e.x).sort((a,b)=>a.x-b.x), L=S.bs.filter(b=>b.x<e.x).sort((a,b)=>b.x-a.x);
+        for(let i=1;i<R.length;i++) if(R[i].x-R[i-1].x-(R[i].len+R[i-1].len)/2<8) R[i].k=Math.max(R[i].k,R[i-1].k*0.9);
+        for(let i=1;i<L.length;i++) if(L[i-1].x-L[i].x-(L[i].len+L[i-1].len)/2<8) L[i].k=Math.min(L[i].k,L[i-1].k*0.9);
+      }
+      if(S.folded>=S.need){
+        S.phase='box'; S.boxT=0; for(const b of S.bs) S.curls.push({x:b.x,t:0}); S.bs=[];
+        S.ws=[{x:S.fL+40,tx:-(half+6+35)},{x:S.fR-40,tx:half+6+35}];
+        cap.goal=''; talk('The rest scatter.'); talk('Two huge ones are coming. I don’t think a pulse will move them.'); beep(80,0.6,0.07,'square',50);
+      }
+    }else{
+      if(S.phase==='box'){ S.boxT+=dt; if(S.boxT<1) e.x+=(0-e.x)*Math.min(1,dt*5); }
+      for(const w of S.ws){ const d=w.tx-w.x; w.x+=Math.sign(d)*Math.min(Math.abs(d),26*dt); }
+      S.fL+=((S.ws[0].x-35-12)-S.fL)*Math.min(1,dt*1.5); S.fR+=((S.ws[1].x+35+12)-S.fR)*Math.min(1,dt*1.5);
+      if(inp.pulse){ S.fx=1; beep(300,0.1,0.04,'square',600); if(S.msgT<=0 && S.phase==='box'){ toast('They don’t budge'); S.msgT=3; } }
+      if(S.phase==='box' && S.ws.every(w=>Math.abs(w.tx-w.x)<0.5)){ S.phase='sign'; S.sg=0; talk('Boxed in. Nowhere left. Nowhere right.'); }
+      if(S.phase==='sign'){
+        S.sg+=dt;
+        once('a',1,()=>beep(880,0.5,0.03,'sine',440));
+        once('b',3,()=>talk('Something passed through me. It didn’t come from the left. Or the right.'));
+        once('c',6,()=>talk('It’s still here. Just… off the line. Somewhere else.'));
+        once('d',9,()=>{ cap.goal='Swipe up, or press Up'; });
+        if(S.sg>2 && inp.up){ S.phase='up'; S.esc=0; cap.goal=''; toast('A third corner'); beep(220,1.6,0.05,'square',880); }
+      }
+    }
+  };
+  function curl(x,y,side,R,t){
+    ctx.beginPath(); const N=60, cx=x, cy=y-R;
+    for(let i=0;i<=N;i++){ const a=i/N*Math.PI*3.2, r=R*(1-i/N*0.85)*(1+0.05*Math.sin(t*3)), ang=Math.PI/2+side*a;
+      const px=cx+Math.cos(ang)*r, py=cy+Math.sin(ang)*r; i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    ctx.stroke();
+  }
+  S.draw=()=>{
+    base();
+    const e=S.e, half=e.len/2;
+    // eye strip: one point of light on each side
+    let dl=e.x-half-S.fL, dr=S.fR-(e.x+half);
+    const things=S.bs.map(b=>[b.x,b.len]).concat(S.ws?S.ws.map(w=>[w.x,70]):[]);
+    for(const [x,l] of things){ if(x<e.x) dl=Math.min(dl,e.x-half-(x+l/2)); else dr=Math.min(dr,x-l/2-(e.x+half)); }
+    ctx.fillStyle=C.fg;
+    ctx.globalAlpha=clamp(1-dl/220,0.04,1); ctx.fillRect(12,12,184,34);
+    ctx.globalAlpha=clamp(1-dr/220,0.04,1); ctx.fillRect(204,12,184,34); ctx.globalAlpha=1;
+    ctx.save(); if(S.shake>0) ctx.translate(rand(-3,3),0);
+    const sx=x=>200+(x-e.x);
+    ctx.fillStyle=C.dim; ctx.fillRect(sx(S.fL),LY-1,S.fR-S.fL,2);
+    ctx.strokeStyle=C.fg; ctx.lineWidth=2; curl(sx(S.fL),LY,1,26,S.t); curl(sx(S.fR),LY,-1,26,S.t);
+    for(const c of S.curls){ ctx.globalAlpha=1-c.t/0.8; curl(sx(c.x),LY,1,12*(1-c.t/0.8)+2,S.t); } ctx.globalAlpha=1;
+    ctx.fillStyle=C.fg;
+    for(const b of S.bs) ctx.fillRect(sx(b.x-b.len/2),LY-3,b.len,6);
+    if(S.ws) for(const w of S.ws) ctx.fillRect(sx(w.x-35),LY-6,70,12);
+    if(S.fx>0){ const r=90*(1-S.fx); ctx.globalAlpha=S.fx; ctx.fillRect(sx(e.x-half-r),LY-1,r,2); ctx.fillRect(sx(e.x+half),LY-1,r,2); ctx.globalAlpha=1; }
+    if(S.phase==='up'){
+      const k=ease(S.esc/1.8), ax=sx(e.x), ay=LY-3-24*k;
+      ctx.beginPath(); ctx.moveTo(sx(e.x-half),LY); ctx.lineTo(sx(e.x+half),LY); ctx.lineTo(ax,ay); ctx.closePath(); ctx.fill();
+      ctx.fillRect(ax-3,ay-3,6,6);
+    }else if(!(S.inv>0 && Math.floor(S.t*12)%2===0)){
+      ctx.fillRect(sx(e.x-half),LY-1.5,e.len,3); ctx.fillRect(sx(e.x-half)-3,LY-3.5,7,7); ctx.fillRect(sx(e.x+half)-4,LY-3.5,7,7);
+    }
+    if(S.phase==='sign'){
+      if(S.sg<2){ const k=S.sg<1?S.sg:2-S.sg, l=40*k; ctx.strokeStyle=C.fg; ctx.lineWidth=1.5; ctx.strokeRect(sx(e.x)-l/2,LY-6,l,12); }
+      else { const ph=((S.sg-2)*18)%40; ctx.globalAlpha=1-ph/40; ctx.fillRect(sx(e.x)-3,LY-16-ph,6,6); ctx.globalAlpha=1; }
+    }
+    ctx.restore();
+    if(S.phase==='up' && S.esc>2.4){ ctx.globalAlpha=Math.min(1,(S.esc-2.4)/0.9); ctx.fillStyle=C.fg; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+  };
+  return S;
+}
+
+// ================= 2D FLATLAND =================
+const FW=[[30,390,110,70],[260,390,110,70],[0,290,150,12],[210,290,190,12],[80,318,40,30],[280,314,40,34],[175,332,50,16],[280,40,90,40],
+  [30,30,110,8],[30,30,8,100],[132,30,8,100],[30,122,40,8],[100,122,40,8]];
+const FOG={x:0,y:250,w:400,h:110}, SIGN={x:245,y:160}, FOLDMAX=26;
+function Flat(cp){
+  cp=cp||{x:200,y:505,obj:'plaza',fold:0};
+  const S={name:'2D Flatland',t:0,p:{x:cp.x,y:cp.y,h:-Math.PI/2,r:7},hp:3,inv:1.5,shake:0,cd:0,fx:0,obj:cp.obj,cp:Object.assign({},cp),
+    walls:FW.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]})),fold:cp.fold||0,sg:0,ink:cp.obj==='plaza'?0:1,charge:0,end:0,fogTip:false,cpFog:cp.obj!=='plaza'||cp.y<300,hum:0};
+  const P=[[[40,365],[360,365]],[[40,272],[360,272]],[[160,100],[330,100],[330,215],[160,215]]];
+  S.cs=P.map((path,k)=>({path,i:1,x:path[0][0]+(k===0?150:k===1?200:0),y:path[0][1],h:0,look:0,sp:k===2?40:48,seen:0,stun:0,r:9}));
+  capReset();
+  if(cp.obj==='plaza' && cp.y>400){
+    talk('Flatland. Everyone here is a shape.'); talk('I’m a triangle. The lowest kind.');
+    talk('The Circles rule this town. They say the Fold is a lie.'); talk('If one of them sees me, I’m done. A pulse will stun them for a moment.');
+  }
+  const setGoal=()=>{ cap.goal={plaza:'Reach the plaza at the top',hall:'Get into the old hall, top left',rise:'Stand still. Hold Space, or touch and hold'}[S.obj]||''; };
+  setGoal();
+  const p=S.p;
+  const inRect=(x,y,w)=>x>=w.x&&x<=w.x+w.w&&y>=w.y&&y<=w.y+w.h;
+  const hitBox=(w)=>p.x+p.r>w.x&&p.x-p.r<w.x+w.w&&p.y+p.r>w.y&&p.y-p.r<w.y+w.h;
+  const inFog=(x,y)=>inRect(x,y,FOG);
+  function moveP(dx,dy){
+    p.x=clamp(p.x+dx,p.r,W-p.r); for(const w of S.walls) if(hitBox(w)) p.x=dx>0?w.x-p.r:w.x+w.w+p.r;
+    p.y=clamp(p.y+dy,p.r,MAPH-p.r); for(const w of S.walls) if(hitBox(w)) p.y=dy>0?w.y-p.r:w.y+w.h+p.r;
+  }
+  function los(ax,ay,bx,by){ const d=Math.hypot(bx-ax,by-ay), n=Math.ceil(d/4); for(let i=1;i<n;i++){ const x=ax+(bx-ax)*i/n, y=ay+(by-ay)*i/n; if(S.walls.some(w=>inRect(x,y,w))) return false; } return true; }
+  function hurt(msg){
+    if(S.inv>0) return; S.hp--; S.shake=0.3; beep(110,0.3,0.06,'square',55);
+    if(S.hp<=0){ fail(2,S.cp); return; }
+    p.x=S.cp.x; p.y=S.cp.y; S.inv=1.6; for(const c of S.cs){ c.seen=0; c.stun=Math.max(c.stun,1); } toast(msg);
+  }
+  S.update=dt=>{
+    S.t+=dt; S.inv=Math.max(0,S.inv-dt); S.shake=Math.max(0,S.shake-dt); S.cd=Math.max(0,S.cd-dt); S.fx=Math.max(0,S.fx-dt*1.8);
+    if(S.obj==='end'){ S.end+=dt; if(S.end>=4.6) complete(2); return; }
+    S.fold=Math.min(FOLDMAX,S.fold+dt*FOLDMAX/150);
+    let [ix,iy]=getMove(); if(S.obj==='sign'){ ix=0; iy=0; }
+    const m=Math.hypot(ix,iy);
+    if(m>0.05) p.h+=angd(Math.atan2(iy,ix),p.h)*Math.min(1,dt*10);
+    moveP(ix*80*dt,0); moveP(0,iy*80*dt);
+    const f=S.fold;
+    if(p.x-p.r<f||p.x+p.r>W-f||p.y-p.r<f||p.y+p.r>MAPH-f){
+      if(S.inv<=0){ S.hp--; S.inv=1.2; S.shake=0.3; beep(110,0.3,0.06,'square',55); if(S.hp<=0){ fail(2,S.cp); return; } toast('The Fold bit me'); }
+      const dx=W/2-p.x, dy=MAPH/2-p.y, d=Math.hypot(dx,dy)||1; moveP(dx/d*20,0); moveP(0,dy/d*20);
+    }
+    if(!S.fogTip && inFog(p.x,p.y)){ S.fogTip=true; talk('Fog. I can’t see the town anymore.'); talk('Only my eye. The strip at the top. Solid lines are walls. Dashed lines are Circles.'); }
+    if(!S.cpFog && p.y<245){ S.cpFog=true; S.cp={x:40,y:240,obj:'plaza',fold:S.fold}; }
+    // pulse
+    if(inp.pulse && S.cd<=0 && S.obj!=='rise'){
+      S.cd=2.5; S.fx=1; beep(300,0.12,0.05,'square',700);
+      for(const c of S.cs) if(Math.hypot(c.x-p.x,c.y-p.y)<80){ c.stun=2.5; c.seen=0; }
+    }
+    // circles
+    for(const c of S.cs){
+      if(c.stun>0){ c.stun-=dt; c.seen=Math.max(0,c.seen-dt); continue; }
+      if(S.obj==='sign') continue;
+      const [tx,ty]=c.path[c.i], dx=tx-c.x, dy=ty-c.y, d=Math.hypot(dx,dy);
+      if(d<2) c.i=(c.i+1)%c.path.length;
+      else{ const mv=Math.min(d,c.sp*dt); c.x+=dx/d*mv; c.y+=dy/d*mv; c.h+=angd(Math.atan2(dy,dx),c.h)*Math.min(1,dt*4); }
+      c.look=c.h+Math.sin(S.t*1.3+c.path[0][1])*0.25;
+      const px=p.x-c.x, py=p.y-c.y, pd=Math.hypot(px,py), range=inFog(p.x,p.y)?55:100;
+      if(S.inv<=0 && S.obj!=='rise' && pd<range && Math.abs(angd(Math.atan2(py,px),c.look))<0.62 && los(c.x,c.y,p.x,p.y)) c.seen+=dt;
+      else c.seen=Math.max(0,c.seen-dt*0.8);
+      if(c.seen>0.6){ hurt('A Circle saw me'); break; }
+    }
+    // story beats
+    if(S.obj==='plaza' && Math.hypot(p.x-SIGN.x,p.y-SIGN.y)<45){
+      S.obj='sign'; S.sg=0; setGoal(); beep(880,0.8,0.03,'sine',440);
+    }
+    if(S.obj==='sign'){ S.sg+=dt; S.ink=clamp((S.sg-1.5)/3.5,0,1);
+      if(S.sg>=5.6 && !S.signTalk){ S.signTalk=1; talk('A point appeared. Then it grew into a circle, out of nothing.'); talk('Then it shrank back to nothing. Like the thing in Lineland.'); talk('It left marks in the sand.'); talk('“Hold still. Rise.” Signed… R.D.'); talk('The Circles will have seen it too. I need to hide. The old hall, top left.'); }
+      if(S.sg>=6){ S.obj='hall'; S.cp={x:SIGN.x,y:SIGN.y,obj:'hall',fold:S.fold}; setGoal(); } }
+    if(S.obj==='hall' && p.x>45&&p.x<125&&p.y>45&&p.y<115){
+      S.obj='rise'; S.walls.push({x:70,y:122,w:30,h:8}); S.shake=0.4; beep(70,0.5,0.08,'square',40);
+      const door=[[[60,165]],[[110,165]],[[85,180]]]; S.cs.forEach((c,k)=>{ c.path=door[k]; c.i=0; c.stun=0; });
+      talk('The door slammed shut behind me.'); talk('No door now. No window. Circles waiting outside.'); talk('“Hold still. Rise.”'); setGoal();
+    }
+    if(S.obj==='rise'){
+      if(m<0.1 && holding()){ S.charge+=dt/2.4; S.hum-=dt; if(S.hum<=0){ S.hum=0.25; beep(200+S.charge*600,0.2,0.03,'sine'); } }
+      else S.charge=Math.max(0,S.charge-dt*0.8);
+      if(S.charge>=1){ S.obj='end'; S.end=0; cap.goal=''; toast('A fourth corner, above everything'); beep(220,2.5,0.05,'square',1760); }
+    }
+  };
+  function castStrip(){
+    const N=72, fov=1.7, cw=376/N, f=S.fold;
+    for(let i=0;i<N;i++){
+      const a=p.h-fov/2+fov*(i+0.5)/N, ca=Math.cos(a), sa=Math.sin(a); let hit=null, d;
+      for(d=4; d<170; d+=3){
+        const x=p.x+ca*d, y=p.y+sa*d;
+        if(x<f||x>W-f||y<f||y>MAPH-f){ hit='fold'; break; }
+        if(S.walls.some(w=>inRect(x,y,w))){ hit='wall'; break; }
+        if(S.cs.some(c=>(x-c.x)**2+(y-c.y)**2<c.r*c.r)){ hit='circle'; break; }
+      }
+      if(!hit) continue;
+      ctx.globalAlpha=Math.pow(1-d/170,1.2); ctx.fillStyle=hit==='fold'?C.dim:C.fg; const x0=12+i*cw;
+      if(hit==='circle') for(let y=12;y<46;y+=6) ctx.fillRect(x0,y,cw+0.5,3); else ctx.fillRect(x0,12,cw+0.5,34);
+    }
+    ctx.globalAlpha=1;
+  }
+  function triPts(x,y,h,s){ return [[x+Math.cos(h)*10*s,y+Math.sin(h)*10*s],[x+Math.cos(h+2.4)*8*s,y+Math.sin(h+2.4)*8*s],[x+Math.cos(h-2.4)*8*s,y+Math.sin(h-2.4)*8*s]]; }
+  function drawFold(){
+    const f=S.fold; if(f<0.5) return;
+    const pts=[], step=10, wob=s=>Math.sin(s*0.09+S.t*2)*3;
+    for(let x=0;x<=W;x+=step) pts.push([x,f+wob(x)]);
+    for(let y=0;y<=MAPH;y+=step) pts.push([W-f-wob(y),y]);
+    for(let x=W;x>=0;x-=step) pts.push([x,MAPH-f-wob(x+50)]);
+    for(let y=MAPH;y>=0;y-=step) pts.push([f+wob(y+90),y]);
+    ctx.beginPath(); ctx.rect(-5,-5,W+10,MAPH+10); ctx.moveTo(pts[0][0],pts[0][1]); for(const q of pts) ctx.lineTo(q[0],q[1]); ctx.closePath();
+    ctx.fillStyle=C.bg; ctx.fill('evenodd');
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); for(const q of pts) ctx.lineTo(q[0],q[1]); ctx.closePath();
+    ctx.strokeStyle=C.fg; ctx.lineWidth=2; ctx.stroke();
+    const R=4+f*0.35, sp=(cx,cy,rot)=>{ ctx.beginPath(); for(let i=0;i<=30;i++){ const a=rot+i/30*Math.PI*2.6, r=R*(1-i/30*0.8); const x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r; i?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.stroke(); };
+    ctx.lineWidth=1.5;
+    for(let x=40;x<W;x+=80){ sp(x,f-R*0.6,S.t*1.5+x); sp(x+40,MAPH-f+R*0.6,-S.t*1.5+x); }
+    for(let y=60;y<MAPH;y+=80){ sp(f-R*0.6,y,S.t*1.5+y); sp(W-f+R*0.6,y+40,-S.t*1.5+y); }
+  }
+  S.draw=()=>{
+    base(); castStrip();
+    ctx.save();
+    if(S.shake>0) ctx.translate(rand(-3,3),rand(-3,3));
+    ctx.translate(0,MAPY);
+    const k=S.obj==='end'?ease(S.end/3.4):0;
+    if(k>0){ ctx.translate(p.x,p.y); ctx.scale(1-0.45*k,1-0.75*k); ctx.translate(-p.x,-p.y); }
+    ctx.beginPath(); ctx.rect(0,0,W,MAPH); ctx.clip();
+    ctx.fillStyle=C.fg; for(const w of S.walls) ctx.fillRect(w.x,w.y,w.w,w.h);
+    // the sign's marks
+    if(S.ink>0){
+      ctx.globalAlpha=S.ink; ctx.strokeStyle=C.dim; ctx.fillStyle=C.dim; ctx.lineWidth=1.5;
+      const x=SIGN.x, y=SIGN.y;
+      ctx.beginPath(); ctx.moveTo(x,y-16); ctx.lineTo(x+14,y+9); ctx.lineTo(x-14,y+9); ctx.closePath(); ctx.stroke();
+      ctx.fillRect(x-2,y-1,4,4);
+      ctx.font='16px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('hold still. rise.',x,y+16); ctx.fillText('R.D.',x,y+32); ctx.globalAlpha=1;
+    }
+    if(S.obj==='sign'){ const r=42*Math.sin(Math.PI*clamp(S.sg/5,0,1)); if(r>0.5){ ctx.strokeStyle=C.fg; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(SIGN.x,SIGN.y,r,0,Math.PI*2); ctx.stroke(); } }
+    // circles
+    for(const c of S.cs){
+      if(inFog(c.x,c.y)) continue;
+      if(c.stun<=0 && S.obj!=='end'){ ctx.globalAlpha=0.22; ctx.fillStyle=C.dim; ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.arc(c.x,c.y,100,c.look-0.62,c.look+0.62); ctx.closePath(); ctx.fill(); ctx.globalAlpha=1; }
+      ctx.strokeStyle=C.fg; ctx.lineWidth=2; if(c.stun>0) ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+      if(c.seen>0){ ctx.fillStyle=C.fg; ctx.beginPath(); ctx.arc(c.x,c.y,c.r*Math.min(1,c.seen/0.6),0,Math.PI*2); ctx.fill(); }
+    }
+    // fog
+    ctx.fillStyle=C.bg; ctx.fillRect(FOG.x,FOG.y,FOG.w,FOG.h);
+    ctx.fillStyle=C.dim; for(let y=FOG.y+5;y<FOG.y+FOG.h;y+=10) for(let x=5+((y/10)%2)*5;x<W;x+=10) ctx.fillRect(x+Math.sin(S.t+y)*1.5,y,1.5,1.5);
+    drawFold();
+    // player
+    const pf=inFog(p.x,p.y);
+    if(!(S.inv>0 && Math.floor(S.t*12)%2===0)){
+      const t=triPts(p.x,p.y,p.h,1);
+      ctx.beginPath(); ctx.moveTo(t[0][0],t[0][1]); ctx.lineTo(t[1][0],t[1][1]); ctx.lineTo(t[2][0],t[2][1]); ctx.closePath();
+      if(pf){ ctx.strokeStyle=C.fg; ctx.lineWidth=1.5; ctx.stroke(); } else { ctx.fillStyle=C.fg; ctx.fill(); }
+    }
+    if(S.fx>0){ const t=triPts(p.x,p.y,p.h,1+7*(1-S.fx)); ctx.globalAlpha=S.fx; ctx.strokeStyle=C.fg; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(t[0][0],t[0][1]); ctx.lineTo(t[1][0],t[1][1]); ctx.lineTo(t[2][0],t[2][1]); ctx.closePath(); ctx.stroke(); ctx.globalAlpha=1; }
+    if(S.charge>0 && S.obj==='rise'){
+      const t=triPts(p.x,p.y,p.h,1), ax=p.x, ay=p.y-34*S.charge;
+      ctx.globalAlpha=S.charge; ctx.strokeStyle=C.fg; ctx.lineWidth=1.5; ctx.beginPath(); for(const q of t){ ctx.moveTo(q[0],q[1]); ctx.lineTo(ax,ay); } ctx.stroke();
+      ctx.fillStyle=C.fg; ctx.fillRect(ax-3,ay-3,6,6); ctx.globalAlpha=1;
+    }
+    ctx.restore();
+    if(k>0){
+      const sxk=1-0.45*k, syk=1-0.75*k, PY=MAPY+p.y, t=triPts(p.x,p.y,p.h,1).map(q=>[p.x+(q[0]-p.x)*sxk,PY+(q[1]-p.y)*syk]);
+      const ax=p.x, ay=PY-30-170*k;
+      ctx.fillStyle=C.fg; ctx.beginPath(); ctx.moveTo(t[0][0],t[0][1]); ctx.lineTo(t[1][0],t[1][1]); ctx.lineTo(t[2][0],t[2][1]); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle=C.fg; ctx.lineWidth=2; ctx.beginPath(); for(const q of t){ ctx.moveTo(q[0],q[1]); ctx.lineTo(ax,ay); } ctx.stroke();
+      ctx.fillRect(ax-4,ay-4,8,8);
+      if(S.end>3.6){ ctx.globalAlpha=Math.min(1,(S.end-3.6)/0.9); ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+    }
+  };
+  return S;
+}
+
+// ================= 3D / 4D helpers =================
+const V={cz:200};
+const P3=(x,y,z)=>[x,330+(z-V.cz)*0.62-y*0.9];
+function wireBox(x0,y0,z0,x1,y1,z1,ox){
+  ox=ox||0;
+  const c=[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1]].map(v=>{ const q=P3(v[0],v[1],v[2]); return [q[0]+ox,q[1]-ox*0.25]; });
+  ctx.beginPath(); for(const [a,b] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]){ ctx.moveTo(c[a][0],c[a][1]); ctx.lineTo(c[b][0],c[b][1]); } ctx.stroke();
+  return c;
+}
+function fillTop(c){ ctx.beginPath(); ctx.moveTo(c[4][0],c[4][1]); ctx.lineTo(c[5][0],c[5][1]); ctx.lineTo(c[6][0],c[6][1]); ctx.lineTo(c[7][0],c[7][1]); ctx.closePath(); ctx.fill(); }
+function polyLine(pts){ ctx.beginPath(); pts.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])); ctx.stroke(); }
+function tetraPts(x,y,z,a){ const b=[0,1,2].map(i=>P3(x+Math.cos(a+i*2.094)*9,y,z+Math.sin(a+i*2.094)*9)); return [...b,P3(x,y+16,z)]; }
+function drawTetra(pts){
+  const ga=ctx.globalAlpha;
+  ctx.globalAlpha=ga*0.22; ctx.fillStyle=C.fg; ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); ctx.lineTo(pts[1][0],pts[1][1]); ctx.lineTo(pts[3][0],pts[3][1]); ctx.closePath(); ctx.fill(); ctx.globalAlpha=ga;
+  ctx.strokeStyle=C.fg; ctx.lineWidth=2; ctx.beginPath(); for(const [i,j] of [[0,1],[1,2],[2,0],[0,3],[1,3],[2,3]]){ ctx.moveTo(pts[i][0],pts[i][1]); ctx.lineTo(pts[j][0],pts[j][1]); } ctx.stroke();
+  ctx.fillStyle=C.fg; for(const q of pts) ctx.fillRect(q[0]-2,q[1]-2,4,4);
+}
+const S5=[[1,1,1,-0.447],[1,-1,-1,-0.447],[-1,1,-1,-0.447],[-1,-1,1,-0.447],[0,0,0,1.789]];
+function draw5(x,y,z,t,ox,dash){
+  ox=ox||0; const c1=Math.cos(t*0.7),s1=Math.sin(t*0.7),c2=Math.cos(t*0.45),s2=Math.sin(t*0.45);
+  const pts=S5.map(([a,b,c,d])=>{ const X=a*c1-d*s1, Wd=a*s1+d*c1, Y=b*c2-c*s2, Z=b*s2+c*c2, f=2.4/(3.4-Wd); const q=P3(x+X*f*7,y+11+Y*f*7,z+Z*f*7); return [q[0]+ox,q[1]-ox*0.25]; });
+  ctx.strokeStyle=C.fg; ctx.lineWidth=dash?1:1.6; if(dash) ctx.setLineDash([3,3]);
+  ctx.beginPath(); for(let i=0;i<5;i++) for(let j=i+1;j<5;j++){ ctx.moveTo(pts[i][0],pts[i][1]); ctx.lineTo(pts[j][0],pts[j][1]); } ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=C.fg; for(const q of pts) ctx.fillRect(q[0]-2,q[1]-2,4,4);
+}
+function drawButton(r,held){
+  windowBox(r.x,r.y,r.w,r.h); if(held){ ctx.fillStyle=C.fg; ctx.fillRect(r.x+6,r.y+6,r.w-12,r.h-12); }
+  ctx.fillStyle=held?C.bg:C.fg; const cx=r.x+r.w/2, cy=r.y+r.h/2, d=r.id==='up'?-1:1;
+  ctx.beginPath(); ctx.moveTo(cx-9,cy-d*5); ctx.lineTo(cx+9,cy-d*5); ctx.lineTo(cx,cy+d*7); ctx.closePath(); ctx.fill();
+}
+const SLD={x:356,y:104,w:38,h:448};
+const wFromY=y=>clamp((SLD.y+SLD.h-17-y)/(SLD.h-34),0,1);
+function drawSlider(w){
+  windowBox(SLD.x,SLD.y,SLD.w,SLD.h); ctx.fillStyle=C.dim; ctx.fillRect(SLD.x+SLD.w/2-1,SLD.y+12,2,SLD.h-24);
+  const ky=SLD.y+SLD.h-17-w*(SLD.h-34); ctx.fillStyle=C.fg; ctx.fillRect(SLD.x+7,ky-9,SLD.w-14,18);
+  ctx.font='20px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('W',SLD.x+SLD.w/2,SLD.y-1);
+}
+
+// ================= 3D SPACELAND =================
+function Space(cp){
+  cp=cp||{stage:'name',pinned:[0,0,0,0]};
+  const S={name:'3D Spaceland',hp:3,inv:1,t:0,st:0,shake:0,cd:0,fx:0,stage:cp.stage,p:{x:200,y:0,z:300,a:0},w:0,wT:0,slider:false,touched:0,msgT:0,sg:0,
+    corners:[[0,0,1,1],[400,0,-1,1],[0,400,1,-1],[400,400,-1,-1]].map(([x,z,ix,iz],i)=>({x,z,ix,iz,l:0.55+i*0.1,prog:0,hum:0,pinned:!!(cp.pinned&&cp.pinned[i])})),
+    creases:[{ax:'z',pos:110,sp:26,dir:1,ph:0,flat:0,h:0},{ax:'x',pos:290,sp:20,dir:-1,ph:2,flat:0,h:0}]};
+  V.cz=200; capReset();
+  const p=S.p, PEN=[[160,270,240,274],[160,326,240,330],[160,270,164,330],[236,270,240,330]], CUBE={x0:178,z0:178,x1:222,z1:222,h:44};
+  const BU={id:'up',x:346,y:292,w:46,h:46}, BD={id:'down',x:346,y:346,w:46,h:46};
+  const goals={rise:'Rise: hold ▲ on the right, or press E',cube:'Get the glowing key inside the cube',slide:'Slide the new W edge on the right, or hold E'};
+  const setGoal=()=>{ cap.goal=S.stage==='corners'?`Fly low over each curling corner to press it flat: ${S.corners.filter(c=>c.pinned).length}/4`:(goals[S.stage]||''); };
+  if(S.stage==='corners'){ p.y=20; p.z=200; setGoal(); }
+  S.ui=()=>{ const r=[]; if(['rise','corners','cube','slide'].includes(S.stage)) r.push(BU,BD); if(S.slider) r.push(Object.assign({id:'w'},SLD)); return r; };
+  S.setW=y=>{ S.wT=wFromY(y); };
+  const box=(x0,z0,x1,z1)=>p.x+6>x0&&p.x-6<x1&&p.z+6>z0&&p.z-6<z1;
+  const cubeOn=()=>S.stage==='cube'||S.stage==='slide';
+  function blocked(){
+    if(p.y<3 && PEN.some(w=>box(w[0],w[1],w[2],w[3]))) return 'pen';
+    if(cubeOn() && p.y<CUBE.h && box(CUBE.x0,CUBE.z0,CUBE.x1,CUBE.z1)) return 'cube';
+    return null;
+  }
+  function bump(){ if(S.msgT>0) return; S.msgT=1.6; S.touched++; beep(150,0.05,0.04); toast(['Solid','Solid on this side too','No way in. Not from any side'][Math.min(2,S.touched-1)]); }
+  function hurt(msg){
+    if(S.inv>0) return; S.hp--; S.inv=1.4; S.shake=0.3; beep(110,0.3,0.06,'square',55);
+    if(S.hp<=0){ fail(3,{stage:'corners',pinned:S.corners.map(c=>c.pinned?1:0)}); return; }
+    toast(msg);
+  }
+  S.update=dt=>{
+    S.t+=dt; S.st+=dt; S.inv=Math.max(0,S.inv-dt); S.shake=Math.max(0,S.shake-dt); S.cd=Math.max(0,S.cd-dt); S.fx=Math.max(0,S.fx-dt*2); S.msgT=Math.max(0,S.msgT-dt);
+    const [ix,iy]=getMove(), m=Math.hypot(ix,iy); p.a+=dt*(m>0.05?2.2:0.6);
+    if(S.stage==='name'){
+      if(S.st>4.8){ talk('Four corners now.'); talk('Ethan Dorter. Tetrahedron. The same letters.'); talk('My name was a shape all along. Who named me that?'); talk('Below me is Flatland. It’s a sheet, like paper.'); talk('I’m still lying in it, boxed in by walls, like in the hall. But now there’s up.'); S.stage='rise'; setGoal(); }
+      return;
+    }
+    if(S.stage==='sign'){ S.sg+=dt; if(S.sg>=6.4){ talk('A cube. Then it turned inside out, which cubes don’t do.'); talk('It shrank back to a point, and where it was…'); talk('A sealed box. Something glowing inside.'); S.stage='cube'; S.st=0; setGoal(); } return; }
+    if(S.stage==='out'){ if(S.st>2.8) complete(3); return; }
+    const ox=p.x, oz=p.z, oy=p.y; let b;
+    p.x=clamp(p.x+ix*90*dt,6,394); b=blocked(); if(b){ p.x=ox; if(b==='cube') bump(); }
+    p.z=clamp(p.z+iy*90*dt,6,394); b=blocked(); if(b){ p.z=oz; if(b==='cube') bump(); }
+    const up=(keys.e||uiHeld('up'))?1:0, dn=(keys.q||uiHeld('down'))?1:0;
+    p.y=clamp(p.y+(up-dn)*70*dt,0,110); b=blocked(); if(b){ p.y=oy; if(b==='cube') bump(); }
+    if(inp.pulse && S.cd<=0){ S.cd=1.2; S.fx=1; beep(300,0.12,0.05,'square',700); for(const c of S.creases){ const d=c.ax==='z'?Math.abs(p.z-c.pos):Math.abs(p.x-c.pos); if(d<80) c.flat=2.5; } }
+    if(S.stage==='rise' && !(p.x>158&&p.x<242&&p.z>268&&p.z<332)){
+      S.stage='corners'; talk('Flatland, from above. The whole town fits under me.'); talk('Its corners are curling up. If they fold all the way, Flatland closes like a book.'); talk('I need to press them flat. Low and close.'); setGoal();
+    }
+    if(S.stage==='corners'){
+      for(const c of S.creases){
+        c.pos+=c.dir*c.sp*dt; if(c.pos>370||c.pos<30){ c.dir*=-1; c.pos=clamp(c.pos,30,370); }
+        c.flat=Math.max(0,c.flat-dt); const tg=c.flat>0?0:24+8*Math.sin(S.t*1.2+c.ph); c.h+=(tg-c.h)*Math.min(1,dt*4);
+        const d=c.ax==='z'?Math.abs(p.z-c.pos):Math.abs(p.x-c.pos);
+        if(d<8 && p.y<c.h-2 && S.inv<=0){ hurt('A crease caught me'); if(c.ax==='z') p.z=clamp(p.z+(p.z<c.pos?-24:24),6,394); else p.x=clamp(p.x+(p.x<c.pos?-24:24),6,394); }
+      }
+      for(const c of S.corners){
+        if(c.pinned) continue; c.l=Math.min(1,c.l+dt*0.008);
+        if(Math.hypot(p.x-(c.x+c.ix*24),p.z-(c.z+c.iz*24))<32 && p.y<26){
+          c.prog+=dt/1.8; if((c.hum-=dt)<=0){ c.hum=0.2; beep(220+c.prog*400,0.15,0.025,'sine'); }
+          if(c.prog>=1){ c.pinned=true; beep(160,0.4,0.07,'square',80); S.shake=0.25; setGoal(); }
+        }else c.prog=Math.max(0,c.prog-dt*0.5);
+      }
+      if(S.corners.every(c=>c.pinned)){ S.stage='sign'; S.sg=0; cap.goal=''; talk('All four corners, flat. For now.'); beep(880,0.8,0.03,'sine',440); }
+    }
+    if(S.stage==='cube' && (S.touched>=3 || S.st>18)){
+      talk('There’s a direction you haven’t used yet.','???'); talk('That voice again. R.D.?'); talk('And there’s a new edge on the right. It wasn’t there before.');
+      S.slider=true; S.stage='slide'; setGoal();
+    }
+    if(S.stage==='slide'){
+      if(keys.e) S.wT=Math.min(1,S.wT+dt*0.6); S.w+=(S.wT-S.w)*Math.min(1,dt*8);
+      if(S.w>=0.35){ S.stage='out'; S.st=0; cap.goal=''; toast('A fifth corner'); beep(220,2.4,0.05,'square',1760); }
+    }
+  };
+  const LET='ETHAN DORTER', TGT='TETRAHEDRON', MAPI=(()=>{ const used=[]; return [...TGT].map(ch=>{ for(let i=0;i<LET.length;i++) if(LET[i]===ch && !used.includes(i)){ used.push(i); return i; } return 0; }); })();
+  S.draw=()=>{
+    base(false);
+    ctx.save(); if(S.shake>0) ctx.translate(rand(-3,3),rand(-3,3));
+    const na=S.stage==='name'?0.25:1;
+    ctx.globalAlpha=na;
+    ctx.strokeStyle=C.dim; ctx.lineWidth=1; ctx.beginPath();
+    for(let g=50;g<400;g+=50){ let a=P3(g,0,0), b=P3(g,0,400); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); a=P3(0,0,g); b=P3(400,0,g); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+    ctx.stroke();
+    ctx.strokeStyle=C.fg; ctx.lineWidth=2; ctx.beginPath();
+    for(const [a,b] of [[[70,0,0],[330,0,0]],[[70,0,400],[330,0,400]],[[0,0,70],[0,0,330]],[[400,0,70],[400,0,330]]]){ const q=P3(a[0],a[1],a[2]), r=P3(b[0],b[1],b[2]); ctx.moveTo(q[0],q[1]); ctx.lineTo(r[0],r[1]); }
+    ctx.stroke();
+    ctx.lineWidth=1.5; for(const w of PEN) wireBox(w[0],0,w[1],w[2],3,w[3]);
+    ctx.strokeStyle=C.dim; for(const r of [[90,90,80,50],[250,70,90,40],[70,300,60,40],[280,290,60,60]]) wireBox(r[0],0,r[1],r[0]+r[2],1,r[1]+r[3]);
+    for(const c of S.corners){
+      const A=P3(c.x+c.ix*70,0,c.z), B=P3(c.x,0,c.z+c.iz*70), L=c.pinned?0:c.l*(1-c.prog*0.85), Tp=P3(c.x+c.ix*L*24,L*50,c.z+c.iz*L*24);
+      ctx.globalAlpha=na*(c.pinned?0.12:0.3); ctx.fillStyle=C.fg; ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.lineTo(Tp[0],Tp[1]); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=na; ctx.strokeStyle=c.pinned?C.dim:C.fg; ctx.lineWidth=2; ctx.stroke();
+      if(!c.pinned && S.stage==='corners'){ const q=P3(c.x+c.ix*24,0,c.z+c.iz*24); ctx.strokeStyle=C.fg; ctx.setLineDash([3,3]); ctx.lineWidth=1; ctx.strokeRect(q[0]-12,q[1]-7,24,14); ctx.setLineDash([]); }
+    }
+    if(S.stage==='corners') for(const c of S.creases){
+      const pts=[]; for(let s=30;s<=370;s+=10){ const hh=c.h*(0.75+0.25*Math.sin(s*0.06+S.t*2)); pts.push(c.ax==='z'?P3(s,hh,c.pos):P3(c.pos,hh,s)); }
+      ctx.strokeStyle=C.fg; ctx.lineWidth=2; polyLine(pts);
+      ctx.strokeStyle=C.dim; ctx.lineWidth=1; polyLine(c.ax==='z'?[P3(30,0,c.pos),P3(370,0,c.pos)]:[P3(c.pos,0,30),P3(c.pos,0,370)]);
+    }
+    ctx.globalAlpha=1;
+    if(S.stage==='sign'){
+      const g=S.sg; ctx.strokeStyle=C.fg; ctx.lineWidth=1.5;
+      if(g<1){ const q=P3(200,40,200), s=2+g*3; ctx.fillStyle=C.fg; ctx.fillRect(q[0]-s/2,q[1]-s/2,s,s); }
+      else{
+        const s=Math.max(1,g<2.4?ease((g-1)/1.4)*36:g<5?36:36*(1-(g-5)/1.4));
+        const o=wireBox(200-s/2,40-s/2,200-s/2,200+s/2,40+s/2,200+s/2);
+        if(g>=2.4 && g<5.4){ const k=0.35+0.9*(0.5-0.5*Math.cos((g-2.4)*2.4)), si=s*k, i=wireBox(200-si/2,40-si/2,200-si/2,200+si/2,40+si/2,200+si/2);
+          ctx.beginPath(); for(let n=0;n<8;n++){ ctx.moveTo(o[n][0],o[n][1]); ctx.lineTo(i[n][0],i[n][1]); } ctx.stroke(); }
+      }
+    }
+    const drawCube=()=>{
+      if(!(cubeOn()||S.stage==='out')) return;
+      const fade=S.stage==='out'?Math.max(0,1-S.st/1.4):1, off=S.stage==='out'?S.st*90:0;
+      ctx.globalAlpha=fade; ctx.strokeStyle=C.fg; ctx.lineWidth=2; const c=wireBox(CUBE.x0,0,CUBE.z0,CUBE.x1,CUBE.h,CUBE.z1,off);
+      ctx.globalAlpha=fade*0.12; ctx.fillStyle=C.fg; fillTop(c);
+      ctx.globalAlpha=fade; const q=P3(200,22,200), s=6+2*Math.sin(S.t*4); ctx.fillRect(q[0]+off-s/2,q[1]-off*0.25-s/2,s,s); ctx.globalAlpha=1;
+    };
+    const drawMe=()=>{
+      if(S.stage==='name') return;
+      const sh=tetraPts(p.x,0,p.z,p.a); ctx.globalAlpha=0.35; ctx.fillStyle=C.dim; ctx.beginPath(); ctx.moveTo(sh[0][0],sh[0][1]); ctx.lineTo(sh[1][0],sh[1][1]); ctx.lineTo(sh[2][0],sh[2][1]); ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
+      if(p.y>1){ ctx.strokeStyle=C.dim; ctx.setLineDash([2,4]); ctx.lineWidth=1; polyLine([P3(p.x,0,p.z),P3(p.x,p.y,p.z)]); ctx.setLineDash([]); }
+      if(S.stage==='out'){ ctx.globalAlpha=Math.max(0,1-S.st/1.6); drawTetra(tetraPts(p.x,p.y,p.z,p.a)); ctx.globalAlpha=Math.min(1,S.st/1.6); draw5(p.x,p.y,p.z,S.t); ctx.globalAlpha=1; }
+      else if(!(S.inv>0 && Math.floor(S.t*12)%2===0)) drawTetra(tetraPts(p.x,p.y,p.z,p.a));
+      if(S.fx>0){ const q=P3(p.x,p.y+8,p.z), r=10+70*(1-S.fx); ctx.globalAlpha=S.fx; ctx.strokeStyle=C.fg; ctx.lineWidth=1.5; ctx.strokeRect(q[0]-r,q[1]-r*0.62,r*2,r*1.24); ctx.globalAlpha=1; }
+    };
+    if(p.z<200){ drawMe(); drawCube(); } else { drawCube(); drawMe(); }
+    ctx.restore();
+    if(S.stage==='name'){
+      ctx.font='44px VT323, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=C.fg;
+      const cw=ctx.measureText('M').width, k=ease((S.st-1.4)/2.4);
+      for(let j=0;j<TGT.length;j++){ const i=MAPI[j], sx=200-LET.length*cw/2+i*cw+cw/2, tx=200-TGT.length*cw/2+j*cw+cw/2; ctx.fillText(TGT[j],sx+(tx-sx)*k,300-Math.sin(Math.PI*k)*40*(j%2?1:-1)); }
+      ctx.font='20px VT323, monospace'; ctx.fillStyle=C.dim; ctx.globalAlpha=clamp(S.st-0.3,0,1); ctx.fillText(S.st<3.9?'Ethan Dorter':'tetrahedron',200,360); ctx.globalAlpha=1;
+    }
+    for(const r of S.ui()){ if(r.id==='w') drawSlider(S.w); else drawButton(r,uiHeld(r.id)||(r.id==='up'?keys.e:keys.q)); }
+    if(S.stage==='out' && S.st>1.9){ ctx.globalAlpha=Math.min(1,(S.st-1.9)/0.9); ctx.fillStyle=C.fg; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+  };
+  return S;
+}
+
+// ================= 4D TESSERACT =================
+function Tess(cp){
+  cp=cp||{x:200,z:650,w:0.5,stage:'key'};
+  const S={name:'4D Tesseract',hp:3,inv:1.2,t:0,st:0,shake:0,cd:0,fx:0,stage:cp.stage,p:{x:cp.x,z:cp.z},w:cp.w,wT:cp.w,cp:Object.assign({},cp),said:{},msgT:0,ghost:null};
+  const WL=[[178,558,222,562,44,.35,.65,'cube'],[178,598,222,602,44,.35,.65,'cube'],[178,558,182,602,44,.35,.65,'cube'],[218,558,222,602,44,.35,.65,'cube'],
+    [0,480,400,488,30,0,.5,'w'],[0,400,400,408,30,.5,1,'w'],[0,220,400,228,30,0,.3,'w'],[0,220,400,228,30,.7,1,'w'],
+    [0,60,160,68,50,0,1,'w'],[240,60,400,68,50,0,1,'w'],[160,60,240,68,50,0,1,'door']];
+  S.walls=WL.map(a=>({x0:a[0],z0:a[1],x1:a[2],z1:a[3],h:a[4],w0:a[5],w1:a[6],k:a[7]}));
+  S.cr=[[240,444,60,-1,.55,1],[60,280,85,1,.3,0],[300,325,65,-1,.68,2],[180,365,95,1,.5,4]].map(([x,z,sp,dir,base,ph])=>({x,z,sp,dir,base,ph,wc:base,stun:0}));
+  const p=S.p; V.cz=clamp(p.z,200,480); capReset();
+  const inR=(w,a)=>w>=a.w0-0.01&&w<=a.w1+0.01;
+  const over=(a,x,z)=>x+6>a.x0&&x-6<a.x1&&z+6>a.z0&&z-6<a.z1;
+  const blockedAt=(x,z,w)=>S.walls.some(a=>inR(w,a)&&over(a,x,z));
+  const goals={key:'Slide W until the cube fades, walk in, then slide back',maze:'Find a way through the slices, northward'};
+  const setGoal=()=>{ cap.goal=goals[S.stage]||''; };
+  if(S.stage==='key'){ talk('Five corners. And a direction I can’t point at. I’ll call it W.'); talk('The sealed cube came with me. In this slice, it’s still sealed.'); talk('But now I can slide.'); }
+  setGoal();
+  S.ui=()=>[Object.assign({id:'w'},SLD)];
+  S.setW=y=>{ S.wT=wFromY(y); };
+  function hurt(msg){ if(S.inv>0) return; S.hp--; S.inv=1.5; S.shake=0.3; beep(110,0.3,0.06,'square',55); if(S.hp<=0){ fail(4,S.cp); return; } p.x=S.cp.x; p.z=S.cp.z; S.w=S.wT=S.cp.w; toast(msg); }
+  S.update=dt=>{
+    S.t+=dt; S.st+=dt; S.inv=Math.max(0,S.inv-dt); S.shake=Math.max(0,S.shake-dt); S.cd=Math.max(0,S.cd-dt); S.fx=Math.max(0,S.fx-dt*2); S.msgT=Math.max(0,S.msgT-dt);
+    if(S.ghost) S.ghost.t+=dt;
+    if(S.stage==='end'){ if(S.st>3.4) finishChunk(); return; }
+    const [ix,iy]=getMove();
+    const nx=clamp(p.x+ix*85*dt,6,394); if(!blockedAt(nx,p.z,S.w)) p.x=nx;
+    const nz=clamp(p.z+iy*85*dt,6,690);
+    if(S.stage==='key' && nz<500){ if(S.msgT<=0){ S.msgT=2; toast('The key first'); } }
+    else if(!blockedAt(p.x,nz,S.w)) p.z=nz;
+    if(keys.e) S.wT=Math.min(1,S.wT+dt*0.6); if(keys.q) S.wT=Math.max(0,S.wT-dt*0.6);
+    const nw=clamp(S.w+clamp(S.wT-S.w,-dt*1.1,dt*1.1),0,1);
+    if(blockedAt(p.x,p.z,nw) && !blockedAt(p.x,p.z,S.w)){ S.wT=S.w; if(S.msgT<=0){ S.msgT=1.5; toast('Something solid is in that slice'); beep(150,0.05,0.04); } } else S.w=nw;
+    V.cz+=(clamp(p.z,200,480)-V.cz)*Math.min(1,dt*3);
+    if(inp.pulse && S.cd<=0){ S.cd=3; S.fx=1; beep(300,0.12,0.05,'square',700); for(const c of S.cr) if(Math.hypot(c.x-p.x,c.z-p.z)<80) c.stun=2; }
+    for(const c of S.cr){
+      if(c.stun>0){ c.stun-=dt; continue; }
+      c.x+=c.dir*c.sp*dt; if(c.x<20||c.x>380){ c.dir*=-1; c.x=clamp(c.x,20,380); }
+      c.wc=clamp(c.base+0.25*Math.sin(S.t*0.8+c.ph),0,1);
+      if(S.inv<=0 && Math.abs(c.x-p.x)<14 && Math.abs(c.z-p.z)<14 && Math.abs(S.w-c.wc)<0.15){ hurt('A slice crawler got me'); break; }
+    }
+    if(S.stage==='key' && Math.hypot(p.x-200,p.z-580)<14 && S.w>=0.35 && S.w<=0.65){
+      S.stage='maze'; S.cp={x:200,z:530,w:0.5,stage:'maze'}; toast('Got the key'); beep(660,0.3,0.05,'square',1320); talk('Got it. Now out again, the same way I came in.'); setGoal();
+    }
+    const once=(k,c,fn)=>{ if(c && !S.said[k]){ S.said[k]=1; fn(); } };
+    const mz=S.stage==='maze';
+    once('g1',mz&&p.z<470,()=>{ S.ghost={x:clamp(p.x+50,30,330),z:p.z-50,w:1-S.w,t:0}; talk('Keep the key. You’ll need it later.','???'); talk('A shape in another slice. Five corners, like me.'); });
+    once('cp1',mz&&p.z<395,()=>{ S.cp={x:200,z:390,w:0.4,stage:'maze'}; });
+    once('g2',mz&&p.z<330,()=>{ S.ghost={x:clamp(p.x-50,30,330),z:p.z-40,w:1-S.w,t:0}; talk('You’ll want to go back for it. You always do.','???'); talk('That voice sounds like mine.'); });
+    once('cp2',mz&&p.z<215,()=>{ S.cp={x:200,z:200,w:0.5,stage:'maze'}; });
+    once('door',mz&&p.z<110,()=>{ S.stage='end'; S.st=0; cap.goal=''; talk('The door. It was open a moment ago. I saw it.'); talk('Not a slice ago. A moment ago.'); talk('You can’t get there from here. Not through space.','???'); talk('Then I’ll have to go back for it.'); });
+  };
+  function wInfo(w0,w1){ const d=S.w<w0?w0-S.w:S.w>w1?S.w-w1:0; return {al:d===0?1:Math.max(0.12,0.45-d*2.2), ox:d===0?0:clamp(((w0+w1)/2-S.w)*160,-130,130), out:d>0}; }
+  function wShadow(x0,z0,x1,z1){ const q=[P3(x0,0,z0),P3(x1,0,z0),P3(x1,0,z1),P3(x0,0,z1)]; const ga=ctx.globalAlpha; ctx.globalAlpha=0.7; ctx.strokeStyle=C.fg; ctx.lineWidth=1; ctx.setLineDash([3,4]); ctx.beginPath(); ctx.moveTo(q[0][0],q[0][1]); for(const v of q.slice(1)) ctx.lineTo(v[0],v[1]); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=ga; }
+  S.draw=()=>{
+    base(true);
+    const rx=w=>34+w*340;
+    ctx.fillStyle=C.dim; ctx.font='18px VT323, monospace'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText('W',15,29);
+    ctx.fillRect(rx(0),41,340,1);
+    for(const a of S.walls){ if(Math.abs((a.z0+a.z1)/2-p.z)>140) continue; ctx.globalAlpha=0.4; ctx.fillRect(rx(a.w0),15,rx(a.w1)-rx(a.w0),8); }
+    ctx.globalAlpha=1; ctx.fillStyle=C.fg;
+    for(const c of S.cr) if(Math.abs(c.z-p.z)<140) ctx.fillRect(rx(c.wc)-3,26,6,6);
+    const mx=rx(S.w); ctx.beginPath(); ctx.moveTo(mx,35); ctx.lineTo(mx-6,46); ctx.lineTo(mx+6,46); ctx.closePath(); ctx.fill();
+    ctx.save(); if(S.shake>0) ctx.translate(rand(-3,3),rand(-3,3));
+    ctx.beginPath(); ctx.rect(0,MAPY,W,MAPH); ctx.clip();
+    ctx.strokeStyle=C.dim; ctx.lineWidth=1; ctx.beginPath();
+    for(let x=0;x<=400;x+=50){ const a=P3(x,0,0), b=P3(x,0,700); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+    for(let z=0;z<=700;z+=50){ const a=P3(0,0,z), b=P3(400,0,z); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+    ctx.stroke();
+    const items=[];
+    for(const a of S.walls){ if(a.k==='cube') continue; items.push({z:a.z1,f:()=>{
+      const i=wInfo(a.w0,a.w1), open=a.k==='door'&&S.stage==='end'&&Math.floor(S.t*5)%3===0;
+      ctx.globalAlpha=i.al; ctx.strokeStyle=C.fg; ctx.lineWidth=a.k==='door'?2.5:1.5;
+      if(open){ ctx.setLineDash([4,4]); ctx.globalAlpha=0.5; wireBox(a.x0-70,0,a.z0,a.x0-10,a.h,a.z1); ctx.setLineDash([]); ctx.globalAlpha=1; return; }
+      if(i.out) wShadow(a.x0,a.z0,a.x1,a.z1);
+      ctx.globalAlpha=i.al; ctx.strokeStyle=C.fg; ctx.lineWidth=a.k==='door'?2.5:1.5; const c=wireBox(a.x0,0,a.z0,a.x1,a.h,a.z1,i.ox); ctx.globalAlpha=i.al*0.15; ctx.fillStyle=C.fg; fillTop(c); ctx.globalAlpha=1; }}); }
+    items.push({z:602,f:()=>{
+      const i=wInfo(.35,.65); if(i.out) wShadow(178,558,222,602); ctx.globalAlpha=i.al; ctx.strokeStyle=C.fg; ctx.lineWidth=2; const c=wireBox(178,0,558,222,44,602,i.ox);
+      ctx.globalAlpha=i.al*0.12; ctx.fillStyle=C.fg; fillTop(c);
+      if(S.stage==='key'){ ctx.globalAlpha=i.al; const q=P3(200,22,580), s=6+2*Math.sin(S.t*4); ctx.fillRect(q[0]+i.ox-s/2,q[1]-i.ox*0.25-s/2,s,s); }
+      ctx.globalAlpha=1; }});
+    for(const c of S.cr) items.push({z:c.z+8,f:()=>{
+      const d=Math.max(0,Math.abs(S.w-c.wc)-0.15), al=d===0?1:Math.max(0.12,0.45-d*2.2), ox=d===0?0:clamp((c.wc-S.w)*160,-130,130);
+      if(d>0) wShadow(c.x-8,c.z-8,c.x+8,c.z+8);
+      ctx.globalAlpha=al; ctx.strokeStyle=C.fg; ctx.lineWidth=1.5; if(c.stun>0) ctx.setLineDash([3,3]);
+      const b=wireBox(c.x-8,0,c.z-8,c.x+8,16,c.z+8,ox); ctx.setLineDash([]); ctx.globalAlpha=al*0.5; ctx.fillStyle=C.fg; fillTop(b); ctx.globalAlpha=1; }});
+    if(S.ghost && S.ghost.t<9){ const g=S.ghost; items.push({z:g.z,f:()=>{ ctx.globalAlpha=Math.min(0.55,g.t*0.5)*clamp(9-g.t,0,1); draw5(g.x,0,g.z,S.t*1.3,clamp((g.w-S.w)*160,-130,130),true); ctx.globalAlpha=1; }}); }
+    items.push({z:p.z,f:()=>{
+      const q=P3(p.x,0,p.z); ctx.globalAlpha=0.35; ctx.fillStyle=C.dim; ctx.fillRect(q[0]-8,q[1]-4,16,8); ctx.globalAlpha=1;
+      if(!(S.inv>0 && Math.floor(S.t*12)%2===0)) draw5(p.x,0,p.z,S.t);
+      if(S.fx>0){ const r=10+70*(1-S.fx), c=P3(p.x,8,p.z); ctx.globalAlpha=S.fx; ctx.strokeStyle=C.fg; ctx.lineWidth=1.5; ctx.strokeRect(c[0]-r,c[1]-r*0.62,r*2,r*1.24); ctx.globalAlpha=1; } }});
+    items.sort((a,b)=>a.z-b.z).forEach(it=>it.f());
+    ctx.restore();
+    drawSlider(S.w);
+    if(S.stage==='end' && S.st>2.4){ ctx.globalAlpha=Math.min(1,(S.st-2.4)/0.9); ctx.fillStyle=C.fg; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+  };
+  return S;
+}
+
+// ---------- flow ----------
+const IC={
+  dot:'<rect x="13" y="13" width="6" height="6" fill="currentColor"/>',
+  answer:'<rect x="14" y="14" width="4" height="4" fill="currentColor"/><rect x="5" y="5" width="22" height="22" fill="none" stroke="currentColor" stroke-dasharray="2 3"/>',
+  seg:'<rect x="7" y="15" width="18" height="3" fill="currentColor"/><rect x="3" y="13" width="7" height="7" fill="currentColor"/><rect x="22" y="13" width="7" height="7" fill="currentColor"/>',
+  being:'<rect x="4" y="13" width="24" height="7" fill="currentColor"/>',
+  curl:'<path d="M2 22 H15 C25 22 27 10 19 7 C12 5 9 13 15 15 C18 16 19 12 17 11" fill="none" stroke="currentColor" stroke-width="2"/>',
+  pulse:'<rect x="12" y="14" width="8" height="5" fill="currentColor"/><path d="M2 16.5h6M24 16.5h6" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/>',
+  eye1:'<rect x="2" y="9" width="13" height="14" fill="currentColor" opacity=".3"/><rect x="17" y="9" width="13" height="14" fill="currentColor"/>',
+  tri:'<path d="M16 4 L28 27 L4 27Z" fill="currentColor"/>',
+  circle:'<path d="M12 16 L31 5 L31 27Z" fill="currentColor" opacity=".25"/><circle cx="11" cy="16" r="7" fill="none" stroke="currentColor" stroke-width="2"/>',
+  strip:'<rect x="1" y="8" width="5" height="16" fill="currentColor" opacity=".3"/><rect x="7" y="8" width="5" height="16" fill="currentColor" opacity=".7"/><rect x="13" y="8" width="5" height="16" fill="currentColor"/><rect x="19" y="8" width="5" height="3" fill="currentColor"/><rect x="19" y="14" width="5" height="3" fill="currentColor"/><rect x="19" y="20" width="5" height="3" fill="currentColor"/><rect x="25" y="8" width="5" height="16" fill="currentColor" opacity=".4"/>',
+  tetra:'<path d="M16 4 L28 26 L4 26Z M16 4 L16 19 M4 26 L16 19 L28 26" fill="none" stroke="currentColor" stroke-width="2"/>',
+  corner:'<path d="M2 30 H30 V2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 12 L20 30 L5 25Z" fill="currentColor" opacity=".55"/>',
+  crease:'<path d="M2 24 Q8 6 16 16 T30 9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 27 H30" stroke="currentColor" opacity=".4"/>',
+  cube:'<path d="M5 11 H20 V26 H5Z M11 5 H26 V20 H11Z M5 11 L11 5 M20 11 L26 5 M20 26 L26 20 M5 26 L11 20" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="13.5" width="4" height="4" fill="currentColor"/>',
+  slider:'<rect x="11" y="2" width="10" height="28" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="13" width="14" height="6" fill="currentColor"/>',
+  wallW:'<rect x="3" y="13" width="19" height="13" fill="none" stroke="currentColor" stroke-width="2"/><rect x="10" y="5" width="19" height="13" fill="none" stroke="currentColor" stroke-dasharray="2 2" opacity=".6"/>',
+  crawler:'<rect x="3" y="13" width="14" height="14" fill="currentColor"/><rect x="14" y="4" width="14" height="14" fill="none" stroke="currentColor" stroke-dasharray="2 2"/>',
+  five:'<path d="M16 3 L29 12 L24 28 L8 28 L3 12Z M16 3 L24 28 L3 12 L29 12 L8 28Z" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  ghost:'<path d="M16 3 L29 12 L24 28 L8 28 L3 12Z M16 3 L24 28 L3 12 L29 12 L8 28Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2" opacity=".7"/>',
+  fog:'<g fill="currentColor"><rect x="4" y="5" width="2" height="2"/><rect x="14" y="5" width="2" height="2"/><rect x="24" y="5" width="2" height="2"/><rect x="9" y="12" width="2" height="2"/><rect x="19" y="12" width="2" height="2"/><rect x="4" y="19" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/><rect x="24" y="19" width="2" height="2"/><rect x="9" y="26" width="2" height="2"/><rect x="19" y="26" width="2" height="2"/></g>',
+};
+const CH=[
+  {d:0,name:'Pointland',make:()=>Point(),
+   flavour:'Before there was a line, before there was a left or a right, there was Ethan Dorter. A point.',
+   things:[['dot','You, Ethan','A point. You can’t move. You can only pulse.'],['answer','The answer','Something that pulses back. Count its pulses, then answer with the same number.']],
+   controls:[['Pulse','Tap the screen, or press Space'],['Read on','Tap, or press Space, when the ▼ appears']]},
+  {d:1,name:'Lineland',make:()=>Line(),
+   flavour:'Ethan has two corners now. Left and right are the only directions that exist, and the ends of the world are curling up.',
+   things:[['seg','You, Ethan','A line segment with two corners. Touching others hurts.'],['being','Linelanders','They slide toward you, one after another.'],['pulse','Your pulse','Pushes them away. The push travels down a line of them.'],['curl','The Fold','The curling ends of the line. Anything pushed into it is gone. Fold six Linelanders.'],['eye1','Your eye','The panel at the top. One point of light each way. Brighter means closer.']],
+   controls:[['Move','Drag left or right, or arrow keys'],['Pulse','Tap, or press Space']]},
+  {d:2,name:'Flatland',make:cp=>Flat(cp),
+   flavour:'Three corners. Ethan is a triangle, the lowest shape in Flatland. The Circles who rule the town say the Fold is a lie. The edges of town say otherwise.',
+   things:[['tri','You, Ethan','A triangle, the lowest class of shape.'],['circle','Circle priests','They patrol and watch. If one sees you for too long, you’re caught. A pulse stuns them.'],['strip','Your eye','The strip at the top. Solid lines are walls, dashed lines are Circles.'],['fog','Fog','Hides the town. Inside it, find your way by your eye alone.'],['curl','The Fold','The edges of town are curling in. Don’t touch them.']],
+   controls:[['Move','Drag anywhere, or arrows and WASD'],['Pulse','Tap, or press Space']]},
+  {d:3,name:'Spaceland',make:cp=>Space(cp),
+   flavour:'Four corners. Ethan rises out of Flatland and looks down on it for the first time. It’s a sheet of paper, and something is crumpling it.',
+   things:[['tetra','You, Ethan','A tetrahedron. The dotted line and shadow under you show how high you are.'],['corner','Curling corners','The corners of Flatland are lifting. Fly low over the dashed mark on each one to press it flat.'],['crease','Creases','Ridges that sweep across the sheet. Fly above them, or pulse to flatten nearby ones for a moment.'],['cube','The sealed cube','Something glows inside it.']],
+   controls:[['Move','Drag on the screen, or arrows and WASD'],['Up, down','Hold ▲ or ▼ on the right, or E and Q'],['Pulse','Tap, or press Space']]},
+  {d:4,name:'Tesseract',make:cp=>Tess(cp),
+   flavour:'Five corners. There’s a direction that isn’t up, down, left, right, forward or back. Ethan calls it W.',
+   things:[['five','You, Ethan','Five corners, every one linked to every other.'],['slider','W','Slide it to move between slices of the world. The top panel shows where you are on W, and which slices nearby things live in.'],['wallW','Walls in slices','Solid only in their own slices. Things in other slices look faint and shifted. The dashed outline on the floor is where they really are.'],['crawler','Slice crawlers','They drift between slices. Touching one in your slice hurts. A pulse stuns them.'],['ghost','Echoes','Someone in another slice is watching.']],
+   controls:[['Move','Drag on the screen, or arrows and WASD'],['W','Drag the slider on the right, or E and Q'],['Pulse','Tap, or press Space']]},
+];
+function intro(i){
+  const c=CH[i], svg=k=>`<svg viewBox="0 0 32 32" aria-hidden="true">${IC[k]}</svg>`;
+  show(`<div class="intro"><p class="big">${c.d}D</p><h1>${c.name}</h1>
+  <p class="tw" data-text="${c.flavour}"></p>
+  <div class="win"><p class="wt">In this world</p>${c.things.map(t=>`<div class="entry">${svg(t[0])}<div><b>${t[1]}</b><span>${t[2]}</span></div></div>`).join('')}</div>
+  <div class="win"><p class="wt">Controls</p>${c.controls.map(t=>`<div class="entry" style="grid-template-columns:72px 1fr;gap:10px;margin:6px 0"><b>${t[0]}</b><span>${t[1]}</span></div>`).join('')}</div>
+  <div class="btns"><button class="primary" data-act="go:${i}">Begin</button></div></div>`);
+  const el=overlay.querySelector('.tw'), full=el.dataset.text; let n=0;
+  clearInterval(intro.tm); intro.tm=setInterval(()=>{ n+=2; el.textContent=full.slice(0,n); if(n%6===0) beep(560,0.02,0.012); if(n>=full.length) clearInterval(intro.tm); },45);
+}
+let G=null, paused=false, curCh=0;
+function show(html){ overlay.innerHTML='<div class="box">'+html+'</div>'; overlay.hidden=false; overlay.scrollTop=0; const b=overlay.querySelector('.primary'); if(b) b.focus({preventScroll:true}); }
+function start(i,cp){ curCh=i; for(const k in UIP) delete UIP[k]; G=CH[i].make(cp); overlay.hidden=true; paused=false; T.on=false; for(const k in keys) keys[k]=false; }
+function complete(i){ unlock(i+2); G=null; capReset(); intro(i+1); }
+let failCp=null;
+function fail(i,cp){ failCp=cp||null; G.dead=true;
+  show(`<h1>Folded</h1><p class="c">Ethan came apart in ${CH[i].name}.</p><div class="btns"><button class="primary" data-act="retry:${i}">Try again</button><button class="secondary" data-act="menu">Menu</button></div>`);
+}
+function finishChunk(){ G=null; capReset();
+  show(`<p class="big">5D</p><h1>To be continued</h1><p>The door was open a moment ago. To get through it, Ethan will have to go back in time.</p><p class="small">End of chunk 2. Next comes 5D: time.</p><div class="btns"><button class="primary" data-act="menu">Menu</button></div>`);
+}
+function menu(){ G=null; capReset();
+  let ch='<div class="btns">'; for(let i=0;i<CH.length;i++) ch+=`<button class="secondary" data-act="start:${i}" ${i<unlocked?'':'disabled'}>${CH[i].d}D ${CH[i].name}${i<unlocked?'':' (locked)'}</button>`; ch+='</div>';
+  show(`<h1>The Fold</h1><p>Ethan Dorter has always been a point. Then something pulses back.</p>
+  <p>Someone keeps leaving him signs. Each sign pushes him one dimension higher, and each dimension gives him one more corner. Meanwhile, Flatland is folding.</p>
+  <p class="small">Move with arrows, WASD, or drag. Pulse with Space, or tap.</p>
+  <div class="btns"><button class="primary" data-act="start:0">Begin</button></div>${ch}`);
+}
+overlay.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-act]'); if(!b) return; const [act,arg]=b.dataset.act.split(':'); beep(660,0.06,0.04);
+  if(act==='start') intro(parseInt(arg));
+  else if(act==='go') start(parseInt(arg));
+  else if(act==='retry') start(parseInt(arg),failCp);
+  else if(act==='resume'){ overlay.hidden=true; paused=false; }
+  else if(act==='menu') menu();
+});
+function togglePause(){
+  if(!G||G.dead) return;
+  if(!paused && !overlay.hidden) return;
+  paused=!paused;
+  if(paused) show(`<h1>Paused</h1><div class="btns"><button class="primary" data-act="resume">Resume</button><button class="secondary" data-act="menu">Quit to menu</button></div>`);
+  else overlay.hidden=true;
+}
+document.getElementById('pauseBtn').onclick=togglePause;
+document.addEventListener('visibilitychange',()=>{ if(document.hidden && G && !G.dead && !paused && overlay.hidden) togglePause(); });
+
+let hudKey='';
+function hud(){
+  const name=G?G.name:'The Fold', pips=G&&G.hp!=null?'▲'.repeat(Math.max(0,G.hp)):'';
+  const k=name+pips; if(k===hudKey) return; hudKey=k; hName.textContent=name; hPips.textContent=pips;
+}
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(G && !G.dead && !paused && overlay.hidden){ if(dlgActive()) dlgUpdate(dt); else G.update(dt); capUpdate(dt); }
+  if(G){ G.draw(); drawCaptions(); } else { ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0); ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H); }
+  hud(); inp.pulse=false; inp.up=false;
+  requestAnimationFrame(frame);
+}
+menu();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
