@@ -511,6 +511,42 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
 
 .embed-launch:hover span { background: var(--ink); color: var(--bg); }
 
+/* full-view embed: fills the window once launched */
+.embed.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  margin: 0;
+  border: 0;
+}
+.embed-open, .embed-open body { overflow: hidden; }
+.embed-full-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  font: inherit;
+  font-size: .8rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  padding: 3px 9px;
+  cursor: pointer;
+}
+/* in full view the button sits in a thin bar above the piece, so it never
+   covers the piece's own controls */
+.embed.is-full { padding-top: calc(36px + env(safe-area-inset-top, 0px)); background: var(--bg); }
+.embed.is-full iframe { top: calc(36px + env(safe-area-inset-top, 0px)); height: calc(100% - 36px - env(safe-area-inset-top, 0px)); border-top: 1px solid var(--ink); }
+.embed.is-full .embed-full-toggle {
+  bottom: auto;
+  top: calc(6px + env(safe-area-inset-top, 0px));
+  right: calc(8px + env(safe-area-inset-right, 0px));
+}
+
 /* =========================================================
    PROCESS / TEXT PAGES
 ========================================================= */
