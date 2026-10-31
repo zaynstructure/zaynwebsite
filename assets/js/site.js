@@ -40,9 +40,43 @@ document.addEventListener('DOMContentLoaded', () => {
       iframe.title = btn.dataset.title || '';
       iframe.loading = 'lazy';
       iframe.allow = 'autoplay';
+      const embed = btn.parentElement;
       btn.replaceWith(iframe);
+      if ('fullscreen' in btn.dataset) fullView(embed, iframe);
     });
   });
+
+  // full-view embeds (data-fullscreen on the launch button) take over the
+  // window when launched, using the browser's fullscreen where it allows it
+  // (iphones don't, so the fixed overlay is what does the work there). a
+  // corner button leaves, and brings it back from the inline frame.
+  function fullView(embed, iframe) {
+    const toggle = document.createElement('button');
+    toggle.className = 'embed-full-toggle';
+    embed.appendChild(toggle);
+
+    const set = (on) => {
+      embed.classList.toggle('is-full', on);
+      document.documentElement.classList.toggle('embed-open', on);
+      toggle.textContent = on ? 'close ×' : 'full screen ↗';
+      if (on) {
+        if (embed.requestFullscreen) embed.requestFullscreen().catch(() => {});
+        iframe.focus();
+      } else if (document.fullscreenElement === embed) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+
+    toggle.addEventListener('click', () => set(!embed.classList.contains('is-full')));
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && embed.classList.contains('is-full')) set(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && embed.classList.contains('is-full')) set(false);
+    });
+    iframe.addEventListener('load', () => { if (embed.classList.contains('is-full')) iframe.focus(); });
+    set(true);
+  }
 
   const year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();
