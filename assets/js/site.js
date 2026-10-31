@@ -48,8 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // full-view embeds (data-fullscreen on the launch button) take over the
   // window when launched, using the browser's fullscreen where it allows it
-  // (iphones don't, so the fixed overlay is what does the work there). a
-  // corner button leaves, and brings it back from the inline frame.
+  // (iphones don't, so the fixed overlay is what does the work there).
+  // nothing sits on top of the piece: the browser's back (or esc out of
+  // browser fullscreen) leaves, and a button on the inline frame goes back
   function fullView(embed, iframe) {
     const toggle = document.createElement('button');
     toggle.className = 'embed-full-toggle';
@@ -92,12 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
       embed.classList.toggle('is-full', on);
       document.documentElement.classList.toggle('embed-open', on);
       if (!on) lockPage(false);
-      toggle.textContent = on ? 'close ×' : 'full screen ↗';
+      toggle.textContent = 'full screen ↗';
       if (on) {
+        history.pushState({ embedFull: true }, '');
         if (embed.requestFullscreen) embed.requestFullscreen().catch(() => {});
         iframe.focus();
-      } else if (document.fullscreenElement === embed) {
-        document.exitFullscreen().then(restoreScroll, () => {});
+      } else {
+        if (history.state && history.state.embedFull) history.back();
+        if (document.fullscreenElement === embed) document.exitFullscreen().then(restoreScroll, () => {});
       }
     };
 
@@ -107,8 +110,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (embed.classList.contains('is-full')) set(false);
       else restoreScroll();
     });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && embed.classList.contains('is-full')) set(false);
+    window.addEventListener('popstate', () => {
+      if (embed.classList.contains('is-full')) set(false);
     });
     iframe.addEventListener('load', () => { calmFrame(); if (embed.classList.contains('is-full')) iframe.focus(); });
     set(true);

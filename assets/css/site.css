@@ -538,15 +538,10 @@ figcaption .meta { display: block; font-size: .82rem; margin-top: .2rem; }
   padding: 3px 9px;
   cursor: pointer;
 }
-/* in full view the button sits in a thin bar above the piece, so it never
-   covers the piece's own controls */
-.embed.is-full { padding-top: calc(30px + env(safe-area-inset-top, 0px)); background: var(--bg); }
-.embed.is-full iframe { top: calc(30px + env(safe-area-inset-top, 0px)); height: calc(100% - 30px - env(safe-area-inset-top, 0px)); border-top: 1px solid var(--ink); }
-.embed.is-full .embed-full-toggle {
-  bottom: auto;
-  top: calc(3px + env(safe-area-inset-top, 0px));
-  right: calc(8px + env(safe-area-inset-right, 0px));
-}
+/* in full view the piece gets the whole window with nothing on top of it;
+   leave with the browser's back (or esc out of browser fullscreen) */
+.embed.is-full { background: var(--bg); }
+.embed.is-full .embed-full-toggle { display: none; }
 
 /* =========================================================
    PROCESS / TEXT PAGES
