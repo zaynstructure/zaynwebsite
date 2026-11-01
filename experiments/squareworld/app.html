@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Squareworld Party</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
@@ -321,9 +322,9 @@ function titleScreen(){
   </div>
   <p>Arrow keys or WASD. On a phone, touch anywhere and drag.</p>
   <div class="btns"><button class="primary" data-act="jump">Jump in</button><button class="secondary" data-act="story">Watch the story</button></div>
-  ${(window.claude&&window.claude.use)?`<h2>Play together, up to 3</h2>
+  <h2>Play together, up to 3</h2>
   <p>One phone or computer is the screen (cast it to a TV if you like). Everyone else uses their own phone as a controller.</p>
-  <div class="btns"><button class="secondary" data-act="host">Be the screen</button><button class="secondary" data-act="joinform">Use this phone as a controller</button></div>`:''}
+  <div class="btns"><button class="secondary" data-act="host">Be the screen</button><button class="secondary" data-act="joinform">Use this phone as a controller</button></div>
   ${unlocked>1?`<h2>Start from a level you’ve reached</h2>${levelGrid()}`:''}`);
 }
 function gameOver(){
@@ -579,18 +580,38 @@ function draw(){
   if(S.flash>0){ ctx.globalAlpha=Math.min(1,S.flash*1.6); ctx.fillStyle=C.fg; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
 }
 
-// ---------- party: one screen, phones as controllers ----------
-const CODECH='abcdefghjkmnpqrstuvwxyz';
-async function getRoom(){ try{ return (window.claude&&window.claude.use)? await window.claude.use('room') : null; }catch(e){ return null; } }
-const NOROOM=`<h1>Can’t connect</h1><p class="c">Party play needs this page open inside Claude, signed in, on every phone. Solo play still works.</p><div class="btns"><button class="primary" data-act="menu">Back</button></div>`;
-async function hostParty(){
-  show(`<h1>Party</h1><p class="c">Connecting…</p>`);
-  const room=await getRoom(); if(!room){ show(NOROOM); return; }
+// ---------- party: one screen, phones as controllers (PeerJS / WebRTC) ----------
+const CODECH='abcdefghjkmnpqrstuvwxyz', PREFIX='sqparty-';
+const NOCONN=`<h1>Can’t connect</h1><p class="c">Party play needs an internet connection, and some strict networks block it. Solo play still works.</p><div class="btns"><button class="primary" data-act="menu">Back</button></div>`;
+const hasPeer=()=>typeof Peer!=='undefined';
+const lobbyShown=()=>!overlay.hidden && !!overlay.querySelector('.slots');
+function hostParty(tries){
+  tries=tries||0;
+  if(!hasPeer()){ show(NOCONN); return; }
+  show(`<h1>Party</h1><p class="c">Setting up…</p>`);
   const code=Array.from({length:4},()=>CODECH[Math.floor(Math.random()*CODECH.length)]).join('');
-  let named; try{ named=await room.join('sq-'+code); }catch(e){ show(NOROOM); return; }
-  PARTY={role:'screen',named,code,slots:['local',null,null],inputs:[null,null,null],pub:0};
-  named.onPeers(()=>{ syncSlots(); if(!S||!S.running) { if(overlay.querySelector('.slots')) renderLobby(); } },()=>{});
-  publishScreen(true); renderLobby();
+  const peer=new Peer(PREFIX+code,{debug:0});
+  const me=PARTY={role:'screen',peer,code,slots:['local',null,null],conns:{},inputs:[null,null,null],pub:0};
+  peer.on('open',()=>{ if(PARTY===me) renderLobby(); });
+  peer.on('error',e=>{
+    if(!PARTY||PARTY.peer!==peer) return;
+    if(e.type==='unavailable-id' && tries<4){ peer.destroy(); PARTY=null; hostParty(tries+1); return; }
+    if(e.type==='network'||e.type==='server-error'||e.type==='socket-error'||e.type==='browser-incompatible'){ if(!S||!S.running) show(NOCONN); }
+  });
+  peer.on('disconnected',()=>{ try{ peer.reconnect(); }catch(err){} });
+  peer.on('connection',conn=>{
+    conn.on('open',()=>{
+      const P=me; if(PARTY!==me){ conn.close(); return; }
+      const free=P.slots.indexOf(null);
+      if(free<0){ conn.send({t:'full'}); setTimeout(()=>conn.close(),600); return; }
+      P.slots[free]=conn.peer; P.conns[conn.peer]=conn;
+      if(S&&S.running&&!S.players.some(p=>p.slot===free)){ const np=newPlayer(free); np.x=W/2-START/2; S.players.push(np); setHint(`Player ${free+1} joined`); }
+      beep(660,0.1,0.04); publishScreen(true); if(PARTY===me&&lobbyShown()) renderLobby();
+    });
+    conn.on('data',d=>{ const P=me; const i=P.slots.indexOf(conn.peer); if(i>=0 && d && d.t==='in') P.inputs[i]={ix:clamp(Number(d.ix)||0,-1,1),iy:clamp(Number(d.iy)||0,-1,1)}; });
+    const drop=()=>{ const P=me; const i=P.slots.indexOf(conn.peer); if(i>=0){ P.slots[i]=null; P.inputs[i]=null; if(PARTY===me&&S&&S.running) setHint(`Player ${i+1}’s phone disconnected`); } delete P.conns[conn.peer]; if(PARTY===me&&lobbyShown()) renderLobby(); };
+    conn.on('close',drop); conn.on('error',drop);
+  });
 }
 function renderLobby(){
   const P=PARTY; if(!P) return;
@@ -602,66 +623,66 @@ function renderLobby(){
   <label class="toggle"><input type="checkbox" id="localPlay" ${P.slots[0]==='local'?'checked':''}> Someone plays on this screen too</label>
   <div class="btns"><button class="primary" data-act="partystart" ${n?'':'disabled'}>Start, ${n} player${n===1?'':'s'}</button><button class="secondary" data-act="menu">Leave the party</button></div>`);
   const cb=document.getElementById('localPlay');
-  cb.onchange=()=>{ if(cb.checked){ if(P.slots[0]&&P.slots[0]!=='local'){ const f=P.slots.indexOf(null); if(f>=0){ P.slots[f]=P.slots[0]; } else { cb.checked=false; return; } } P.slots[0]='local'; } else if(P.slots[0]==='local') P.slots[0]=null; syncSlots(); renderLobby(); };
+  cb.onchange=()=>{ if(cb.checked){ if(P.slots[0]&&P.slots[0]!=='local'){ const f=P.slots.indexOf(null); if(f>=0){ P.slots[f]=P.slots[0]; P.inputs[f]=P.inputs[0]; } else { cb.checked=false; return; } } P.slots[0]='local'; } else if(P.slots[0]==='local') P.slots[0]=null; publishScreen(true); renderLobby(); };
 }
-function syncSlots(){
-  const P=PARTY; if(!P||P.role!=='screen') return;
-  const pads=P.named.peers().filter(x=>!x.sameTab && x.presence && x.presence.role==='pad');
-  for(let i=0;i<3;i++){ const v=P.slots[i]; if(v && v!=='local' && !pads.some(x=>x.peer===v)){ P.slots[i]=null; P.inputs[i]=null; } }
-  for(const x of pads){
-    if(P.slots.includes(x.peer)) continue;
-    const free=P.slots.indexOf(null); if(free<0) continue;
-    P.slots[free]=x.peer;
-    if(S&&S.running&&!S.players.some(p=>p.slot===free)){ const np=newPlayer(free); np.x=W/2-START/2; S.players.push(np); setHint(`Player ${free+1} joined`); }
-  }
-  publishScreen(true);
-}
-function pollInputs(){
-  const P=PARTY;
-  for(const x of P.named.peers()){ const i=P.slots.indexOf(x.peer); if(i<0) continue; const pr=x.presence||{}; P.inputs[i]={ix:clamp(Number(pr.ix)||0,-1,1),iy:clamp(Number(pr.iy)||0,-1,1)}; }
-}
+function pollInputs(){}
 function publishScreen(force){
   const P=PARTY; if(!P||P.role!=='screen') return;
   const now=performance.now(); if(!force && now-P.pub<250) return; P.pub=now;
-  const slots={}; P.slots.forEach((v,i)=>{ if(v&&v!=='local') slots[v]=i; });
-  const stats={};
-  if(S&&S.players) for(const p of S.players) stats['p'+p.slot]={l:p.lives,s:p.s,a:p.alive?1:0,o:p.out?1:0,c:p.attack>0?1:0};
   const phase=S&&S.running?'play':S?'over':'lobby';
-  P.named.presence({role:'screen',code:P.code,slots,phase,lv:S?S.lv+1:0,gate:S?(LEVELS[S.lv].gate||0):0,stats}).catch(()=>{});
+  P.slots.forEach((v,i)=>{
+    if(!v||v==='local') return; const c=P.conns[v]; if(!c||!c.open) return;
+    const p=S&&S.players?S.players.find(q=>q.slot===i):null;
+    try{ c.send({t:'st',slot:i,phase,lv:S?S.lv+1:0,gate:S?(LEVELS[S.lv].gate||0):0,st:p?{l:p.lives,s:p.s,a:p.alive?1:0,o:p.out?1:0,c:p.attack>0?1:0}:null}); }catch(e){}
+  });
 }
-function leaveParty(){ if(PARTY&&PARTY.named){ try{ PARTY.named.leave(); }catch(e){} } PARTY=null; hudEl.style.visibility=''; }
+function leaveParty(){ if(PARTY&&PARTY.peer){ try{ PARTY.peer.destroy(); }catch(e){} } PARTY=null; hudEl.style.visibility=''; }
 function joinForm(){
   show(`<h1>Controller</h1><p class="c">Enter the code shown on the screen.</p><input id="codeIn" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Party code"><div class="btns"><button class="primary" data-act="joincode">Join</button><button class="secondary" data-act="menu">Back</button></div>`);
   const i=document.getElementById('codeIn'); i.focus(); i.onkeydown=e=>{ if(e.key==='Enter') joinParty(i.value); };
 }
-async function joinParty(v){
+function joinParty(v){
   const code=String(v||'').toLowerCase().replace(/[^a-z]/g,'');
   if(code.length!==4){ const i=document.getElementById('codeIn'); if(i){ i.value=''; i.placeholder='4 letters'; } return; }
-  show(`<h1>Controller</h1><p class="c">Connecting…</p>`);
-  const room=await getRoom(); if(!room){ show(NOROOM); return; }
-  let named; try{ named=await room.join('sq-'+code); }catch(e){ show(NOROOM); return; }
-  PARTY={role:'pad',named,code,ix:0,iy:0,lastLives:null,sentAt:0};
-  named.presence({role:'pad',ix:0,iy:0}).catch(()=>{});
+  if(!hasPeer()){ show(NOCONN); return; }
+  const peer=new Peer({debug:0});
+  const me=PARTY={role:'pad',peer,code,ix:0,iy:0,state:null,lastLives:null,conn:null,ok:false,full:false,lost:false,beat:0};
+  peer.on('open',()=>{
+    if(PARTY!==me) return;
+    const conn=peer.connect(PREFIX+code,{serialization:'json'}); me.conn=conn;
+    conn.on('open',()=>{ me.ok=true; me.lost=false; conn.send({t:'in',ix:0,iy:0}); });
+    conn.on('data',d=>{ if(!d) return; if(d.t==='st') me.state=d; if(d.t==='full') me.full=true; });
+    conn.on('close',()=>{ me.ok=false; me.lost=true; });
+  });
+  peer.on('error',e=>{
+    if(PARTY!==me) return;
+    if(e.type==='peer-unavailable'){ leaveParty(); show(`<h1>No screen found</h1><p class="c">Nothing is hosting the code ${code.toUpperCase()} right now. Check the code on the screen and try again.</p><div class="btns"><button class="primary" data-act="joinform">Try again</button><button class="secondary" data-act="menu">Menu</button></div>`); }
+    else if(e.type==='network'||e.type==='server-error'||e.type==='socket-error'||e.type==='browser-incompatible'){ leaveParty(); show(NOCONN); }
+  });
   if(S) S.running=false; overlay.hidden=true; hudEl.style.visibility='hidden';
 }
 function padState(){
-  const P=PARTY, peers=P.named.peers(), me=peers.find(x=>x.sameTab), scr=peers.find(x=>x.presence&&x.presence.role==='screen');
-  if(!scr) return {screen:false};
-  const pr=scr.presence, slot=me&&pr.slots?pr.slots[me.peer]:undefined;
-  return {screen:true,slot,phase:pr.phase,lv:pr.lv,gate:pr.gate,st:slot!=null&&pr.stats?pr.stats['p'+slot]:null};
+  const P=PARTY;
+  if(!P.ok) return {screen:false,lost:P.lost};
+  if(P.full) return {screen:true,full:true};
+  const d=P.state; if(!d) return {screen:true,slot:null};
+  return {screen:true,slot:d.slot,phase:d.phase,lv:d.lv,gate:d.gate,st:d.st};
 }
 function padTick(){
   const P=PARTY; let [ix,iy]=localInput(); const m=Math.hypot(ix,iy); if(m>1){ ix/=m; iy/=m; }
   ix=Math.round(ix*20)/20; iy=Math.round(iy*20)/20;
-  if(ix!==P.ix||iy!==P.iy){ P.ix=ix; P.iy=iy; P.named.presence({ix,iy}).catch(()=>{}); }
+  const now=performance.now();
+  if(P.ok && P.conn && (ix!==P.ix||iy!==P.iy||now-P.beat>1000)){ P.ix=ix; P.iy=iy; P.beat=now; try{ P.conn.send({t:'in',ix,iy}); }catch(e){} }
   const ps=padState();
   if(ps.st){ if(P.lastLives!=null && ps.st.l<P.lastLives && navigator.vibrate) navigator.vibrate(160); P.lastLives=ps.st.l; }
 }
 function drawPad(t){
   const ps=padState(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=C.fg;
   ctx.font='12px Silkscreen, monospace'; ctx.fillStyle=C.dim; ctx.fillText(`Party ${PARTY.code.toUpperCase()}`,W/2,24); ctx.textAlign='right'; ctx.fillText('Leave',W-14,24); ctx.strokeStyle=C.dim; ctx.lineWidth=1; ctx.strokeRect(W-74.5,12.5,66,24); ctx.textAlign='center';
-  if(!ps.screen){ ctx.fillStyle=C.fg; ctx.font='16px Silkscreen, monospace'; ctx.fillText('Looking for the screen…',W/2,H/2); return; }
-  if(ps.slot==null){ ctx.fillStyle=C.fg; ctx.font='16px Silkscreen, monospace'; ctx.fillText('The party is full',W/2,H/2-10); ctx.font='11px Silkscreen, monospace'; ctx.fillStyle=C.dim; ctx.fillText('You’ll get a slot if someone leaves',W/2,H/2+16); return; }
+  const msg=(a,b)=>{ ctx.fillStyle=C.fg; ctx.font='16px Silkscreen, monospace'; ctx.fillText(a,W/2,H/2-10); if(b){ ctx.font='11px Silkscreen, monospace'; ctx.fillStyle=C.dim; ctx.fillText(b,W/2,H/2+16); } };
+  if(!ps.screen){ msg(ps.lost?'Lost the screen':'Connecting to the screen…',ps.lost?'Tap Leave, then join again':''); return; }
+  if(ps.full){ msg('The party is full','Three players already'); return; }
+  if(ps.slot==null){ msg('Connected','Waiting for the screen…'); return; }
   const s=48, x=W/2-s/2, y=70; ctx.fillStyle=C.fg; ctx.fillRect(x,y,s,s); ctx.fillStyle=C.bg;
   if(ps.slot===1) ctx.fillRect(x+14,y+14,s-28,s-28); if(ps.slot===2) ctx.fillRect(x,y+s/2-5,s,10);
   ctx.fillStyle=C.fg; ctx.font='700 22px Silkscreen, monospace'; ctx.fillText(`Player ${ps.slot+1}`,W/2,y+s+30);
@@ -670,7 +691,7 @@ function drawPad(t){
   if(ps.phase==='play'&&st) line=st.o?'Through the door. Waiting for the rest':!st.a?'Out until the next level':`Lv ${ps.lv}   Lives ${'■'.repeat(st.l)}   Size ${st.s}${ps.gate?'/'+ps.gate:''}`;
   else if(ps.phase==='over') line='Game over. Watch the screen';
   ctx.fillStyle=C.fg; ctx.fillText(line,W/2,y+s+56);
-  if(st&&st.c&&ps.phase==='play'){ ctx.fillText('CHARGED',W/2,y+s+78); }
+  if(st&&st.c&&ps.phase==='play') ctx.fillText('CHARGED',W/2,y+s+78);
   ctx.strokeStyle=C.dim; ctx.setLineDash([4,6]); ctx.lineWidth=2; ctx.strokeRect(20,250,W-40,H-280); ctx.setLineDash([]);
   if(touch.on){ ctx.strokeStyle=C.fg; ctx.lineWidth=2; ctx.strokeRect(touch.ox-50,touch.oy-50,100,100); const dx=clamp(touch.x-touch.ox,-50,50), dy=clamp(touch.y-touch.oy,-50,50); ctx.fillStyle=C.fg; ctx.fillRect(touch.ox+dx-14,touch.oy+dy-14,28,28); }
   else { ctx.fillStyle=C.dim; ctx.font='13px Silkscreen, monospace'; ctx.fillText('Touch and drag here to move',W/2,250+(H-280)/2); }
