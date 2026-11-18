@@ -399,7 +399,7 @@ p { margin: 0 0 1.1rem; }
    black panel rather than showing as a black box on paper */
 .featured { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 2rem; align-items: center; margin: .5rem 0 3rem; }
 .featured-stage { background: #000; border: 1px solid var(--ink); line-height: 0; }
-.featured-stage video { width: 100%; height: auto; aspect-ratio: 540 / 600; max-height: 70vh; object-fit: contain; display: block; }
+.featured-stage video { width: 100%; height: auto; aspect-ratio: 1 / 1; max-height: 70vh; object-fit: contain; display: block; }
 .featured-plate { max-width: 34rem; }
 .featured-plate .eyebrow { margin-bottom: .3rem; }
 .featured-title { font-size: 1.5rem; font-weight: 400; color: var(--ink); letter-spacing: -.01em; margin: 0 0 1.2rem; padding-top: 0; border-top: 0; }
