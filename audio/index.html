@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>audio · zayn wiwchar</title>
-<meta name="description" content="Audio work by Zayn Wiwchar — compositions and installations.">
+<meta name="description" content="audio by zayn wiwchar: a recent piece with visuals from fragments, and releases from lo::sun, loft and palm reader.">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 
 <link rel="stylesheet" href="/assets/css/site.css">
@@ -28,15 +28,37 @@
 <main>
 <div class="wrap">
 
-<span class="eyebrow">audio</span>
-<h1>audio work</h1>
-<p class="lede">Compositions and sound-responsive installations.</p>
+<h1>audio</h1>
 
-<p class="note">This section is being rebuilt — compositions and installation documentation are coming soon. In the meantime, get in touch if you'd like to hear something directly.</p>
-
-<div class="hero-meta" style="margin-top:1.5rem;">
-<a href="/contact/">contact</a>
+<section class="featured" aria-labelledby="featured-h">
+<div class="featured-stage">
+<video id="vid" src="/audio/media/fragments.mp4" poster="/audio/media/poster.jpg" muted loop autoplay playsinline preload="auto" aria-label="visuals from fragments"></video>
 </div>
+<div class="featured-plate">
+<span class="eyebrow">recent</span>
+<h2 id="featured-h" class="featured-title">untitled sample</h2>
+<div class="player">
+<button class="player-play" id="play" aria-label="play">
+<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path id="icon" d="M8 5v14l11-7z"/></svg>
+</button>
+<div class="player-scrub">
+<input type="range" id="seek" min="0" max="90" value="0" step="0.1" aria-label="seek">
+<div class="player-times"><span id="cur">0:00</span><span id="dur">1:30</span></div>
+</div>
+</div>
+<p class="featured-caption">a recent piece, with visuals drawn from my fragments work. a first step toward the audiovisual direction, not the model-driven system itself.</p>
+</div>
+<audio id="audio" src="/audio/media/sample.mp3" preload="metadata"></audio>
+</section>
+
+<section class="releases" aria-labelledby="releases-h">
+<h2 id="releases-h">releases</h2>
+<ol class="release-list">
+<li><a href="https://losun.bandcamp.com/album/the-book" target="_blank" rel="noopener"><span class="release-title">the book</span><span class="release-meta">lo::sun · 2016</span><span class="release-where">bandcamp ↗</span></a></li>
+<li><a href="https://music.apple.com/ca/album/plastic-nostalgia-ep/1300681043" target="_blank" rel="noopener"><span class="release-title">plastic nostalgia ep</span><span class="release-meta">loft · 2017</span><span class="release-where">apple music ↗</span></a></li>
+<li><a href="https://palmreader.bandcamp.com/album/basic-goodness" target="_blank" rel="noopener"><span class="release-title">basic goodness</span><span class="release-meta">palm reader, with kay gallivan · 2020</span><span class="release-where">bandcamp ↗</span></a></li>
+</ol>
+</section>
 
 </div>
 </main>
@@ -45,6 +67,34 @@
 © <span id="year"></span> zayn wiwchar. all rights reserved.
 </footer>
 
+<script>
+// player for the featured sample: audio only ever starts on a click
+(function(){
+  var audio=document.getElementById('audio'),vid=document.getElementById('vid');
+  var play=document.getElementById('play'),icon=document.getElementById('icon');
+  var seek=document.getElementById('seek'),cur=document.getElementById('cur'),dur=document.getElementById('dur');
+  var PLAY='M8 5v14l11-7z',PAUSE='M6 5h4v14H6zM14 5h4v14h-4z',seeking=false;
+
+  function fmt(s){ if(!isFinite(s))return'0:00'; s=Math.max(0,Math.floor(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+  function show(playing){ icon.setAttribute('d',playing?PAUSE:PLAY); play.setAttribute('aria-label',playing?'pause':'play'); }
+  function kickVideo(){ var p=vid.play(); if(p&&p.catch)p.catch(function(){}); }
+
+  audio.addEventListener('loadedmetadata',function(){ if(audio.duration){ seek.max=audio.duration; dur.textContent=fmt(audio.duration); } });
+  audio.addEventListener('timeupdate',function(){ if(seeking)return; seek.value=audio.currentTime; cur.textContent=fmt(audio.currentTime); });
+  audio.addEventListener('ended',function(){ show(false); });
+
+  play.addEventListener('click',function(){
+    if(audio.paused){ audio.play().then(function(){ show(true); }).catch(function(){}); kickVideo(); }
+    else { audio.pause(); show(false); }
+  });
+
+  seek.addEventListener('input',function(){ seeking=true; cur.textContent=fmt(+seek.value); });
+  seek.addEventListener('change',function(){ audio.currentTime=+seek.value; seeking=false; });
+
+  // keep the muted loop going if the browser held back autoplay
+  window.addEventListener('pointerdown',kickVideo,{once:true});
+})();
+</script>
 <script src="/assets/js/site.js" defer></script>
 </body>
 </html>
