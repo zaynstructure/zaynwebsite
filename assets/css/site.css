@@ -87,16 +87,6 @@ a { color: inherit; }
   white-space: nowrap;
 }
 
-.brand .dim {
-  font-family: var(--font);
-  color: var(--muted);
-  font-weight: 400;
-  font-size: .95rem;
-  margin-left: .3rem;
-}
-
-.brand .dim::before { content: "· "; }
-
 .site-nav {
   display: flex;
   align-items: center;
@@ -132,16 +122,13 @@ a { color: inherit; }
   cursor: pointer;
 }
 
-/* mid widths: drop the tagline and tighten the links so the longer
+/* mid widths: tighten the links so the longer
    "emotional process geometry" label still fits on one row */
 @media (max-width: 1080px) {
-  .brand .dim { display: none; }
   .site-nav { gap: 1.1rem; }
 }
 
 @media (max-width: 780px) {
-  .brand .dim { display: none; }
-
   .nav-toggle { display: inline-block; }
 
   .site-nav {
