@@ -402,12 +402,10 @@ p { margin: 0 0 1.1rem; }
 .player-scrub input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: 1px solid var(--ink); border-radius: 0; background: var(--bg); }
 .player-scrub input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
 .player-times { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-/* further samples sit under the featured plate, in the same column */
-.sample { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 2rem; margin: -1rem 0 3rem; }
-.sample > .featured-plate { grid-column: 2; }
+/* a sample without footage: just the plate, ahead of the featured piece */
+.sample { margin: .5rem 0 2.5rem; }
+.sample + .featured { margin-top: 0; }
 @media (max-width: 640px) {
-  .sample { grid-template-columns: 1fr; margin-top: -1.4rem; }
-  .sample > .featured-plate { grid-column: 1; }
   .featured { grid-template-columns: 1fr; gap: 1.4rem; }
   .featured-stage { max-width: 360px; margin: 0 auto; width: 100%; }
   .featured-stage video { max-height: 60vh; }

@@ -30,12 +30,28 @@
 
 <h1>audio</h1>
 
+<section class="sample" aria-labelledby="sample2-h">
+<div class="featured-plate">
+<span class="eyebrow">recent</span>
+<h2 id="sample2-h" class="featured-title">untitled sample 2</h2>
+<div class="player">
+<button class="player-play" aria-label="play">
+<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+</button>
+<div class="player-scrub">
+<input type="range" min="0" max="60" value="0" step="0.1" aria-label="seek">
+<div class="player-times"><span class="player-cur">0:00</span><span class="player-dur">1:00</span></div>
+</div>
+<audio src="/audio/media/sample2.mp3" preload="metadata"></audio>
+</div>
+</div>
+</section>
+
 <section class="featured" aria-labelledby="featured-h">
 <div class="featured-stage">
 <video id="vid" src="/audio/media/fragments.mp4" poster="/audio/media/poster.jpg" muted loop autoplay playsinline preload="auto" aria-label="visuals from fragments"></video>
 </div>
 <div class="featured-plate">
-<span class="eyebrow">recent</span>
 <h2 id="featured-h" class="featured-title">untitled sample</h2>
 <div class="player">
 <button class="player-play" aria-label="play">
@@ -48,22 +64,6 @@
 <audio src="/audio/media/sample.mp3" preload="metadata" data-video="vid"></audio>
 </div>
 <p class="featured-caption">a recent piece, with visuals drawn from my fragments work.</p>
-</div>
-</section>
-
-<section class="sample" aria-labelledby="sample2-h">
-<div class="featured-plate">
-<h2 id="sample2-h" class="featured-title">untitled sample 2</h2>
-<div class="player">
-<button class="player-play" aria-label="play">
-<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-</button>
-<div class="player-scrub">
-<input type="range" min="0" max="348" value="0" step="0.1" aria-label="seek">
-<div class="player-times"><span class="player-cur">0:00</span><span class="player-dur">5:47</span></div>
-</div>
-<audio src="/audio/media/sample2.mp3" preload="metadata"></audio>
-</div>
 </div>
 </section>
 
